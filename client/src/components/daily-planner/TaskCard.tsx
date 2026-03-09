@@ -15,11 +15,17 @@ const STATUS_DOT: Record<string, string> = {
   done: "bg-emerald-400/40",
 };
 
-const STATUS_BORDER: Record<string, string> = {
+const STATUS_BORDER_DARK: Record<string, string> = {
   open: "border-l-[#2a2820]",
   in_progress: "border-l-emerald-400",
   blocked: "border-l-amber-400",
   done: "border-l-emerald-400/30",
+};
+const STATUS_BORDER_LIGHT: Record<string, string> = {
+  open: "border-l-gray-300",
+  in_progress: "border-l-emerald-500",
+  blocked: "border-l-amber-500",
+  done: "border-l-emerald-400",
 };
 
 type Props = {
@@ -27,9 +33,10 @@ type Props = {
   variant?: "primary" | "sequence" | "compact";
   index?: number;
   showWhyNow?: boolean;
+  isDark?: boolean;
 };
 
-export function TaskCard({ task, variant = "sequence", index, showWhyNow = false }: Props) {
+export function TaskCard({ task, variant = "sequence", index, showWhyNow = false, isDark = true }: Props) {
   const { moveTask, setStatus, timeBlocks, assignToBlock } = useDailyPlanner();
   const [showBlockMenu, setShowBlockMenu] = useState(false);
 
@@ -106,7 +113,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
           ease: EASE,
           layout: { duration: T.normal, ease: EASE },
         }}
-        className={`group relative border-l-[3px] ${STATUS_BORDER[task.status]} overflow-hidden`}
+        className={`group relative border-l-[3px] ${isDark ? STATUS_BORDER_DARK[task.status] : STATUS_BORDER_LIGHT[task.status]} overflow-hidden`}
         style={{
           filter: isInProgress ? "brightness(1.05)" : "brightness(1)",
           transition: `filter ${T.fast * 1000}ms cubic-bezier(0.4, 0, 0.2, 1)`,
@@ -155,10 +162,10 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
 
           {/* Data fields — instrument readout grid */}
           <div className="mt-5 grid grid-cols-3 gap-x-5 gap-y-4">
-            <DataField label="Client" value={task.client} />
-            <DataField label="Duration" value={`${task.durationMin}m`} mono />
+            <DataField label="Client" value={task.client} isDark={isDark} />
+            <DataField label="Duration" value={`${task.durationMin}m`} mono isDark={isDark} />
             <div>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-[#4a5060] block mb-0.5 font-medium">
+              <span className={`text-[10px] uppercase tracking-[0.2em] block mb-0.5 font-medium ${isDark ? "text-[#4a5060]" : "text-gray-500"}`}>
                 Status
               </span>
               <div className="flex items-center gap-1.5">
@@ -175,18 +182,18 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
                     style={{ transition: `background-color ${T.fast * 1000}ms cubic-bezier(0.4, 0, 0.2, 1)` }}
                   />
                 )}
-                <span className="text-[13px] text-[#c8c0b0] tabular-nums leading-relaxed">
+                <span className={`text-[13px] tabular-nums leading-relaxed ${isDark ? "text-[#c8c0b0]" : "text-gray-600"}`}>
                   {task.status.replace("_", " ")}
                 </span>
               </div>
             </div>
-            {task.dueAt && <DataField label="Time" value={task.dueAt} mono />}
-            <DataField label="Type" value={task.type} />
+            {task.dueAt && <DataField label="Time" value={task.dueAt} mono isDark={isDark} />}
+            <DataField label="Type" value={task.type} isDark={isDark} />
           </div>
 
           {/* Risk / why note — EICAS caution badge */}
           {(showWhyNow && task.whyNow) || task.blockers.length > 0 ? (
-            <div className="mt-5 border-t border-[#1a1810] pt-3 space-y-1.5">
+            <div className={`mt-5 border-t pt-3 space-y-1.5 ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
               {task.blockers.length > 0 && (
                 <p className="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md text-sm font-medium inline-block">
                   {task.blockers[0]}
@@ -201,7 +208,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
           ) : null}
 
           {/* Actions — START always visible, secondary on hover */}
-          <div className="flex items-center gap-4 mt-5 pt-3 border-t border-[#1a1810]">
+          <div className={`flex items-center gap-4 mt-5 pt-3 border-t ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
             {!isInProgress && !isDone && (
               <button
                 ref={startBtnRef}
@@ -230,7 +237,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
               <button
                 type="button"
                 onClick={handlePush}
-                className="text-[11px] font-semibold uppercase tracking-wider text-[#3a3a40] hover:text-[#8a7e6d] hover:scale-[1.03] active:scale-95 transition-all duration-150"
+                className={`text-[11px] font-semibold uppercase tracking-wider hover:scale-[1.03] active:scale-95 transition-all duration-150 ${isDark ? "text-[#3a3a40] hover:text-[#8a7e6d]" : "text-gray-500 hover:text-gray-700"}`}
               >
                 Push
               </button>
@@ -266,7 +273,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
         doneFlash ? "border-l-emerald-400 bg-emerald-400/5" : "border-l-transparent hover:border-l-amber-500/50"
       } ${
         variant === "compact" ? "py-2 px-1" : "py-[11px] px-1"
-      } hover:bg-white/5`}
+      } ${isDark ? "hover:bg-white/5" : "hover:bg-gray-50"}`}
       style={{
         transition: `background-color ${T.fast * 1000}ms cubic-bezier(0.4, 0, 0.2, 1), border-color ${T.fast * 1000}ms cubic-bezier(0.4, 0, 0.2, 1)`,
       }}
@@ -299,15 +306,15 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
         <p
           className={`font-medium truncate leading-relaxed ${
             variant === "compact"
-              ? "text-[12px] text-[#a09888]"
-              : `text-[15px] ${isInProgress ? "text-gray-100" : "text-gray-100"}`
+              ? isDark ? "text-[12px] text-[#a09888]" : "text-[12px] text-gray-600"
+              : isDark ? "text-[15px] text-gray-100" : "text-[15px] text-gray-900"
           }`}
           style={{ transition: `color ${T.fast * 1000}ms cubic-bezier(0.4, 0, 0.2, 1)` }}
         >
           {task.title}
         </p>
         {variant !== "compact" && (
-          <span className="text-[11px] text-[#4a4030] truncate shrink-0">
+          <span className={`text-[11px] truncate shrink-0 ${isDark ? "text-[#4a4030]" : "text-gray-500"}`}>
             {task.client}
           </span>
         )}
@@ -316,9 +323,9 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
       {/* Right-aligned data */}
       <div className="flex items-center gap-3 shrink-0">
         {task.dueAt && variant !== "compact" && (
-          <span className="text-[11px] text-[#4a5060] tabular-nums">{task.dueAt}</span>
+          <span className={`text-[11px] tabular-nums ${isDark ? "text-[#4a5060]" : "text-gray-500"}`}>{task.dueAt}</span>
         )}
-        <span className="text-[11px] text-[#3a3a40] tabular-nums w-7 text-right font-medium">
+        <span className={`text-[11px] tabular-nums w-7 text-right font-medium ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}>
           {task.durationMin}m
         </span>
       </div>
@@ -329,7 +336,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
           <button
             type="button"
             onClick={handleStart}
-            className="p-1 text-[#3a3a40] hover:text-emerald-400 hover:scale-[1.03] active:scale-95 transition-all duration-100"
+            className={`p-1 hover:text-emerald-400 hover:scale-[1.03] active:scale-95 transition-all duration-100 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}
             title="Start"
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><polygon points="5,3 13,8 5,13" /></svg>
@@ -338,7 +345,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
         <button
           type="button"
           onClick={handleDone}
-          className="p-1 text-[#3a3a40] hover:text-emerald-400 hover:scale-[1.03] active:scale-95 transition-all duration-100"
+          className={`p-1 hover:text-emerald-400 hover:scale-[1.03] active:scale-95 transition-all duration-100 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}
           title="Done"
         >
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3,8 7,12 13,4" /></svg>
@@ -347,7 +354,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
           <button
             type="button"
             onClick={handlePromote}
-            className="p-1 text-[#3a3a40] hover:text-cyan-400 hover:scale-[1.03] active:scale-95 transition-all duration-100"
+            className={`p-1 hover:text-cyan-400 hover:scale-[1.03] active:scale-95 transition-all duration-100 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}
             title="Promote"
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4,10 8,6 12,10" /></svg>
@@ -357,7 +364,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
           <button
             type="button"
             onClick={handlePush}
-            className="p-1 text-[#3a3a40] hover:text-[#6a6050] hover:scale-[1.03] active:scale-95 transition-all duration-100"
+            className={`p-1 hover:text-[#6a6050] hover:scale-[1.03] active:scale-95 transition-all duration-100 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}
             title="Push"
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4,6 8,10 12,6" /></svg>
@@ -367,7 +374,7 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
           <button
             type="button"
             onClick={() => setShowBlockMenu(!showBlockMenu)}
-            className="p-1 text-[#3a3a40] hover:text-[#6a6050] hover:scale-[1.03] active:scale-95 transition-all duration-100"
+            className={`p-1 hover:text-[#6a6050] hover:scale-[1.03] active:scale-95 transition-all duration-100 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}
             title="Assign block"
           >
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="8" r="6" /><polyline points="8,4 8,8 11,9" /></svg>
@@ -379,16 +386,16 @@ export function TaskCard({ task, variant = "sequence", index, showWhyNow = false
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: T.click, ease: EASE }}
-                className="absolute right-0 top-full mt-1 z-20 w-44 border border-[#1a1810] bg-[#0a0c10] py-1"
+                className={`absolute right-0 top-full mt-1 z-20 w-44 border py-1 ${isDark ? "border-[#1a1810] bg-[#0a0c10]" : "border-gray-200 bg-white"}`}
               >
                 {timeBlocks.map((b) => (
                   <button
                     key={b.id}
                     type="button"
                     onClick={() => handleAssignBlock(b.id)}
-                    className="w-full text-left px-3 py-1.5 text-[10px] text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c8c0b0] transition-colors"
+                    className={`w-full text-left px-3 py-1.5 text-[10px] transition-colors ${isDark ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c8c0b0]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
                   >
-                    {b.label} <span className="text-[#4a4030]">{b.minutes}m</span>
+                    {b.label} <span className={isDark ? "text-[#4a4030]" : "text-gray-500"}>{b.minutes}m</span>
                   </button>
                 ))}
               </motion.div>
@@ -405,20 +412,22 @@ function DataField({
   label,
   value,
   mono,
+  isDark = true,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  isDark?: boolean;
 }) {
   return (
     <div>
-      <span className="text-[10px] uppercase tracking-[0.2em] text-[#4a5060] block mb-0.5 font-medium">
+      <span className={`text-[10px] uppercase tracking-[0.2em] block mb-0.5 font-medium ${isDark ? "text-[#4a5060]" : "text-gray-500"}`}>
         {label}
       </span>
       <span
-        className={`text-[13px] text-[#c8c0b0] leading-relaxed ${
+        className={`text-[13px] leading-relaxed ${
           mono ? "tabular-nums" : ""
-        }`}
+        } ${isDark ? "text-[#c8c0b0]" : "text-gray-600"}`}
       >
         {value}
       </span>

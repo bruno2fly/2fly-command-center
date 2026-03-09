@@ -2,10 +2,12 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useDailyPlanner } from "@/contexts/DailyPlannerContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { TaskCard } from "./TaskCard";
 import { EASE, T, STAGGER } from "@/lib/planner/animations";
 
 export function PlannerColumn() {
+  const { isDark } = useTheme();
   const { tasksByBucket } = useDailyPlanner();
   const nextTasks = tasksByBucket("next");
   const laterTasks = tasksByBucket("later");
@@ -18,7 +20,7 @@ export function PlannerColumn() {
           Sequence — Next
         </span>
         <span className="text-[11px] tabular-nums text-cyan-400/30 font-semibold">
-          {nextTasks.length}<span className="text-[10px] text-[#4a5060] ml-1 font-medium normal-nums"> tasks</span>
+          {nextTasks.length}<span className={`text-[10px] ml-1 font-medium normal-nums ${isDark ? "text-[#4a5060]" : "text-gray-500"}`}> tasks</span>
         </span>
       </div>
 
@@ -41,7 +43,7 @@ export function PlannerColumn() {
             </p>
           ) : (
             nextTasks.map((task, i) => (
-              <TaskCard key={task.id} task={task} variant="sequence" index={i + 1} />
+              <TaskCard key={task.id} task={task} variant="sequence" index={i + 1} isDark={isDark} />
             ))
           )}
         </AnimatePresence>
@@ -50,12 +52,12 @@ export function PlannerColumn() {
       {/* LATER — Holding pattern */}
       {laterTasks.length > 0 && (
         <>
-          <div className="border-t border-[#1a1810] mt-4 pt-4 flex items-baseline justify-between mb-3 px-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#4a5060]">
+          <div className={`border-t mt-4 pt-4 flex items-baseline justify-between mb-3 px-1 ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
+            <span className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-[#4a5060]" : "text-gray-500"}`}>
               Holding
             </span>
-            <span className="text-[11px] tabular-nums text-[#3a3a40] font-medium">
-              {laterTasks.length}<span className="text-[10px] text-[#3a3a40] ml-1 font-medium normal-nums"> tasks</span>
+            <span className={`text-[11px] tabular-nums font-medium ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}>
+              {laterTasks.length}<span className={`text-[10px] ml-1 font-medium normal-nums ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}> tasks</span>
             </span>
           </div>
 
@@ -70,9 +72,9 @@ export function PlannerColumn() {
             }}
           >
             <AnimatePresence mode="popLayout">
-              {laterTasks.map((task, i) => (
-                <TaskCard key={task.id} task={task} variant="compact" index={nextTasks.length + i + 1} />
-              ))}
+              {            laterTasks.map((task, i) => (
+              <TaskCard key={task.id} task={task} variant="compact" index={nextTasks.length + i + 1} isDark={isDark} />
+            ))}
             </AnimatePresence>
           </motion.div>
         </>

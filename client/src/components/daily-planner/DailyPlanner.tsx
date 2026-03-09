@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDailyPlanner } from "@/contexts/DailyPlannerContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { DailyPlannerHeader } from "./DailyPlannerHeader";
 import { TaskCard } from "./TaskCard";
 import { PlannerColumn } from "./PlannerColumn";
@@ -11,6 +12,7 @@ import { InboxTray } from "./InboxTray";
 import { EASE, T, STAGGER, useCountUp, usePrefersReducedMotion } from "@/lib/planner/animations";
 
 export function DailyPlanner() {
+  const { isDark } = useTheme();
   const { tasks, tasksByBucket, focusLockUntil, doneCount, totalCount } = useDailyPlanner();
   const reducedMotion = usePrefersReducedMotion();
 
@@ -53,7 +55,7 @@ export function DailyPlanner() {
       {isLocked && !skipAnim && <LockBorderSweep />}
 
       <div className="flex-1 overflow-auto px-5 py-4 sm:px-7 sm:py-5">
-        <DailyPlannerHeader />
+        <DailyPlannerHeader isDark={isDark} />
 
         {/* #1 — Panel power-on stagger sequence (~1.5s) */}
         <motion.div
@@ -79,13 +81,13 @@ export function DailyPlanner() {
               },
             }}
           >
-            <InstrumentPanel label="PFD" sublabel="Primary Objective" color="emerald">
+            <InstrumentPanel label="PFD" sublabel="Primary Objective" color="emerald" isDark={isDark}>
               <div className="p-4">
                 <AnimatePresence mode="popLayout">
                   {primaryTask ? (
-                    <TaskCard key={primaryTask.id} task={primaryTask} variant="primary" showWhyNow />
+                    <TaskCard key={primaryTask.id} task={primaryTask} variant="primary" showWhyNow isDark={isDark} />
                   ) : (
-                    <div className="border-l-[3px] border-l-[#1a1810] pl-5 py-6">
+                    <div className={`border-l-[3px] pl-5 py-6 ${isDark ? "border-l-[#1a1810]" : "border-l-gray-200"}`}>
                       <p className="text-[12px] text-emerald-400/30 uppercase tracking-wider font-medium">
                         No active objective
                       </p>
@@ -94,10 +96,10 @@ export function DailyPlanner() {
                 </AnimatePresence>
 
                 {secondaryNow.length > 0 && (
-                  <div className="mt-3 border-t border-[#1a1810] pt-3">
+                  <div className={`mt-3 border-t pt-3 ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
                     <AnimatePresence mode="popLayout">
                       {secondaryNow.map((task, i) => (
-                        <TaskCard key={task.id} task={task} variant="sequence" index={i + 2} showWhyNow />
+                        <TaskCard key={task.id} task={task} variant="sequence" index={i + 2} showWhyNow isDark={isDark} />
                       ))}
                     </AnimatePresence>
                   </div>
@@ -122,7 +124,7 @@ export function DailyPlanner() {
               transition: `opacity 300ms cubic-bezier(0.4, 0, 0.2, 1)`,
             }}
           >
-            <InstrumentPanel label="ND" sublabel="Flight Sequence" color="cyan">
+            <InstrumentPanel label="ND" sublabel="Flight Sequence" color="cyan" isDark={isDark}>
               <div className="p-4">
                 <PlannerColumn />
               </div>
@@ -145,7 +147,7 @@ export function DailyPlanner() {
               transition: `opacity 300ms cubic-bezier(0.4, 0, 0.2, 1)`,
             }}
           >
-            <InstrumentPanel label="EICAS" sublabel="System Status" color="amber">
+            <InstrumentPanel label="EICAS" sublabel="System Status" color="amber" isDark={isDark}>
               <div className="p-4">
                 <TimeBlocksPanel />
               </div>
@@ -156,7 +158,7 @@ export function DailyPlanner() {
 
       {/* #5 — Engine Instruments: Arc Gauges with spool-up animation */}
       <motion.div
-        className="shrink-0 border-t border-[#1a1810] bg-[#08080c] px-5 sm:px-7 py-5"
+        className={`shrink-0 border-t px-5 sm:px-7 py-5 ${isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-200 bg-gray-100"}`}
         initial={skipAnim ? { opacity: 1 } : { opacity: 0, y: 10 }}
         animate={{ opacity: hasActiveFocus ? 0.9 : 1, y: 0 }}
         transition={{ duration: T.smooth, ease: EASE, delay: 0.6 }}
@@ -166,7 +168,7 @@ export function DailyPlanner() {
           <ArcGauge label="Admin" value={totalAdmin} max={maxCap} color="#fbbf24" ready={gaugeReady} delay={STAGGER.gauge} />
           <ArcGauge label="Calls" value={totalCalls} max={maxCap} color="#34d399" ready={gaugeReady} delay={STAGGER.gauge * 2} />
 
-          <div className="w-px h-16 bg-[#1a1810] mx-2" />
+          <div className={`w-px h-16 mx-2 ${isDark ? "bg-[#1a1810]" : "bg-gray-200"}`} />
 
           <TotalLoadReadout value={totalUsed} max={maxCap} ready={gaugeReady} allDone={allDone} />
         </div>
@@ -174,7 +176,7 @@ export function DailyPlanner() {
 
       {/* Datalink Inbox */}
       <div className="shrink-0">
-        <InboxTray />
+        <InboxTray isDark={isDark} />
       </div>
     </div>
   );
@@ -195,11 +197,13 @@ function InstrumentPanel({
   label,
   sublabel,
   color,
+  isDark = true,
   children,
 }: {
   label: string;
   sublabel: string;
   color: "emerald" | "cyan" | "amber";
+  isDark?: boolean;
   children: React.ReactNode;
 }) {
   const colorMap = {
@@ -210,7 +214,9 @@ function InstrumentPanel({
 
   return (
     <div
-      className="border border-[#1a1810] bg-[#0a0c10] h-full flex flex-col transition-[filter] duration-150"
+      className={`border h-full flex flex-col transition-[filter] duration-150 ${
+        isDark ? "border-[#1a1810] bg-[#0a0c10]" : "border-gray-200 bg-white"
+      }`}
       style={{
         boxShadow:
           "inset 0 1px 0 rgba(255,255,255,0.02), 0 0 24px rgba(0,0,0,0.5)",
@@ -224,11 +230,11 @@ function InstrumentPanel({
       }}
     >
       {/* Nameplate */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1a1810]">
+      <div className={`flex items-center gap-2 px-4 py-2 border-b ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
         <span className={`text-[10px] font-bold uppercase tracking-[0.25em] ${colorMap[color]}`}>
           {label}
         </span>
-        <span className="text-[9px] uppercase tracking-[0.15em] text-[#3a3a40] font-medium flex-1">
+        <span className={`text-[9px] uppercase tracking-[0.15em] font-medium flex-1 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}>
           {sublabel}
         </span>
       </div>

@@ -22,12 +22,11 @@ export function SidebarClientList() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editClient, setEditClient] = useState<ApiClient | null>(null);
   const lanes = buildClientLanes(clients, invoices);
-  const useDarkSidebar = isDark;
 
   return (
     <aside
       className={`w-64 flex flex-col min-h-full shrink-0 ${
-        useDarkSidebar ? "bg-[#08080c] border-r border-[#1a1810]" : "bg-white border-r border-gray-200"
+        isDark ? "bg-slate-900 border-r border-slate-700" : "bg-white border-r border-gray-200"
       }`}
     >
       <div className="p-4 flex flex-col gap-2 flex-shrink-0">
@@ -35,11 +34,11 @@ export function SidebarClientList() {
           href="/"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/"
-              ? useDarkSidebar
-                ? "bg-[#141210] text-emerald-400/90"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
                 : "bg-blue-100 text-blue-700"
-              : useDarkSidebar
-                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
@@ -49,11 +48,11 @@ export function SidebarClientList() {
           href="/clients"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/clients"
-              ? useDarkSidebar
-                ? "bg-[#141210] text-emerald-400/90"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
                 : "bg-blue-100 text-blue-700"
-              : useDarkSidebar
-                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
@@ -63,11 +62,11 @@ export function SidebarClientList() {
           href="/payments"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/payments"
-              ? useDarkSidebar
-                ? "bg-[#141210] text-emerald-400/90"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
                 : "bg-blue-100 text-blue-700"
-              : useDarkSidebar
-                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
@@ -77,11 +76,11 @@ export function SidebarClientList() {
           href="/settings"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/settings"
-              ? useDarkSidebar
-                ? "bg-[#141210] text-emerald-400/90"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
                 : "bg-blue-100 text-blue-700"
-              : useDarkSidebar
-                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
@@ -91,11 +90,11 @@ export function SidebarClientList() {
           href="/whatsapp"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/whatsapp" || pathname === "/whatsapp-inbox"
-              ? useDarkSidebar
-                ? "bg-[#141210] text-emerald-400/90"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
                 : "bg-blue-100 text-blue-700"
-              : useDarkSidebar
-                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
@@ -105,17 +104,17 @@ export function SidebarClientList() {
           href="/admin/whatsapp"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/admin/whatsapp"
-              ? useDarkSidebar
-                ? "bg-[#141210] text-emerald-400/90"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
                 : "bg-blue-100 text-blue-700"
-              : useDarkSidebar
-                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
           WhatsApp Chat
         </Link>
-        <h2 className={`text-xs font-semibold uppercase tracking-wider pt-2 px-3 ${useDarkSidebar ? "text-[#5a5040]" : "text-gray-500"}`}>
+        <h2 className={`text-xs font-semibold uppercase tracking-wider pt-2 px-3 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
           Clients
         </h2>
       </div>
@@ -128,11 +127,11 @@ export function SidebarClientList() {
               key={lane.clientId}
               className={`group flex items-center gap-1 rounded-lg transition-colors ${
                 isActive
-                  ? useDarkSidebar
-                    ? "bg-[#141210]"
+                  ? isDark
+                    ? "bg-slate-800"
                     : "bg-gray-100"
-                  : useDarkSidebar
-                    ? "hover:bg-[#141210]/50"
+                  : isDark
+                    ? "hover:bg-slate-800"
                     : "hover:bg-gray-50"
               }`}
             >
@@ -142,7 +141,7 @@ export function SidebarClientList() {
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${HEALTH_DOT[lane.health]}`} />
-                  <span className={`font-medium truncate ${useDarkSidebar ? "text-[#c4b8a8]" : "text-gray-900"}`}>
+                  <span className={`font-medium truncate ${isDark ? "text-slate-200" : "text-gray-900"}`}>
                     {lane.clientName}
                   </span>
                   {lane.badgeCount != null && lane.badgeCount > 1 && (
@@ -159,7 +158,7 @@ export function SidebarClientList() {
                     </span>
                   )}
                 </div>
-                <p className={`mt-1.5 text-xs truncate ${useDarkSidebar ? "text-[#5a5040]" : "text-gray-500"}`}>
+                <p className={`mt-1.5 text-xs truncate ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                   {lane.urgencySignal ?? lane.primaryCta}
                 </p>
               </Link>
@@ -169,7 +168,7 @@ export function SidebarClientList() {
                   e.preventDefault();
                   api.getClient(lane.clientId).then(setEditClient).catch(() => {});
                 }}
-                className={`p-2 shrink-0 ${useDarkSidebar ? "text-[#5a5040] hover:text-emerald-400/80" : "text-gray-400 hover:text-gray-700"}`}
+                className={`p-2 shrink-0 ${isDark ? "text-slate-500 hover:text-emerald-400" : "text-gray-400 hover:text-gray-700"}`}
                 title="Edit client"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,13 +179,13 @@ export function SidebarClientList() {
           );
         })}
       </nav>
-      <div className={`p-4 flex-shrink-0 ${useDarkSidebar ? "border-t border-[#1a1810]" : "border-t border-gray-200"}`}>
+      <div className={`p-4 flex-shrink-0 ${isDark ? "border-t border-slate-700" : "border-t border-gray-200"}`}>
         <button
           type="button"
           onClick={() => setAddModalOpen(true)}
           className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-            useDarkSidebar
-              ? "bg-[#141210] text-emerald-400/90 hover:bg-[#1a1810] hover:text-emerald-400"
+            isDark
+              ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 hover:text-emerald-300"
               : "bg-blue-600 text-white hover:bg-blue-500"
           }`}
         >

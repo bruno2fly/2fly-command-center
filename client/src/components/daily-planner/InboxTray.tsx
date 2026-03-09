@@ -13,7 +13,7 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: "MN",
 };
 
-export function InboxTray() {
+export function InboxTray({ isDark = true }: { isDark?: boolean }) {
   const { tasksByBucket, promoteToInbox } = useDailyPlanner();
   const [open, setOpen] = useState(false);
   const inboxItems = tasksByBucket("inbox");
@@ -36,7 +36,7 @@ export function InboxTray() {
   }, [inboxItems.length]);
 
   return (
-    <div className="border-t border-[#1a1810] bg-[#08080c] relative overflow-hidden">
+    <div className={`border-t relative overflow-hidden ${isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-200 bg-gray-100"}`}>
       {/* #8 — Scan line sweep on new message */}
       {scanActive && (
         <motion.div
@@ -50,13 +50,13 @@ export function InboxTray() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-5 sm:px-7 py-2.5 hover:bg-[#0e0d0a] transition-colors duration-150"
+        className={`w-full flex items-center justify-between px-5 sm:px-7 py-2.5 transition-colors duration-150 ${isDark ? "hover:bg-[#0e0d0a]" : "hover:bg-gray-200"}`}
       >
         <div className="flex items-center gap-2.5">
           <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400/40">
             Datalink
           </span>
-          <span className="text-[9px] uppercase tracking-[0.15em] text-[#3a3a40] font-medium">
+          <span className={`text-[9px] uppercase tracking-[0.15em] font-medium ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}>
             Incoming
           </span>
           {inboxItems.length > 0 && (
@@ -79,7 +79,7 @@ export function InboxTray() {
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className="text-[#3a3a40]"
+          className={isDark ? "text-[#3a3a40]" : "text-gray-500"}
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: T.fast, ease: EASE }}
         >
@@ -111,15 +111,15 @@ export function InboxTray() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20, height: 0 }}
                       transition={{ duration: T.normal, ease: EASE }}
-                      className="flex items-center gap-3 py-2 group hover:bg-[#0e0d0a] px-1 -mx-1 transition-colors duration-150"
+                      className={`flex items-center gap-3 py-2 group px-1 -mx-1 transition-colors duration-150 ${isDark ? "hover:bg-[#0e0d0a]" : "hover:bg-gray-200"}`}
                     >
                       <span className="text-[10px] uppercase tracking-wider text-amber-400/40 font-semibold w-5 shrink-0">
                         {SOURCE_LABEL[task.source] ?? "—"}
                       </span>
-                      <p className="text-[12px] text-[#a09888] truncate flex-1 min-w-0 leading-relaxed">
+                      <p className={`text-[12px] truncate flex-1 min-w-0 leading-relaxed ${isDark ? "text-[#a09888]" : "text-gray-600"}`}>
                         {task.title}
                       </p>
-                      <span className="text-[11px] text-[#3a3a40] shrink-0">{task.client}</span>
+                      <span className={`text-[11px] shrink-0 ${isDark ? "text-[#3a3a40]" : "text-gray-500"}`}>{task.client}</span>
                       <button
                         type="button"
                         onClick={() => {
