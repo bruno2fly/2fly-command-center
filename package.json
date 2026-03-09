@@ -1,0 +1,24 @@
+{
+  "name": "2fly-command-center",
+  "private": true,
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev:with-tunnel": "concurrently \"npm run dev:server\" \"npm run tunnel:cloudflare\"",
+    "dev:with-tunnel:localtunnel": "concurrently \"npm run dev:server\" \"npm run tunnel:localtunnel\"",
+    "dev:full": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run tunnel:cloudflare\"",
+    "dev:full:localtunnel": "concurrently \"npm run dev:server\" \"npm run dev:client\" \"npm run tunnel:localtunnel\"",
+    "tunnel:cloudflare": "echo TUNNEL_FORWARD_PORT=4000 && sleep 4 && cloudflared tunnel --url http://localhost:4000",
+    "tunnel:cloudflare:ipv4": "echo TUNNEL_FORWARD_PORT=4000 && sleep 4 && cloudflared tunnel --url http://localhost:4000 --edge-ip-version 4",
+    "tunnel:localtunnel": "echo TUNNEL_FORWARD_PORT=4000 && sleep 2 && npx --yes localtunnel --port 4000",
+    "db:push": "cd server && npx prisma db push",
+    "db:seed": "cd server && node prisma/seed.js",
+    "setup": "npm install && npm run db:push && npm run db:seed",
+    "clean:client": "rm -rf client/.next"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

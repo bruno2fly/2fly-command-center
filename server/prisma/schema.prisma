@@ -1,0 +1,168 @@
+// ============================================================
+// 2FLY MARKETING COMMAND CENTER — Database Schema
+// ============================================================
+// Designed for 5-15 clients, Meta/Google ads, small team.
+// Uses SQLite for dev. Switch DATABASE_URL to postgres for prod.
+// ============================================================
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─────────────────────────────────────────────────
+// MODULE 1: CLIENT HEALTH BOARD
+// ─────────────────────────────────────────────────
+
+model Client {
+  id              String   @id @default(cuid())
+  name            String
+  contactName     String?
+  contactEmail    String?
+  platforms       String   // JSON: ["meta","google"]
+  monthlyRetainer Float    @default(0)
+  adBudget        Float    @default(0)
+  roasTarget      Float    @default(3.0)
+  status          String   @default("active") // active | paused | offboarded
+  healthStatus    String   @default("green")  // green | yellow | red
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  contentItems    ContentItem[]
+  requests        ClientRequest[]
+  adReports       AdReport[]
+  healthLogs      HealthLog[]
+}
+
+// Tracks health changes over time for trend visibility
+model HealthLog {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  healthStatus    String   // green | yellow | red
+  bufferDays      Int
+  openRequests    Int
+  weeklyRoas      Float?
+  note            String?
+  createdAt       DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────
+// MODULE 2: CONTENT BUFFER ENGINE
+// ─────────────────────────────────────────────────
+// Rule: Every client must have >= 15 days of scheduled content.
+// Buffer = count of future-dated items in "scheduled" status.
+
+model ContentItem {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  platform        String   // meta | google | instagram | tiktok | linkedin
+  contentType     String   // post | reel | story | carousel | ad_creative
+  title           String
+  caption         String?
+  mediaUrl        String?  // link to asset in drive/S3
+  status          String   @default("draft") // draft | review | approved | scheduled | published
+  scheduledDate   DateTime?
+  publishedDate   DateTime?
+  assignedTo      String?  // team member name or ID
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────
+// MODULE 3: STRUCTURED CLIENT REQUEST INTAKE
+// ─────────────────────────────────────────────────
+// Clients submit requests through a form. No more DMs/texts.
+// Every request gets a type, priority, and SLA timer.
+
+model ClientRequest {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  type            String   // revision | new_content | strategy | reporting | other
+  priority        String   @default("normal") // low | normal | high | urgent
+  title           String
+  description     String
+  status          String   @default("new") // new | acknowledged | in_progress | review | completed | closed
+  assignedTo      String?
+  dueDate         DateTime?
+  resolvedAt      DateTime?
+  slaBreach       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────
+// MODULE 4: ADS INTELLIGENCE WEEKLY SUMMARY
+// ─────────────────────────────────────────────────
+// One row per client per platform per week.
+// Pulled manually or via API (Meta/Google).
+
+model AdReport {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  platform        String   // meta | google
+  weekStart       DateTime // Monday of the reporting week
+  spend           Float    @default(0)
+  impressions     Int      @default(0)
+  clicks          Int      @default(0)
+  conversions     Int      @default(0)
+  revenue         Float    @default(0)
+  roas            Float    @default(0) // revenue / spend
+  cpa             Float    @default(0) // spend / conversions
+  ctr             Float    @default(0) // clicks / impressions
+  topCampaign     String?  // best performing campaign name
+  notes           String?
+  createdAt       DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────
+// WHATSAPP CHAT DASHBOARD
+// ─────────────────────────────────────────────────
+
+model WhatsappConversation {
+  id             String   @id @default(cuid())
+  contactNumber  String   // whatsapp:+1...
+  contactName    String?
+  lastMessage    String?
+  lastMessageAt  DateTime?
+  unreadCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  messages WhatsappMessage[]
+}
+
+model WhatsappMessage {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    WhatsappConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromNumber      String
+  toNumber        String
+  body            String
+  direction       String   // inbound | outbound
+  status          String   @default("sent") // sent | delivered | read
+  timestamp       DateTime @default(now())
+  twilioSid       String?
+  createdAt       DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────
+// TEAM / AUTH (minimal — expand as needed)
+// ─────────────────────────────────────────────────
+
+model TeamMember {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  role            String   // founder | account_manager | content_creator | ads_specialist | va
+  createdAt       DateTime @default(now())
+}

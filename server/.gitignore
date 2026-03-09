@@ -1,0 +1,3 @@
+# WhatsApp intake data (JSON files created on first run)
+data/
+data/*.json
