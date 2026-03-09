@@ -203,14 +203,3 @@ model WhatsappMessage {
   createdAt       DateTime @default(now())
 }
 
-// ─────────────────────────────────────────────────
-// TEAM / AUTH (minimal — expand as needed)
-// ─────────────────────────────────────────────────
-
-model TeamMember {
-  id              String   @id @default(cuid())
-  name            String
-  email           String   @unique
-  role            String   // founder | account_manager | content_creator | ads_specialist | va
-  createdAt       DateTime @default(now())
-}
