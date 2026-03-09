@@ -454,4 +454,117 @@ router.get('/revenue', async (_req: Request, res: Response) => {
   }
 });
 
+// ================================================================
+// DAILY BRIEF — Used by: founder-boss, content-system
+// GET /brief — Full agency daily briefing
+// ================================================================
+
+router.get('/brief', async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    // Get all clients with health
+    const clients = await prisma.client.findMany({ where: { status: 'active' } });
+    const healthData = await recomputeAllClients();
+
+    // Categorize by health
+    const green: string[] = [];
+    const yellow: string[] = [];
+    const red: string[] = [];
+    for (const h of healthData) {
+      if (h.healthStatus === 'green') green.push(h.name);
+      else if (h.healthStatus === 'yellow') yellow.push(h.name);
+      else red.push(h.name);
+    }
+
+    // Content due this week
+    const contentThisWeek = await prisma.contentItem.findMany({
+      where: {
+        scheduledDate: { gte: today, lte: weekEnd },
+        status: { in: ['scheduled', 'approved', 'draft'] },
+      },
+      include: { client: { select: { name: true } } },
+      orderBy: { scheduledDate: 'asc' },
+    });
+
+    const contentByClient: Record<string, number> = {};
+    for (const c of contentThisWeek) {
+      const name = c.client?.name || 'Unknown';
+      contentByClient[name] = (contentByClient[name] || 0) + 1;
+    }
+
+    // Open requests
+    const openRequests = await prisma.clientRequest.findMany({
+      where: { status: { in: ['new', 'acknowledged', 'in_progress'] } },
+      include: { client: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const overdueRequests = openRequests.filter((r: { dueDate: Date | null }) => 
+      r.dueDate && new Date(r.dueDate) < today
+    );
+
+    // Upcoming deadlines (next 3 days)
+    const threeDays = new Date(today);
+    threeDays.setDate(threeDays.getDate() + 3);
+    const urgentContent = contentThisWeek.filter((c: { scheduledDate: Date | null }) =>
+      c.scheduledDate && new Date(c.scheduledDate) <= threeDays
+    );
+
+    // Revenue summary
+    const totalMRR = clients.reduce((s: number, c: { monthlyRetainer: number }) => s + c.monthlyRetainer, 0);
+    const atRiskRevenue = clients
+      .filter((c: { healthStatus: string }) => c.healthStatus === 'red')
+      .reduce((s: number, c: { monthlyRetainer: number }) => s + c.monthlyRetainer, 0);
+
+    res.json({
+      date: today.toISOString().split('T')[0],
+      dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()],
+      
+      health: {
+        green: { count: green.length, clients: green },
+        yellow: { count: yellow.length, clients: yellow },
+        red: { count: red.length, clients: red },
+      },
+
+      content: {
+        dueThisWeek: contentThisWeek.length,
+        byClient: contentByClient,
+        urgentNext3Days: urgentContent.length,
+        urgentItems: urgentContent.map((c: { title: string; scheduledDate: Date; status: string; client: { name: string } }) => ({
+          title: c.title,
+          client: c.client?.name,
+          scheduledDate: c.scheduledDate,
+          status: c.status,
+        })),
+      },
+
+      requests: {
+        open: openRequests.length,
+        overdue: overdueRequests.length,
+        overdueItems: overdueRequests.map((r: { title: string; dueDate: Date; priority: string; client: { name: string } }) => ({
+          title: r.title,
+          client: r.client?.name,
+          dueDate: r.dueDate,
+          priority: r.priority,
+        })),
+      },
+
+      revenue: {
+        totalMRR,
+        atRiskRevenue,
+        atRiskClients: red.length,
+      },
+
+      summary: `${now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} Brief: ${green.length} green, ${yellow.length} yellow, ${red.length} red. ${contentThisWeek.length} content items due this week. ${openRequests.length} open requests (${overdueRequests.length} overdue). MRR: $${totalMRR.toLocaleString()}, $${atRiskRevenue.toLocaleString()} at risk.`,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 export default router;

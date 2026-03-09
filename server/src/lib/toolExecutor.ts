@@ -213,6 +213,15 @@ export const ALL_TOOLS: ToolDefinition[] = [
     },
   },
 
+  {
+    name: 'get_brief',
+    description: 'Get the daily agency briefing: health status per client (green/yellow/red), content due this week, overdue requests, revenue at risk. Perfect for morning check-ins and Monday overviews.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+
   // ── Research tools ──
   {
     name: 'web_search',
@@ -237,7 +246,7 @@ const AGENT_TOOL_ACCESS: Record<string, string[]> = {
   'client-memory': ['get_client_detail', 'get_clients', 'update_client', 'get_health', 'get_ads'],
   'project-manager': ['get_requests', 'create_request', 'update_request', 'get_clients', 'get_pulse'],
   'approval-feedback': ['get_content', 'update_content', 'get_requests', 'update_request'],
-  'content-system': ['get_content', 'create_content', 'update_content', 'get_clients', 'get_health'],
+  'content-system': ['get_content', 'create_content', 'update_content', 'get_clients', 'get_health', 'get_brief', 'get_requests'],
   'founder-boss': ALL_TOOLS.map(t => t.name), // full access
   'research-intel': ['get_clients', 'get_client_detail', 'get_content', 'get_health', 'get_ads', 'get_pulse', 'web_search', 'update_client', 'create_content'],
 };
@@ -342,6 +351,9 @@ export async function executeTool(
 
     case 'get_revenue':
       return callAgentTools('GET', '/revenue');
+
+    case 'get_brief':
+      return callAgentTools('GET', '/brief');
 
     // ── Write tools ──
     case 'update_client':
