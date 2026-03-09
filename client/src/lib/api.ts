@@ -53,6 +53,57 @@ export const api = {
     fetchAPI<ApiContentResponse>(`/content${clientId ? `?clientId=${clientId}` : ''}`),
   getInvoicesRaw: () =>
     fetchAPI<ApiInvoicesResponse>('/invoices'),
+  getPayments: () => fetchAPI<ApiPaymentsResponse>('/payments'),
+  postInvoice: (payload: InvoiceCreatePayload) =>
+    fetchAPI<{ success: boolean; invoice: unknown }>('/invoices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  patchInvoice: (id: string, payload: { status?: string; paidDate?: string; paidAmount?: number }) =>
+    fetchAPI<{ success: boolean; invoice: unknown }>(`/invoices/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  postRequest: (payload: { clientId: string; title: string; type?: string; priority?: string }) =>
+    fetchAPI<unknown>('/requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  postInvoiceSendEmail: (id: string, reminder?: boolean) =>
+    fetchAPI<{ success: boolean; sentTo: string }>(`/invoices/${id}/send-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reminder ? { reminder: true } : {}),
+    }),
+  postInvoiceAutoGenerate: () =>
+    fetchAPI<{ success: boolean; generated: number; invoices: { client: string; invoiceNumber: string; amount: number }[] }>('/invoices/auto-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }),
+};
+
+export type InvoiceCreatePayload = {
+  clientId: string;
+  invoiceNumber: string;
+  amount: number;
+  dueDate: string;
+  description?: string;
+  type?: string;
+  status?: string;
+};
+
+export type ApiPaymentsResponse = {
+  totalOutstanding: number;
+  totalOverdue: number;
+  totalDueSoon: number;
+  overdueCount: number;
+  overdue: { id: string; invoiceNumber: string; amount: number; dueDate: string; daysOverdue?: number; clientName?: string; clientId?: string }[];
+  dueSoon: { id: string; invoiceNumber: string; amount: number; dueDate: string; clientName?: string; clientId?: string }[];
+  recentlyPaid: { id: string; invoiceNumber: string; amount: number; paidDate: string | null; clientName?: string; clientId?: string }[];
 };
 
 export type ApiInvoiceItem = {

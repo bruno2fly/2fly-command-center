@@ -7,6 +7,7 @@ import { MOCK_INVOICES } from "@/lib/founderData";
 import { getAtRiskMrr } from "@/lib/founderData";
 import { PRIORITY_LABELS, type TaskPriority } from "@/lib/founderConfig";
 import { buildClientLanes } from "@/lib/clientLanes";
+import { useClients } from "@/contexts/ClientsContext";
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
   CASH_NOW: "bg-amber-100 text-amber-800",
@@ -35,6 +36,7 @@ function formatDue(dueDate: string, isOverdue: boolean, isToday: boolean) {
 
 export function FounderTopBar() {
   const pathname = usePathname() ?? "";
+  const { clients, invoices } = useClients();
   const tasks = MOCK_TASKS.slice(0, 8);
   const expectedToday = MOCK_INVOICES.filter(
     (i) => i.status === "expected_today" || i.status === "due_today"
@@ -43,7 +45,7 @@ export function FounderTopBar() {
   const cashInToday = expectedToday.reduce((s, i) => s + i.amount, 0);
   const invoicesOverdue = overdue.reduce((s, i) => s + i.amount, 0);
 
-  const lanes = buildClientLanes();
+  const lanes = buildClientLanes(clients, invoices);
   const atRiskIds = lanes.filter((l) => l.health === "yellow" || l.health === "red").map((l) => l.clientId);
   const atRiskMrr = getAtRiskMrr(atRiskIds);
 

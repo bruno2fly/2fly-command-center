@@ -63,12 +63,12 @@ export function SidebarClientList() {
           href="/payments"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/payments"
-              ? airplaneMode
+              ? useDarkSidebar
                 ? "bg-[#141210] text-emerald-400/90"
-                : "bg-slate-700 text-white"
-              : airplaneMode
+                : "bg-blue-100 text-blue-700"
+              : useDarkSidebar
                 ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
-                : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
           💰 Payments

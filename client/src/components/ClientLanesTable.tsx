@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useClients } from "@/contexts/ClientsContext";
 import { buildClientLanes } from "@/lib/clientLanes";
 
 function formatDate(d: string | null) {
@@ -24,7 +25,8 @@ const HEALTH_DOT: Record<string, string> = {
 };
 
 export function ClientLanesTable() {
-  const lanes = buildClientLanes();
+  const { clients, invoices } = useClients();
+  const lanes = buildClientLanes(clients, invoices);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
