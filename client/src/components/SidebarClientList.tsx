@@ -60,6 +60,20 @@ export function SidebarClientList() {
           All Clients
         </Link>
         <Link
+          href="/payments"
+          className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
+            pathname === "/payments"
+              ? airplaneMode
+                ? "bg-[#141210] text-emerald-400/90"
+                : "bg-slate-700 text-white"
+              : airplaneMode
+                ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+                : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+          }`}
+        >
+          💰 Payments
+        </Link>
+        <Link
           href="/settings"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/settings"
