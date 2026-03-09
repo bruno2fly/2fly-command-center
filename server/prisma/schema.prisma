@@ -15,6 +15,25 @@ generator client {
 }
 
 // ─────────────────────────────────────────────────
+// MODULE 0: TEAM MEMBERS
+// ─────────────────────────────────────────────────
+// Agency employees/contractors for task assignment and workload tracking.
+
+model TeamMember {
+  id              String   @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  role            String   // designer | social_media | developer | strategist | admin | founder
+  status          String   @default("active") // active | inactive
+  avatarUrl       String?
+  weeklyCapacity  Int      @default(2400) // minutes per week (default 40h = 2400min)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────
 // MODULE 1: CLIENT HEALTH BOARD
 // ─────────────────────────────────────────────────
 

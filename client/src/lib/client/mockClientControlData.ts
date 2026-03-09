@@ -206,24 +206,24 @@ export type TwoFlyFlowOverview = {
 const MOCK_BRIEF: Record<string, BriefOfTheDay> = {
   "1": {
     clientId: "1",
-    text: "Acme is in good shape overall. Spring campaign is live and performing well (+12% WoW). Main focus today: (1) Invoice #1023 is 6d overdue – follow up with client. (2) Ad copy approval for Spring campaign pending – client requested minor tweaks. (3) Hero image update for new product – design in progress, due Thu. (4) Contact form bug reported – dev is investigating. Content buffer at 21 days. No blockers.",
-    agentName: "Sarah",
-    updatedAt: "2025-03-09T08:00:00Z",
+    text: "Client in good shape overall. Content buffer at 12 days. Main focus: review pending requests and schedule next batch of social posts. No urgent blockers.",
+    agentName: "Content System",
+    updatedAt: new Date().toISOString(),
   },
   "2": {
     clientId: "2",
-    text: "Beta Labs: Ads pacing under target (-5% WoW). Content buffer at 10 days – at risk. Two posts in 2FlyFlow awaiting approval. Client happy with Q1 direction.",
-    agentName: "Sarah",
-    updatedAt: "2025-03-09T08:00:00Z",
+    text: "Ads pacing under target this week. Content buffer at 10 days – at risk. Two posts in 2FlyFlow awaiting approval. Client happy with Q1 direction.",
+    agentName: "Content System",
+    updatedAt: new Date().toISOString(),
   },
 };
 
 const MOCK_CONTENT_QUALITY: Record<string, ContentQualityOverview> = {
   "1": {
     clientId: "1",
-    text: "Content pipeline healthy. 4 items in production: Spring launch post (scheduled), Product demo reel (draft), UGC testimonial (draft), Spring ad creatives (in review). Calendar is filled through mid-March. UGC campaign for new product is the main theme – client loves the direction. No quality issues.",
-    agentName: "Sarah",
-    updatedAt: "2025-03-09T08:00:00Z",
+    text: "Content pipeline healthy. 4 items in production: promotional post (scheduled), service highlight reel (draft), testimonial (draft), ad creatives (in review). Calendar filled through mid-month. No quality issues.",
+    agentName: "Content System",
+    updatedAt: new Date().toISOString(),
   },
 };
 

@@ -214,6 +214,36 @@ export const ALL_TOOLS: ToolDefinition[] = [
   },
 
   {
+    name: 'get_content_calendar',
+    description: 'Get content scheduled across all clients for a date range. Returns items grouped by date with client, platform, type, and status. Default: current week.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        start: { type: 'string', description: 'Start date YYYY-MM-DD (default: Monday of current week)' },
+        end: { type: 'string', description: 'End date YYYY-MM-DD (default: Sunday of current week)' },
+      },
+    },
+  },
+  {
+    name: 'get_team',
+    description: 'Get list of team members with their roles and status. Use for employee tracking and task assignment.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'get_team_workload',
+    description: 'Get workload for a specific team member — their open requests and content assignments across all clients.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        memberId: { type: 'string', description: 'Team member ID' },
+      },
+      required: ['memberId'],
+    },
+  },
+  {
     name: 'get_payments',
     description: 'Get payments dashboard: outstanding invoices, overdue amounts, due this week, recently paid. Use for financial tracking and cash flow visibility.',
     input_schema: {
@@ -252,9 +282,9 @@ import type { AgentId } from './openclawClient.js';
 const AGENT_TOOL_ACCESS: Record<string, string[]> = {
   'inbox-triage': ['get_clients', 'get_requests', 'create_request', 'update_request', 'get_pulse'],
   'client-memory': ['get_client_detail', 'get_clients', 'update_client', 'get_health', 'get_ads'],
-  'project-manager': ['get_requests', 'create_request', 'update_request', 'get_clients', 'get_pulse'],
+  'project-manager': ['get_requests', 'create_request', 'update_request', 'get_clients', 'get_pulse', 'get_team', 'get_team_workload'],
   'approval-feedback': ['get_content', 'update_content', 'get_requests', 'update_request'],
-  'content-system': ['get_content', 'create_content', 'update_content', 'get_clients', 'get_health', 'get_brief', 'get_requests'],
+  'content-system': ['get_content', 'create_content', 'update_content', 'get_clients', 'get_health', 'get_brief', 'get_requests', 'get_content_calendar'],
   'founder-boss': ALL_TOOLS.map(t => t.name), // full access
   'research-intel': ['get_clients', 'get_client_detail', 'get_content', 'get_health', 'get_ads', 'get_pulse', 'web_search', 'update_client', 'create_content'],
 };
@@ -359,6 +389,20 @@ export async function executeTool(
 
     case 'get_revenue':
       return callAgentTools('GET', '/revenue');
+
+    case 'get_content_calendar': {
+      const params = new URLSearchParams();
+      if (input.start) params.set('start', input.start as string);
+      if (input.end) params.set('end', input.end as string);
+      const qs = params.toString();
+      return callAgentTools('GET', `/content-calendar${qs ? `?${qs}` : ''}`);
+    }
+
+    case 'get_team':
+      return callAgentTools('GET', '/team');
+
+    case 'get_team_workload':
+      return callAgentTools('GET', `/team/${input.memberId}/workload`);
 
     case 'get_payments':
       return callAgentTools('GET', '/payments');

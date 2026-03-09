@@ -84,6 +84,24 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     }),
+  // Content Calendar
+  getContentCalendar: (start?: string, end?: string) => {
+    const params = new URLSearchParams();
+    if (start) params.set('start', start);
+    if (end) params.set('end', end);
+    const qs = params.toString();
+    return fetchAPI<ApiContentCalendarResponse>(`/content-calendar${qs ? `?${qs}` : ''}`);
+  },
+  // Team
+  getTeam: () => fetchAPI<{ members: ApiTeamMember[] }>('/team'),
+  postTeamMember: (payload: { name: string; role: string; email?: string; phone?: string }) =>
+    fetchAPI<{ success: boolean; member: ApiTeamMember }>('/team', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  getTeamWorkload: (memberId: string) =>
+    fetchAPI<ApiTeamWorkload>(`/team/${memberId}/workload`),
 };
 
 export type InvoiceCreatePayload = {
@@ -120,6 +138,49 @@ export type ApiInvoiceItem = {
 
 export type ApiInvoicesResponse = {
   invoices: ApiInvoiceItem[];
+};
+
+// ─── Content Calendar types ──────────────────────────────────────────────────
+
+export type ApiContentCalendarItem = {
+  id: string;
+  title: string;
+  platform: string;
+  contentType: string;
+  status: string;
+  clientName: string;
+  clientId: string;
+  scheduledDate: string;
+  assignedTo: string | null;
+};
+
+export type ApiContentCalendarResponse = {
+  start: string;
+  end: string;
+  totalItems: number;
+  byDate: Record<string, ApiContentCalendarItem[]>;
+  items: ApiContentCalendarItem[];
+};
+
+// ─── Team types ─────────────────────────────────────────────────────────────
+
+export type ApiTeamMember = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  status: string;
+  weeklyCapacity: number;
+  notes: string | null;
+};
+
+export type ApiTeamWorkload = {
+  member: { id: string; name: string; role: string };
+  openRequests: number;
+  openContent: number;
+  requests: ApiRequestItem[];
+  content: ApiContentItem[];
 };
 
 // ─── API response types ─────────────────────────────────────────────────────

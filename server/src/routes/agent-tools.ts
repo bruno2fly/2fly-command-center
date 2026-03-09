@@ -597,6 +597,176 @@ router.patch('/invoices/:id', async (req: Request, res: Response) => {
 });
 
 // ================================================================
+// CONTENT CALENDAR — Cross-client content view
+// ================================================================
+
+// GET /content-calendar?start=YYYY-MM-DD&end=YYYY-MM-DD
+router.get('/content-calendar', async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const startStr = req.query.start as string;
+    const endStr = req.query.end as string;
+    
+    // Default: current week (Mon-Sun)
+    const dayOfWeek = now.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const defaultStart = new Date(now);
+    defaultStart.setDate(now.getDate() + mondayOffset);
+    defaultStart.setHours(0, 0, 0, 0);
+    const defaultEnd = new Date(defaultStart);
+    defaultEnd.setDate(defaultStart.getDate() + 6);
+    defaultEnd.setHours(23, 59, 59, 999);
+
+    const start = startStr ? new Date(startStr) : defaultStart;
+    const end = endStr ? new Date(endStr) : defaultEnd;
+
+    const items = await prisma.contentItem.findMany({
+      where: {
+        scheduledDate: { gte: start, lte: end },
+      },
+      include: { client: { select: { name: true } } },
+      orderBy: { scheduledDate: 'asc' },
+    });
+
+    // Group by date
+    const byDate: Record<string, unknown[]> = {};
+    for (const item of items) {
+      const dateKey = item.scheduledDate
+        ? new Date(item.scheduledDate).toISOString().slice(0, 10)
+        : 'unscheduled';
+      if (!byDate[dateKey]) byDate[dateKey] = [];
+      byDate[dateKey].push({
+        id: item.id,
+        title: item.title,
+        platform: item.platform,
+        contentType: item.contentType,
+        status: item.status,
+        clientName: item.client?.name,
+        clientId: item.clientId,
+        scheduledDate: item.scheduledDate,
+        assignedTo: item.assignedTo,
+      });
+    }
+
+    res.json({
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+      totalItems: items.length,
+      byDate,
+      items: items.map(i => ({
+        id: i.id,
+        title: i.title,
+        platform: i.platform,
+        contentType: i.contentType,
+        status: i.status,
+        clientName: i.client?.name,
+        clientId: i.clientId,
+        scheduledDate: i.scheduledDate,
+        assignedTo: i.assignedTo,
+      })),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ================================================================
+// TEAM MEMBERS — Employee tracking
+// ================================================================
+
+// GET /team — list all team members
+router.get('/team', async (_req: Request, res: Response) => {
+  try {
+    const members = await prisma.teamMember.findMany({
+      where: { status: 'active' },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ members });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /team — create team member
+router.post('/team', async (req: Request, res: Response) => {
+  try {
+    const { name, email, phone, role, weeklyCapacity, notes } = req.body;
+    if (!name || !role) {
+      return res.status(400).json({ error: 'name and role are required' });
+    }
+    const member = await prisma.teamMember.create({
+      data: {
+        name,
+        email: email || null,
+        phone: phone || null,
+        role,
+        weeklyCapacity: weeklyCapacity || 2400,
+        notes: notes || null,
+      },
+    });
+    res.json({ success: true, member });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// PATCH /team/:id — update team member
+router.patch('/team/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data: Record<string, unknown> = {};
+    if (req.body.name) data.name = req.body.name;
+    if (req.body.email !== undefined) data.email = req.body.email;
+    if (req.body.phone !== undefined) data.phone = req.body.phone;
+    if (req.body.role) data.role = req.body.role;
+    if (req.body.status) data.status = req.body.status;
+    if (req.body.weeklyCapacity) data.weeklyCapacity = parseInt(req.body.weeklyCapacity);
+    if (req.body.notes !== undefined) data.notes = req.body.notes;
+
+    const member = await prisma.teamMember.update({ where: { id }, data });
+    res.json({ success: true, member });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /team/:id/workload — get assigned tasks for a team member
+router.get('/team/:id/workload', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const member = await prisma.teamMember.findUnique({ where: { id } });
+    if (!member) return res.status(404).json({ error: 'Team member not found' });
+
+    const assignedRequests = await prisma.clientRequest.findMany({
+      where: { assignedTo: member.name, status: { notIn: ['completed', 'closed'] } },
+      include: { client: { select: { name: true } } },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    const assignedContent = await prisma.contentItem.findMany({
+      where: { assignedTo: member.name, status: { notIn: ['published'] } },
+      include: { client: { select: { name: true } } },
+      orderBy: { scheduledDate: 'asc' },
+    });
+
+    res.json({
+      member: { id: member.id, name: member.name, role: member.role },
+      openRequests: assignedRequests.length,
+      openContent: assignedContent.length,
+      requests: assignedRequests,
+      content: assignedContent,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ================================================================
 // DAILY BRIEF — Used by: founder-boss, content-system
 // GET /brief — Full agency daily briefing
 // ================================================================
