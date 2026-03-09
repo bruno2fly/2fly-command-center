@@ -30,6 +30,9 @@ model Client {
   status          String   @default("active") // active | paused | offboarded
   healthStatus    String   @default("green")  // green | yellow | red
   notes           String?
+  billingDay      Int      @default(1)
+  autoInvoice     Boolean  @default(true)
+  invoiceEmail    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

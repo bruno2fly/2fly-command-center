@@ -709,4 +709,155 @@ router.get('/brief', async (_req: Request, res: Response) => {
   }
 });
 
+// GET /invoices/:id/pdf — generate PDF
+router.get('/invoices/:id/pdf', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { client: true },
+    });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const { generateInvoicePdf } = require('../lib/invoicePdf');
+    const pdfBuffer = await generateInvoicePdf({
+      invoiceNumber: invoice.invoiceNumber,
+      issuedDate: invoice.issuedDate.toISOString(),
+      dueDate: invoice.dueDate.toISOString(),
+      clientName: invoice.client.name,
+      clientEmail: invoice.client.contactEmail || '',
+      items: [{ description: invoice.description || `${invoice.type} — ${invoice.client.name}`, amount: invoice.amount }],
+      total: invoice.amount,
+      status: invoice.status,
+      notes: invoice.notes || undefined,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /invoices/:id/send-email — send invoice via email
+router.post('/invoices/:id/send-email', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { client: true },
+    });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+    const toEmail = invoice.client.invoiceEmail || invoice.client.contactEmail;
+    if (!toEmail) return res.status(400).json({ error: 'No email address for this client' });
+
+    const { generateInvoicePdf } = require('../lib/invoicePdf');
+    const pdfBuffer = await generateInvoicePdf({
+      invoiceNumber: invoice.invoiceNumber,
+      issuedDate: invoice.issuedDate.toISOString(),
+      dueDate: invoice.dueDate.toISOString(),
+      clientName: invoice.client.name,
+      clientEmail: toEmail,
+      items: [{ description: invoice.description || `${invoice.type} — ${invoice.client.name}`, amount: invoice.amount }],
+      total: invoice.amount,
+      status: invoice.status,
+      notes: invoice.notes || undefined,
+    });
+
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const isReminder = req.body.reminder === true;
+    const subject = isReminder
+      ? `Reminder: Invoice ${invoice.invoiceNumber} — ${invoice.client.name}`
+      : `Invoice ${invoice.invoiceNumber} — 2FLY Digital Marketing`;
+
+    const html = isReminder
+      ? `<p>Hi ${invoice.client.contactName || 'there'},</p><p>This is a friendly reminder that invoice <strong>${invoice.invoiceNumber}</strong> for <strong>$${invoice.amount.toLocaleString()}</strong> is ${invoice.status === 'overdue' ? 'overdue' : `due on ${new Date(invoice.dueDate).toLocaleDateString()}`}.</p><p>Please find the invoice attached.</p><p>Thank you,<br/>2FLY Digital Marketing</p>`
+      : `<p>Hi ${invoice.client.contactName || 'there'},</p><p>Please find attached invoice <strong>${invoice.invoiceNumber}</strong> for <strong>$${invoice.amount.toLocaleString()}</strong>, due on <strong>${new Date(invoice.dueDate).toLocaleDateString()}</strong>.</p><p>Thank you for your business!</p><p>2FLY Digital Marketing</p>`;
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || '"2FLY Digital Marketing" <hello@2flydigital.com>',
+      to: toEmail,
+      subject,
+      html,
+      attachments: [{ filename: `${invoice.invoiceNumber}.pdf`, content: pdfBuffer }],
+    });
+
+    // Update invoice status to sent if it was draft
+    if (invoice.status === 'draft') {
+      await prisma.invoice.update({ where: { id }, data: { status: 'sent' } });
+    }
+
+    res.json({ success: true, sentTo: toEmail });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /invoices/auto-generate — generate monthly invoices for all clients
+router.post('/invoices/auto-generate', async (_req: Request, res: Response) => {
+  try {
+    const clients = await prisma.client.findMany({ where: { status: 'active', autoInvoice: true } });
+    const now = new Date();
+    const month = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    
+    // Get last invoice number
+    const lastInvoice = await prisma.invoice.findFirst({ orderBy: { createdAt: 'desc' } });
+    let nextNum = 100;
+    if (lastInvoice) {
+      const match = lastInvoice.invoiceNumber.match(/\d+/);
+      if (match) nextNum = parseInt(match[0]) + 1;
+    }
+
+    const created = [];
+    for (const client of clients) {
+      // Check if invoice already exists for this month
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const existing = await prisma.invoice.findFirst({
+        where: {
+          clientId: client.id,
+          type: 'retainer',
+          issuedDate: { gte: startOfMonth, lte: endOfMonth },
+        },
+      });
+      if (existing) continue; // skip if already generated
+
+      const dueDate = new Date(now.getFullYear(), now.getMonth(), client.billingDay || 1);
+      if (dueDate < now) dueDate.setMonth(dueDate.getMonth() + 1); // if past due day, set to next month
+
+      const invoice = await prisma.invoice.create({
+        data: {
+          clientId: client.id,
+          invoiceNumber: `INV-${nextNum++}`,
+          amount: client.monthlyRetainer,
+          dueDate,
+          description: `${month} retainer — ${client.name}`,
+          type: 'retainer',
+          status: 'draft',
+        },
+      });
+      created.push({ client: client.name, invoiceNumber: invoice.invoiceNumber, amount: invoice.amount });
+    }
+
+    res.json({ success: true, generated: created.length, invoices: created });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 export default router;
