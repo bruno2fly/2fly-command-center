@@ -2,6 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   getClientHealth,
   getBriefOfTheDay,
@@ -134,8 +135,6 @@ const cardVariants = {
 const dotColor = (p: string) =>
   p === "green" ? "bg-emerald-500" : p === "red" ? "bg-red-500" : "bg-amber-500";
 
-const headerCls = "text-[10px] uppercase tracking-widest font-semibold text-zinc-500";
-
 function ATCSectionCard({
   title,
   subtitle,
@@ -143,6 +142,7 @@ function ATCSectionCard({
   badgeColor = "emerald",
   children,
   custom,
+  isDark,
 }: {
   title: string;
   subtitle?: string;
@@ -150,25 +150,26 @@ function ATCSectionCard({
   badgeColor?: "emerald" | "amber" | "blue";
   children: ReactNode;
   custom: number;
+  isDark: boolean;
 }) {
   const badgeCls =
     badgeColor === "emerald"
-      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+      ? isDark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-200"
       : badgeColor === "amber"
-        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-        : "bg-blue-500/10 text-blue-400 border-blue-500/20";
+        ? isDark ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200"
+        : isDark ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-blue-50 text-blue-700 border-blue-200";
   const borderCls =
     badgeColor === "emerald"
-      ? "border-emerald-500/30"
+      ? isDark ? "border-emerald-500/30" : "border-emerald-200"
       : badgeColor === "amber"
-        ? "border-amber-500/30"
-        : "border-blue-500/30";
+        ? isDark ? "border-amber-500/30" : "border-amber-200"
+        : isDark ? "border-blue-500/30" : "border-blue-200";
   const titleCls =
     badgeColor === "emerald"
-      ? "text-emerald-400/90"
+      ? isDark ? "text-emerald-400/90" : "text-emerald-700"
       : badgeColor === "amber"
-        ? "text-amber-400/90"
-        : "text-blue-400/90";
+        ? isDark ? "text-amber-400/90" : "text-amber-700"
+        : isDark ? "text-blue-400/90" : "text-blue-700";
   const dotCls =
     badgeColor === "emerald"
       ? "bg-emerald-500"
@@ -176,23 +177,30 @@ function ATCSectionCard({
         ? "bg-amber-500"
         : "bg-blue-500";
 
+  const cardBg = isDark ? "bg-zinc-900/90" : "bg-white";
+  const subtitleCls = isDark ? "text-zinc-500" : "text-gray-500";
+
   return (
     <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={custom}>
-      <div className={`relative rounded-xl border-2 ${borderCls} bg-zinc-900/90 overflow-hidden`}>
-        <div
-          className="absolute inset-0 opacity-[0.03] pointer-events-none"
-          style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16, 185, 129, 0.3) 2px, rgba(16, 185, 129, 0.3) 4px)`,
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{
-            backgroundImage: `linear-gradient(rgba(16, 185, 129, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.2) 1px, transparent 1px)`,
-            backgroundSize: "20px 20px",
-          }}
-        />
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/10 to-transparent rounded-bl-full" />
+      <div className={`relative rounded-xl border-2 ${borderCls} ${cardBg} overflow-hidden`}>
+        {isDark && (
+          <>
+            <div
+              className="absolute inset-0 opacity-[0.03] pointer-events-none"
+              style={{
+                backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16, 185, 129, 0.3) 2px, rgba(16, 185, 129, 0.3) 4px)`,
+              }}
+            />
+            <div
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              style={{
+                backgroundImage: `linear-gradient(rgba(16, 185, 129, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.2) 1px, transparent 1px)`,
+                backgroundSize: "20px 20px",
+              }}
+            />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/10 to-transparent rounded-bl-full" />
+          </>
+        )}
         <div className="relative p-6 min-h-[120px]">
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex items-center gap-2">
@@ -201,7 +209,7 @@ function ATCSectionCard({
                 {title}
               </h2>
               {subtitle && (
-                <span className="text-[10px] text-zinc-500 font-mono">{subtitle}</span>
+                <span className={`text-[10px] font-mono ${subtitleCls}`}>{subtitle}</span>
               )}
             </div>
             {badge && (
@@ -222,6 +230,7 @@ type Props = {
 };
 
 export function ClientOverviewTab({ clientId }: Props) {
+  const { isDark } = useTheme();
   const brief = getBriefOfTheDay(clientId);
   const contentQuality = getContentQualityOverview(clientId);
   const flyflow = get2FlyFlowOverview(clientId);
@@ -233,6 +242,20 @@ export function ClientOverviewTab({ clientId }: Props) {
   const requests = getRequests(clientId);
 
   const parsedBrief = useMemo(() => (brief?.text ? parseBrief(brief.text) : null), [brief?.text]);
+
+  const headerCls = isDark ? "text-[10px] uppercase tracking-widest font-semibold text-zinc-500" : "text-[10px] uppercase tracking-widest font-semibold text-gray-500";
+  const cardCls = isDark ? "rounded-xl border border-zinc-700/50 bg-zinc-900 p-4" : "rounded-xl border border-gray-200 bg-white p-4";
+  const textPrimary = isDark ? "text-white" : "text-gray-900";
+  const textMuted = isDark ? "text-zinc-300" : "text-gray-600";
+  const textSub = isDark ? "text-zinc-500" : "text-gray-500";
+  const ideaCardCls = isDark ? "p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700/30 hover:border-zinc-600/50 transition-colors" : "p-2.5 rounded-lg bg-gray-50 border border-gray-200 hover:border-gray-300 transition-colors";
+  const ideaTextCls = isDark ? "text-xs text-zinc-300 line-clamp-2" : "text-xs text-gray-700 line-clamp-2";
+  const ideaTagCls = isDark ? "inline-block mt-1.5 px-1.5 py-0.5 rounded text-[9px] bg-zinc-700 text-zinc-400 capitalize" : "inline-block mt-1.5 px-1.5 py-0.5 rounded text-[9px] bg-gray-200 text-gray-600 capitalize";
+  const taskLowCls = isDark ? "bg-zinc-800/30 border-zinc-700/50 hover:bg-zinc-800/50" : "bg-gray-50 border-gray-200 hover:bg-gray-100";
+  const taskBtnCls = isDark ? "px-2 py-1 rounded text-[10px] border border-zinc-600 text-zinc-400 hover:bg-zinc-700" : "px-2 py-1 rounded text-[10px] border border-gray-300 text-gray-600 hover:bg-gray-100";
+  const taskLowBadgeCls = isDark ? "bg-zinc-600 text-zinc-400" : "bg-gray-200 text-gray-600";
+  const quickActionCls = isDark ? "w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-800 text-left text-sm text-zinc-300 transition-colors" : "w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 text-left text-sm text-gray-700 transition-colors";
+  const velocityBarCls = isDark ? "h-2 rounded-full bg-zinc-800 overflow-hidden" : "h-2 rounded-full bg-gray-200 overflow-hidden";
   const contentBriefParsed = useMemo(() => {
     if (!contentQuality?.text) return null;
     const parts = contentQuality.text.split(/\.\s+/).map((s) => s.trim()).filter(Boolean);
@@ -250,7 +273,7 @@ export function ClientOverviewTab({ clientId }: Props) {
     : ACTIVITY_MOCK;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-zinc-950">
+    <div className={`flex flex-col h-full overflow-hidden ${isDark ? "bg-zinc-950" : "bg-gray-50"}`}>
       {/* Three ATC-style sections side by side */}
       <div className="flex-shrink-0 mx-3 mt-3 mb-2 grid grid-cols-1 lg:grid-cols-3 gap-3 overflow-y-auto">
         {/* Brief of the Day */}
@@ -260,23 +283,24 @@ export function ClientOverviewTab({ clientId }: Props) {
           badge={`Buffer ${health?.deliveryBufferDays ?? 0}d`}
           badgeColor="emerald"
           custom={0}
+          isDark={isDark}
         >
           {parsedBrief ? (
             <div className="space-y-3">
-              <p className="text-base font-semibold text-white leading-snug">
+              <p className={`text-base font-semibold leading-snug ${textPrimary}`}>
                 {parsedBrief.summary}
               </p>
               <ul className="space-y-1.5">
                 {parsedBrief.items.map((item, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm font-mono">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor(item.priority)}`} />
-                    <span className="text-zinc-300">{item.text}</span>
+                    <span className={textMuted}>{item.text}</span>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">No brief yet for today.</p>
+            <p className={`text-sm ${textSub}`}>No brief yet for today.</p>
           )}
         </ATCSectionCard>
 
@@ -287,11 +311,12 @@ export function ClientOverviewTab({ clientId }: Props) {
           badge={contentBriefParsed?.items.length ? `${contentBriefParsed.items.length} items` : undefined}
           badgeColor="amber"
           custom={1}
+          isDark={isDark}
         >
           {contentBriefParsed ? (
             <div className="space-y-3">
               {contentBriefParsed.summary && (
-                <p className="text-base font-semibold text-white leading-snug">
+                <p className={`text-base font-semibold leading-snug ${textPrimary}`}>
                   {contentBriefParsed.summary}
                 </p>
               )}
@@ -300,14 +325,14 @@ export function ClientOverviewTab({ clientId }: Props) {
                   {contentBriefParsed.items.map((item, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm font-mono">
                       <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-amber-500" />
-                      <span className="text-zinc-300">{item}</span>
+                      <span className={textMuted}>{item}</span>
                     </li>
                   ))}
                 </ul>
               ) : null}
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">No content brief yet.</p>
+            <p className={`text-sm ${textSub}`}>No content brief yet.</p>
           )}
         </ATCSectionCard>
 
@@ -317,12 +342,13 @@ export function ClientOverviewTab({ clientId }: Props) {
           badge={flyflow.pendingApproval > 0 ? `${flyflow.pendingApproval} awaiting` : `${flyflow.pendingPosts} total`}
           badgeColor="blue"
           custom={2}
+          isDark={isDark}
         >
           {flyflow.items.length > 0 ? (
             <ul className="space-y-1.5">
               {flyflow.items.map((i) => (
                 <li key={i.id} className="flex items-center justify-between gap-4 text-sm font-mono">
-                  <span className="text-zinc-300 truncate">{i.title}</span>
+                  <span className={`${textMuted} truncate`}>{i.title}</span>
                   <span
                     className={`shrink-0 px-2 py-0.5 rounded text-[10px] ${
                       i.stage === "Awaiting approval"
@@ -336,7 +362,7 @@ export function ClientOverviewTab({ clientId }: Props) {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-zinc-500">No 2FlyFlow notifications for this client.</p>
+            <p className={`text-sm ${textSub}`}>No 2FlyFlow notifications for this client.</p>
           )}
         </ATCSectionCard>
       </div>
@@ -350,27 +376,24 @@ export function ClientOverviewTab({ clientId }: Props) {
             initial="hidden"
             animate="visible"
             custom={3}
-            className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-4"
+            className={cardCls}
           >
             <h3 className={headerCls}>New Ideas</h3>
-            <p className="text-[10px] text-zinc-500 mt-0.5 mb-3">
+            <p className={`text-[10px] mt-0.5 mb-3 ${textSub}`}>
               Brainstorm & opportunities
             </p>
             <ul className="space-y-2">
               {ideas.length > 0 ? (
                 ideas.map((idea) => (
-                  <li
-                    key={idea.id}
-                    className="p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700/30 hover:border-zinc-600/50 transition-colors"
-                  >
-                    <p className="text-xs text-zinc-300 line-clamp-2">{idea.text}</p>
-                    <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded text-[9px] bg-zinc-700 text-zinc-400 capitalize">
+                  <li key={idea.id} className={ideaCardCls}>
+                    <p className={ideaTextCls}>{idea.text}</p>
+                    <span className={ideaTagCls}>
                       {idea.tag}
                     </span>
                   </li>
                 ))
               ) : (
-                <li className="text-xs text-zinc-500 py-4">No ideas yet</li>
+                <li className={`text-xs py-4 ${textSub}`}>No ideas yet</li>
               )}
             </ul>
           </motion.div>
@@ -381,20 +404,20 @@ export function ClientOverviewTab({ clientId }: Props) {
             initial="hidden"
             animate="visible"
             custom={4}
-            className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-4 mt-auto"
+            className={`${cardCls} mt-auto`}
           >
             <h3 className={headerCls}>At a glance</h3>
             <div className="mt-2 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-zinc-500">MQLs</span>
+                <span className={textSub}>MQLs</span>
                 <span className="text-emerald-400 font-medium">{kpis.find((k) => k.name === "MQLs")?.value ?? "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">ROAS</span>
+                <span className={textSub}>ROAS</span>
                 <span className="text-amber-400 font-medium">{kpis.find((k) => k.name === "ROAS")?.value ?? "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Website</span>
+                <span className={textSub}>Website</span>
                 <span className={health?.websiteStatus === "up" ? "text-emerald-400" : "text-red-400"}>
                   {health?.websiteStatus === "up" ? "Up" : "Down"}
                 </span>
@@ -413,7 +436,7 @@ export function ClientOverviewTab({ clientId }: Props) {
             className="flex items-center justify-between"
           >
             <h3 className={headerCls}>Tasks</h3>
-            <span className="text-xs text-zinc-500">{unifiedTasks.length} total</span>
+            <span className={`text-xs ${textSub}`}>{unifiedTasks.length} total</span>
           </motion.div>
 
           <motion.div
@@ -421,7 +444,7 @@ export function ClientOverviewTab({ clientId }: Props) {
             initial="hidden"
             animate="visible"
             custom={6}
-            className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-4 flex-1 min-h-0 overflow-y-auto"
+            className={`${cardCls} flex-1 min-h-0 overflow-y-auto`}
           >
             <ul className="space-y-2">
               {unifiedTasks.map((t, i) => (
@@ -432,7 +455,7 @@ export function ClientOverviewTab({ clientId }: Props) {
                       ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10"
                       : t.priority === "medium"
                         ? "bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10"
-                        : "bg-zinc-800/30 border-zinc-700/50 hover:bg-zinc-800/50"
+                        : taskLowCls
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -442,8 +465,8 @@ export function ClientOverviewTab({ clientId }: Props) {
                       }`}
                     />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{t.title}</p>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">
+                      <p className={`text-sm font-medium truncate ${textPrimary}`}>{t.title}</p>
+                      <p className={`text-[10px] mt-0.5 ${textSub}`}>
                         {t.source === "task" ? t.assignee : t.sourceLabel ?? "Request"} · Due {formatDate(t.dueAt)}
                       </p>
                     </div>
@@ -455,12 +478,12 @@ export function ClientOverviewTab({ clientId }: Props) {
                           ? "bg-red-500/20 text-red-400"
                           : t.priority === "medium"
                             ? "bg-amber-500/20 text-amber-400"
-                            : "bg-zinc-600 text-zinc-400"
+                            : taskLowBadgeCls
                       }`}
                     >
                       {t.priority}
                     </span>
-                    <button className="px-2 py-1 rounded text-[10px] border border-zinc-600 text-zinc-400 hover:bg-zinc-700">
+                    <button className={taskBtnCls}>
                       Do it
                     </button>
                   </div>
@@ -468,7 +491,7 @@ export function ClientOverviewTab({ clientId }: Props) {
               ))}
             </ul>
             {unifiedTasks.length === 0 && (
-              <p className="text-sm text-zinc-500 py-8 text-center">No tasks for this client.</p>
+              <p className={`text-sm py-8 text-center ${textSub}`}>No tasks for this client.</p>
             )}
           </motion.div>
         </div>
@@ -480,14 +503,14 @@ export function ClientOverviewTab({ clientId }: Props) {
             initial="hidden"
             animate="visible"
             custom={7}
-            className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-4 flex-shrink-0"
+            className={`${cardCls} flex-shrink-0`}
           >
             <h3 className={headerCls}>Activity Log</h3>
             <ul className="mt-3 space-y-2">
               {activityEntries.map((a) => (
                 <li key={a.id} className="flex items-start gap-2 text-xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                  <span className="text-zinc-400 flex-1 truncate">
+                  <span className={`${textMuted} flex-1 truncate`}>
                     {a.text} · {a.time}
                   </span>
                 </li>
@@ -500,16 +523,16 @@ export function ClientOverviewTab({ clientId }: Props) {
             initial="hidden"
             animate="visible"
             custom={8}
-            className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-4 flex-shrink-0"
+            className={`${cardCls} flex-shrink-0`}
           >
             <h3 className={headerCls}>Quick Actions</h3>
-            <p className="text-[10px] text-zinc-500 mt-0.5 mb-3">
+            <p className={`text-[10px] mt-0.5 mb-3 ${textSub}`}>
               One-click access to WhatsApp templates.
             </p>
             <ul className="space-y-1">
               {QUICK_ACTIONS.map((q) => (
                 <li key={q.id}>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-800 text-left text-sm text-zinc-300 transition-colors">
+                  <button className={quickActionCls}>
                     <span className={q.color}>{q.icon}</span>
                     {q.label}
                   </button>
@@ -528,12 +551,12 @@ export function ClientOverviewTab({ clientId }: Props) {
         custom={9}
         className="flex-shrink-0 px-3 pb-3"
       >
-        <div className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-3">
+        <div className={cardCls}>
           <div className="flex items-center justify-between mb-1">
             <span className={headerCls}>Task Velocity</span>
-            <span className="text-xs text-zinc-500">{taskVelocityPct}%</span>
+            <span className={`text-xs ${textSub}`}>{taskVelocityPct}%</span>
           </div>
-          <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+          <div className={velocityBarCls}>
             <div
               className="h-full rounded-full bg-emerald-500 transition-all duration-500"
               style={{ width: `${taskVelocityPct}%` }}
