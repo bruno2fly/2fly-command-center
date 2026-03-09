@@ -1081,7 +1081,7 @@ router.post('/invoices/:id/send-email', async (req: Request, res: Response) => {
 const META_APP_ID = process.env.META_APP_ID || '';
 const META_APP_SECRET = process.env.META_APP_SECRET || '';
 const META_REDIRECT_URI = process.env.META_REDIRECT_URI || 'http://localhost:4000/api/agent-tools/meta/callback';
-const META_SCOPES = 'ads_read,ads_management,business_management,pages_read_engagement,instagram_basic,read_insights';
+const META_SCOPES = 'ads_read,ads_management,business_management,pages_read_engagement';
 
 // GET /meta/auth-url?clientId=XXX — Returns Meta OAuth URL with state=clientId
 router.get('/meta/auth-url', async (req: Request, res: Response) => {
