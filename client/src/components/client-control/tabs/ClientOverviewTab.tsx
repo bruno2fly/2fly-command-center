@@ -1,18 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { ClientInbox } from "@/components/client-control/ClientInbox";
-import { ClientControlPanel } from "@/components/client-control/ClientControlPanel";
-import { ClientHealthPanel } from "@/components/client-control/ClientHealthPanel";
-import { ClientBrainPanel } from "@/components/client-control/ClientBrainPanel";
+import { buildActionQueue } from "@/lib/client/buildActionQueue";
 import {
-  getClientHealth,
-  getNotes,
-  getIdeas,
-  getInsights,
+  ActionCenter,
+  OperationalPipeline,
+  HealthRadar,
+  SignalInbox,
+  ClientMemoryPanel,
+} from "@/components/mission-control";
+import type {
+  InboxItem,
+  ControlItem,
+  ClientHealth,
+  NoteItem,
+  IdeaItem,
+  InsightItem,
 } from "@/lib/client/mockClientControlData";
-import { mergeClientControlItems } from "@/lib/client/mergeClientActions";
-import type { InboxItem, ControlItem, ClientHealth, NoteItem, IdeaItem, InsightItem } from "@/lib/client/mockClientControlData";
 
 type Props = {
   clientId: string;
@@ -29,7 +34,7 @@ type Props = {
 };
 
 export function ClientOverviewTab({
-  clientId: _clientId,
+  clientId,
   inboxItems,
   mergedControlItems,
   health,
@@ -41,34 +46,47 @@ export function ClientOverviewTab({
   onDoItAction,
 }: Props) {
   const { isDark } = useTheme();
+  const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
+
+  const actionQueue = buildActionQueue(mergedControlItems, inboxItems, health, 5);
+  const bgBase = isDark ? "bg-[#06060a]" : "bg-gray-50";
 
   return (
-    <div className="flex-1 overflow-hidden flex">
-      <div
-        className={`flex-1 overflow-hidden flex flex-col min-w-0 border-r ${
-          isDark ? "border-[#1a1810] bg-[#08080c]/50" : "border-gray-100 bg-gray-50/50"
-        }`}
-      >
-        <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-2xl space-y-6">
-            <div
-              className={`rounded-lg border p-4 min-h-[280px] ${
-                isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-100 bg-white"
-              }`}
-            >
-              <ClientInbox
+    <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${bgBase}`}>
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Primary: Command Queue */}
+          <ActionCenter
+            items={actionQueue}
+            onDoIt={onDoItAction}
+            onConvertToTask={onConvertToTask}
+            onSelectInbox={(id) => setSelectedInboxId(id)}
+          />
+
+          {/* Operational Pipeline */}
+          <OperationalPipeline
+            clientId={clientId}
+            controlItems={mergedControlItems}
+            health={health}
+          />
+
+          {/* Two-column: Health + Inbox | Memory */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <HealthRadar health={health} />
+              <SignalInbox
                 items={inboxItems}
+                openItemId={selectedInboxId}
+                onCloseDrawer={() => setSelectedInboxId(null)}
                 onConvertToTask={onConvertToTask}
                 onMarkDone={onMarkDone}
               />
             </div>
-            <ClientControlPanel items={mergedControlItems} onDoItAction={onDoItAction} />
+            <div>
+              <ClientMemoryPanel notes={notes} ideas={ideas} insights={insights} />
+            </div>
           </div>
         </div>
-      </div>
-      <div className={`w-80 flex-shrink-0 overflow-auto p-6 space-y-6 ${isDark ? "bg-transparent" : ""}`}>
-        <ClientHealthPanel health={health} />
-        <ClientBrainPanel notes={notes} ideas={ideas} insights={insights} />
       </div>
     </div>
   );

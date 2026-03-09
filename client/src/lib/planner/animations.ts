@@ -116,15 +116,15 @@ export function useDelayedTrue(delayMs: number): boolean {
 /* ─── Flash state (fires once, auto-resets) ─── */
 export function useFlash(durationMs = 300): [boolean, () => void] {
   const [active, setActive] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fire = useCallback(() => {
     setActive(true);
-    clearTimeout(timerRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setActive(false), durationMs);
   }, [durationMs]);
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   return [active, fire];
 }

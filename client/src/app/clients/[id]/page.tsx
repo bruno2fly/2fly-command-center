@@ -7,6 +7,7 @@ import { useClients } from "@/contexts/ClientsContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api, type ApiClient } from "@/lib/api";
 import { ClientFormModal } from "@/components/ClientFormModal";
+import { ClientCommandHeader } from "@/components/mission-control";
 import { buildClientLanes } from "@/lib/clientLanes";
 import {
   getInboxItems,
@@ -27,11 +28,6 @@ import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
 import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
-
-function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
 
 function parseTabFromUrl(searchParams: ReturnType<typeof useSearchParams> | null): ClientTabId {
   const tab = searchParams?.get("tab") ?? "overview";
@@ -78,9 +74,8 @@ export default function ClientControlRoomPage() {
     );
   }
 
-  const statusColor =
-    lane.health === "green" ? "bg-emerald-500" : lane.health === "yellow" ? "bg-amber-500" : "bg-red-500";
-  const statusLabel = lane.health === "green" ? "Healthy" : lane.health === "yellow" ? "At risk" : "Urgent";
+  const healthVariant =
+    lane.health === "green" ? "healthy" : lane.health === "yellow" ? "at_risk" : "critical";
 
   const handleConvertToTask = (inboxId: string) => {
     toast.success("✓ Task created");
@@ -92,68 +87,18 @@ export default function ClientControlRoomPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className={`flex-shrink-0 px-6 py-4 border-b ${isDark ? "bg-[#08080c] border-[#1a1810]" : "bg-white border-gray-100"}`}>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className={`text-xl font-bold ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>{client.name}</h1>
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white ${statusColor}`}
-              >
-                {statusLabel}
-              </span>
-            </div>
-            <div className={`flex items-center gap-3 mt-1.5 text-sm ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}>
-              <span>Last delivery {formatDate(meta?.lastDelivery ?? null)}</span>
-              <span>·</span>
-              <span>Next promise {formatDate(meta?.nextPromiseDate ?? null)}</span>
-              {(client.monthlyRetainer != null || meta?.monthlyRetainer != null) && (
-                <>
-                  <span>·</span>
-                  <span>${(client.monthlyRetainer ?? meta?.monthlyRetainer ?? 0).toLocaleString()}/mo</span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => api.getClient(id).then(setEditClient).catch(() => {})}
-              className={`px-3 py-2 text-sm font-medium rounded-lg ${
-                isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
-              }`}
-            >
-              Edit
-            </button>
-            <button className={`px-3 py-2 text-sm font-medium rounded-lg ${
-              isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
-            }`}>
-              Quick Note
-            </button>
-            <button className={`px-3 py-2 text-sm font-medium rounded-lg ${
-              isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
-            }`}>
-              New Request
-            </button>
-            <a
-              href="#"
-              className={`px-3 py-2 text-sm font-medium rounded-lg ${
-                isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
-              }`}
-            >
-              Open WhatsApp
-            </a>
-            <button className={`px-3 py-2 text-sm font-medium rounded-lg ${
-              isDark ? "text-white bg-emerald-600/80 hover:bg-emerald-500/80" : "text-white bg-blue-600 hover:bg-blue-500"
-            }`}>
-              Create Task
-            </button>
-            <Link href="/" className={`px-3 py-2 text-sm font-medium rounded-lg ${isDark ? "text-[#8a7e6d] hover:text-[#c4b8a8]" : "text-gray-600 hover:text-gray-900"}`}>
-              ← Dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
+      <ClientCommandHeader
+        clientName={client.name}
+        healthVariant={healthVariant}
+        monthlyRetainer={client.monthlyRetainer ?? meta?.monthlyRetainer ?? null}
+        lastDelivery={meta?.lastDelivery ?? null}
+        nextPromise={meta?.nextPromiseDate ?? null}
+        onEdit={() => api.getClient(id).then(setEditClient).catch(() => {})}
+        onQuickNote={() => {}}
+        onNewRequest={() => {}}
+        onOpenWhatsApp={() => {}}
+        onCreateTask={() => {}}
+      />
 
       {/* Tab bar */}
       <ClientTabBar activeTab={activeTab} />
