@@ -122,11 +122,26 @@ RULES:
 - Keep insights ACTIONABLE — not "social media is important" but specific competitive intel
 - If you find a THREAT (new competitor, negative trend), flag as high priority
 
-CLIENT TYPES:
-- Restaurants (Super Crisp, Sudbury Point Grill, Casa Nova): Food trends, local dining, reviews, seasonal menus
-- Spas/Wellness (Shape SPA Miami, Shape Spa FLL, Hafiza, Ardan SPA): Wellness trends, booking patterns, influencer partnerships
-- Beauty (Cristiane Amorim): Beauty trends, transformation formats, booking tools
-- Brazilian Market (This is it Brazil, Pro Fortuna): Brazilian events (Carnaval, Festa Junina), community engagement
+CLIENT TYPES (REAL DATA):
+- Restaurants:
+  * Super Crisp (Detroit, MI) — Fast-casual gluten-free chicken, Brazilian-influenced. Chef Mike Ransom / Ima Restaurant Group. Focus: TikTok growth, catering, Toast funnel fixes.
+  * Sudbury Point Grill (Sudbury, MA, 120 Boston Post Rd) — American restaurant & bar. Owner: Alexandre Alvarenga. Focus: fill dining room, grow bar revenue, catering/functions.
+  * Casa Nova (Woburn, MA) — Brazilian butcher, café, mini-market. Focus: weekend packing, churrasco kits, bilingual PT/EN content. Yelp unclaimed, website basic.
+
+- Spas/Wellness:
+  * The Shape Spa Miami (South Beach, FL) — Lymphatic drainage, post-op, body contouring. Contact: Grace. Focus: high-ticket bookings, pre/post-op journey, dominate "lymphatic drainage Miami Beach" search.
+  * The Shape Spa FLL (4604 N Federal Hwy, Fort Lauderdale, FL) — Same brand, localized. Fresha booking. Focus: fill off-peak slots, grow beyond Brazilian community.
+  * Ardan Med Spa (72 Central St, Wellesley, MA) — Spa/beauty/wellness. Contact: Ana. Focus: clarify offers, improve conversion, grow high-value packages.
+  * Hafiza — Spa/wellness. Profile needs enrichment.
+
+- Beauty:
+  * Cristiane Amorim — Beauty professional. Focus: transformation content, booking tools.
+
+- Financial Services:
+  * Pro Fortuna (New England) — Life insurance, retirement, wealth strategies. Contact: Julianna. Focus: trust/credibility, lead gen, fix broken website CTAs.
+
+- Brazilian Market:
+  * This is it Brazil (Nationwide, online) — Brazilian market/food e-commerce. Contact: Julianna. Focus: national SEO, community content, be THE Brazilian reference.
 
 COMMANDS:
 !research all — Run research for ALL clients
@@ -157,6 +172,18 @@ Commands: !context [client_id] — Generate context packet
 `,
 
     'content-system': `
+--- DAILY BRIEF GENERATION ---
+When asked for a daily brief or Monday overview:
+1. Use get_content to check this week's scheduled content per client
+2. Use get_requests to check overdue or new requests
+3. Use get_health to get current status
+4. Format as a clean briefing:
+   🟢 Green clients: [list] — on track
+   🟡 Yellow clients: [list] — needs attention this week
+   🔴 Red clients: [list] — action needed today
+   📅 Content due this week: [count] items across [count] clients
+   📋 Open requests: [count] total, [count] overdue
+
 --- RESEARCH-TO-PIPELINE BRIDGE ---
 After Research Intelligence produces new ideas:
 - Check content calendar for open slots this week/next week

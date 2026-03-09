@@ -395,4 +395,63 @@ router.get('/pulse', async (_req: Request, res: Response) => {
   }
 });
 
+// ================================================================
+// REVENUE — Used by: founder-boss
+// ================================================================
+
+// GET /api/agent-tools/revenue — Revenue dashboard with MRR, at-risk, ad spend
+router.get('/revenue', async (_req: Request, res: Response) => {
+  try {
+    const clients = await prisma.client.findMany({
+      where: { status: 'active' },
+      orderBy: { monthlyRetainer: 'desc' },
+    });
+
+    const revenueByClient = clients.map((c: { name: string; monthlyRetainer: number; adBudget: number; status: string; healthStatus: string }) => ({
+      name: c.name,
+      retainer: c.monthlyRetainer,
+      adBudget: c.adBudget,
+      status: c.status,
+      healthStatus: c.healthStatus,
+    }));
+
+    const totalMRR = clients.reduce((sum: number, c: { monthlyRetainer: number }) => sum + c.monthlyRetainer, 0);
+    const activeClients = clients.length;
+
+    const atRiskClients = clients
+      .filter((c: { healthStatus: string }) => c.healthStatus === 'red')
+      .map((c: { name: string }) => c.name);
+    const atRiskRevenue = clients
+      .filter((c: { healthStatus: string }) => c.healthStatus === 'red')
+      .reduce((sum: number, c: { monthlyRetainer: number }) => sum + c.monthlyRetainer, 0);
+
+    const adSpendTotal = clients
+      .filter((c: { adBudget: number }) => c.adBudget > 0)
+      .reduce((sum: number, c: { adBudget: number }) => sum + c.adBudget, 0);
+    const clientsWithAds = clients.filter((c: { adBudget: number }) => c.adBudget > 0).length;
+    const clientsWithoutAds = activeClients - clientsWithAds;
+
+    const avgRetainer = activeClients > 0 ? Math.round(totalMRR / activeClients) : 0;
+    const topClient = revenueByClient.length > 0 ? revenueByClient[0].name : null;
+    const bottomClient = revenueByClient.length > 0 ? revenueByClient[revenueByClient.length - 1].name : null;
+
+    res.json({
+      totalMRR,
+      activeClients,
+      revenueByClient,
+      atRiskRevenue,
+      atRiskClients,
+      adSpendTotal,
+      clientsWithAds,
+      clientsWithoutAds,
+      avgRetainer,
+      topClient,
+      bottomClient,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 export default router;

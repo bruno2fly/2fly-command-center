@@ -203,6 +203,16 @@ export const ALL_TOOLS: ToolDefinition[] = [
     requiresConfirmation: true,
   },
 
+  // ── Revenue tools ──
+  {
+    name: 'get_revenue',
+    description: 'Get revenue dashboard: total MRR, revenue by client, at-risk revenue, ad spend totals. Use for financial overview.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+
   // ── Research tools ──
   {
     name: 'web_search',
@@ -329,6 +339,9 @@ export async function executeTool(
 
     case 'get_pulse':
       return callAgentTools('GET', '/pulse');
+
+    case 'get_revenue':
+      return callAgentTools('GET', '/revenue');
 
     // ── Write tools ──
     case 'update_client':
