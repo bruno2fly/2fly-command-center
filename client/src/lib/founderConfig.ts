@@ -29,13 +29,18 @@ export const APPROVAL_STALE_DAYS = 5;
 /** Days after which an overdue invoice triggers needsActionToday */
 export const INVOICE_OVERDUE_DAYS = 7;
 
-/** Client MRR values (for at-risk revenue calc) - TODO: connect to real billing */
+/** Client MRR values — real 2FLY clients */
 export const CLIENT_MRR: Record<string, number> = {
-  "1": 2500,
-  "2": 1800,
-  "3": 3200,
-  "4": 4200,
-  "5": 1500,
+  "cmmil114j0001j2tq80ty6zag": 500,   // The Shape SPA Miami
+  "cmmil114l0002j2tq3in1w0iz": 500,   // The Shape Spa FLL
+  "cmmil114m0003j2tq5q9mgpg4": 700,   // Sudbury Point Grill
+  "cmmil114m0004j2tqluvp06lw": 1000,  // Pro Fortuna
+  "cmmil114n0005j2tqy0k2trgm": 1200,  // Casa Nova
+  "cmmil114n0006j2tqy2ewcrd6": 1300,  // Ardan Med Spa
+  "cmmil114o0007j2tq9mxw9a7x": 1100,  // This is it Brazil
+  "cmmil114o0008j2tq3sviv4ed": 1400,  // Super Crisp
+  "cmmil114p0009j2tqcmy06xrz": 800,   // Hafiza
+  "cmmil114p000aj2tq2hhn6euo": 800,   // Cristiane Amorim
 };
 
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
