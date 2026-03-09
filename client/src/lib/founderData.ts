@@ -97,6 +97,14 @@ export const MOCK_BOTTLENECKS: Bottleneck[] = [
   { id: "b5", clientId: THIS_IS_IT, clientName: "This is it Brazil", category: "waiting_on_me", action: "Send website update proposal" },
 ];
 
+export type InvoiceForLane = {
+  clientId: string;
+  amount: number;
+  dueDate: string;
+  status: string;
+  paidDate?: string | null;
+};
+
 // Client lane fields (extends mockData Client)
 export type ClientLane = {
   clientId: string;
@@ -109,6 +117,11 @@ export type ClientLane = {
   primaryCta: string;
   urgencySignal?: string;
   badgeCount?: number;
+  // From real data for Payment/Ads indicators
+  paymentStatus?: "paid" | "overdue" | "pending";
+  paymentDaysOverdue?: number;
+  adsRoas?: number | null;
+  adsRoasTrend?: string;
 };
 
 /** Sum of MRR for clients in yellow or red */

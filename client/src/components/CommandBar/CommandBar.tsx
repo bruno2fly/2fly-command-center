@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAgentChat } from "@/contexts/AgentChatContext";
+import { useClients } from "@/contexts/ClientsContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { MOCK_INVOICES } from "@/lib/founderData";
 import { getGlobalAlerts, getGlobalApprovals } from "@/lib/client/mockClientControlData";
 import { CommandSearchModal } from "./CommandSearchModal";
 import { AlertsApprovalsDrawer } from "./AlertsApprovalsDrawer";
@@ -22,9 +22,13 @@ export function CommandBar() {
   const [quickCapture, setQuickCapture] = useState("");
   const [quickCaptureLoading, setQuickCaptureLoading] = useState(false);
 
+  const { invoices } = useClients();
   const alerts = getGlobalAlerts();
   const approvals = getGlobalApprovals();
-  const overdueInvoices = MOCK_INVOICES.filter((i) => i.status === "overdue");
+  const now = new Date();
+  const overdueInvoices = invoices.filter(
+    (i) => i.status === "overdue" || (i.status === "sent" && new Date(i.dueDate) < now)
+  );
   const overdueAmount = overdueInvoices.reduce((s, i) => s + i.amount, 0);
 
   const urgentCount = alerts.length;

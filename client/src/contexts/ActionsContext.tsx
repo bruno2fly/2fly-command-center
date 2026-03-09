@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  MOCK_PRIORITY_ITEMS,
   getExecutionItems,
   sortPriorities,
   type ExecutionColumn,
@@ -21,7 +20,7 @@ import {
 import { MOCK_MOMENTUM } from "@/lib/founder/mockFounderData";
 import type { TaskPriority } from "@/lib/founderConfig";
 import { api } from "@/lib/api";
-import type { ApiRequestItem } from "@/lib/api";
+import type { ApiRequestItem, ApiInvoiceItem } from "@/lib/api";
 
 export type SnoozeUntil = "1h" | "tomorrow" | "nextweek" | string;
 
@@ -101,36 +100,68 @@ function buildPriorityItem(r: ApiRequestItem): PriorityItem {
   };
 }
 
+function buildInvoicePriorityItem(inv: ApiInvoiceItem): PriorityItem {
+  const now = new Date();
+  const dueDate = new Date(inv.dueDate);
+  const isOverdue = inv.status === "overdue" || (inv.status === "sent" && dueDate < now);
+  const daysOverdue = isOverdue ? Math.floor((now.getTime() - dueDate.getTime()) / 86400000) : 0;
+  return {
+    id: `inv-${inv.id}`,
+    title: "Chase invoice",
+    clientId: inv.clientId,
+    clientName: inv.client?.name || "Unknown",
+    tags: ["CASH_NOW"],
+    dueAt: inv.dueDate,
+    isOverdue,
+    dueToday: dueDate.toDateString() === now.toDateString(),
+    cashImpact: inv.amount,
+    riskLevel: "red",
+    source: "Manual",
+    assignedTo: "You",
+    summary: `Invoice ${inv.invoiceNumber} overdue by ${daysOverdue} days · $${inv.amount.toLocaleString()}`,
+  };
+}
+
 export function ActionsProvider({ children }: { children: ReactNode }) {
-  const [priorityItems, setPriorityItems] = useState<PriorityItem[]>(MOCK_PRIORITY_ITEMS);
+  const [priorityItems, setPriorityItems] = useState<PriorityItem[]>([]);
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => new Set());
   const [snoozedUntil, setSnoozedUntil] = useState<Map<string, string>>(() => new Map());
   const [baseMomentum, setBaseMomentum] = useState(MOCK_MOMENTUM);
   const [completedTodayCount, setCompletedTodayCount] = useState(MOCK_MOMENTUM.completedToday);
 
-  // Fetch real data from API, fall back to mock on error
+  // Fetch real data from API — no mock fallback
   useEffect(() => {
     async function loadRealData() {
       try {
-        const [requestsData, briefData] = await Promise.all([
+        const [requestsData, invoicesData] = await Promise.all([
           api.getRequestsRaw(),
-          api.getBrief().catch(() => null),
+          api.getInvoicesRaw().catch(() => ({ invoices: [] })),
         ]);
 
         const requests = requestsData.requests || [];
-        // Only use open/in-progress requests as priority items
+        const invoices = invoicesData.invoices || [];
+        const now = new Date();
+
+        // Overdue invoices → CASH_NOW priority items
+        const overdueInvoices = invoices.filter(
+          (inv) =>
+            inv.status === "overdue" ||
+            (inv.status === "sent" && new Date(inv.dueDate) < now)
+        );
+        const invoiceItems = overdueInvoices.map(buildInvoicePriorityItem);
+
+        // Open requests → priority items
         const openRequests = requests.filter(
           (r) => r.status !== "completed" && r.status !== "cancelled"
         );
+        const requestItems = openRequests.map(buildPriorityItem);
 
-        if (openRequests.length > 0) {
-          const realPriorities = openRequests.map(buildPriorityItem);
-          setPriorityItems(realPriorities);
-        }
+        // Combine: invoices first (cash now), then requests
+        const all = [...invoiceItems, ...requestItems];
+        setPriorityItems(all);
 
         // Compute momentum from completed requests
         if (requests.length > 0) {
-          const now = new Date();
           const todayStr = now.toDateString();
           const weekStart = new Date(now);
           weekStart.setDate(weekStart.getDate() - weekStart.getDay());
@@ -147,13 +178,13 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
           setBaseMomentum({
             completedToday,
             completedThisWeek,
-            streak: MOCK_MOMENTUM.streak, // No easy way to compute streak from API
+            streak: MOCK_MOMENTUM.streak,
           });
           setCompletedTodayCount(completedToday);
         }
       } catch (err) {
-        console.warn("Failed to load real data, using mock:", err);
-        // Falls back to MOCK_PRIORITY_ITEMS already set as initial state
+        console.warn("Failed to load real data:", err);
+        setPriorityItems([]);
       }
     }
     loadRealData();

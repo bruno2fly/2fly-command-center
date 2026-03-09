@@ -9,8 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createClient, MOCK_CLIENTS, type Client, type ClientRaw } from "@/lib/mockData";
+import { createClient, type Client, type ClientRaw } from "@/lib/mockData";
 import { api, type ApiClient } from "@/lib/api";
+import type { InvoiceForLane } from "@/lib/founderData";
 
 const STORAGE_KEY = "2fly-clients";
 
@@ -39,6 +40,9 @@ function loadCachedClients(): Client[] | null {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
     const raw = JSON.parse(stored) as ClientRaw[];
+    // Ignore cache with demo client IDs (1,2,3,4,5)
+    const isDemoCache = raw.length > 0 && ["1", "2", "3", "4", "5"].includes(raw[0]?.id ?? "");
+    if (isDemoCache) return null;
     return raw.map(createClient);
   } catch {
     return null;
@@ -60,6 +64,7 @@ function toRaw(c: Client): ClientRaw {
 
 type ClientsContextValue = {
   clients: Client[];
+  invoices: InvoiceForLane[];
   loading: boolean;
   refreshClients: () => Promise<void>;
   addClient: (raw: ClientRaw) => void;
@@ -68,38 +73,53 @@ type ClientsContextValue = {
 
 const ClientsContext = createContext<ClientsContextValue | null>(null);
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 export function ClientsProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceForLane[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch from API on mount, fall back to cache, then mock
+  // Fetch from API on mount, fall back to cache only (no mock)
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchClients() {
+    async function fetchData() {
       try {
-        const data = await api.getClients();
-        if (!cancelled && data.clients && data.clients.length > 0) {
-          const mapped = data.clients.map(mapApiClient);
+        const [clientsRes, invoicesRes] = await Promise.all([
+          fetch(`${API_BASE}/api/agent-tools/clients`).then((r) => r.ok ? r.json() : null),
+          fetch(`${API_BASE}/api/agent-tools/invoices`).then((r) => r.ok ? r.json() : null),
+        ]);
+
+        if (!cancelled && clientsRes?.clients?.length > 0) {
+          const mapped = clientsRes.clients.map(mapApiClient);
           setClients(mapped);
-          // Cache in localStorage
           if (typeof window !== "undefined") {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped.map(toRaw)));
           }
+        } else if (!cancelled) {
+          const cached = loadCachedClients();
+          if (cached && cached.length > 0) setClients(cached);
+        }
+
+        if (!cancelled && invoicesRes?.invoices?.length > 0) {
+          setInvoices(invoicesRes.invoices.map((inv: { clientId: string; amount: number; dueDate: string; status: string; paidDate?: string | null }) => ({
+            clientId: inv.clientId,
+            amount: inv.amount,
+            dueDate: inv.dueDate,
+            status: inv.status,
+            paidDate: inv.paidDate,
+          })));
         }
       } catch {
-        // API down — try localStorage cache
         const cached = loadCachedClients();
-        if (!cancelled && cached && cached.length > 0) {
-          setClients(cached);
-        }
-        // else keep MOCK_CLIENTS default
+        if (!cancelled && cached && cached.length > 0) setClients(cached);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    fetchClients();
+    fetchData();
     return () => { cancelled = true; };
   }, []);
 
@@ -112,13 +132,25 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
 
   const refreshClients = useCallback(async () => {
     try {
-      const data = await api.getClients();
-      if (data.clients && data.clients.length > 0) {
-        const mapped = data.clients.map(mapApiClient);
+      const [clientsRes, invoicesRes] = await Promise.all([
+        fetch(`${API_BASE}/api/agent-tools/clients`).then((r) => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/agent-tools/invoices`).then((r) => r.ok ? r.json() : null),
+      ]);
+      if (clientsRes?.clients?.length > 0) {
+        const mapped = clientsRes.clients.map(mapApiClient);
         setClients(mapped);
         if (typeof window !== "undefined") {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped.map(toRaw)));
         }
+      }
+      if (invoicesRes?.invoices?.length > 0) {
+        setInvoices(invoicesRes.invoices.map((inv: { clientId: string; amount: number; dueDate: string; status: string; paidDate?: string | null }) => ({
+          clientId: inv.clientId,
+          amount: inv.amount,
+          dueDate: inv.dueDate,
+          status: inv.status,
+          paidDate: inv.paidDate,
+        })));
       }
     } catch {
       const cached = loadCachedClients();
@@ -150,8 +182,8 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ clients, loading, refreshClients, addClient, deleteClient }),
-    [clients, loading, refreshClients, addClient, deleteClient]
+    () => ({ clients, invoices, loading, refreshClients, addClient, deleteClient }),
+    [clients, invoices, loading, refreshClients, addClient, deleteClient]
   );
 
   return <ClientsContext.Provider value={value}>{children}</ClientsContext.Provider>;

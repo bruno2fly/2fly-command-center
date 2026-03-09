@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useClients } from "@/contexts/ClientsContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { buildClientLanes } from "@/lib/clientLanes";
-import { getClientHealth } from "@/lib/client/mockClientControlData";
 import { HealthDot, type HealthState } from "@/components/ui/HealthDot";
+import type { ClientLane } from "@/lib/founderData";
 
 type Filter = "all" | "at_risk" | "warning" | "healthy";
 
@@ -17,51 +17,43 @@ const FILTER_LABELS: Record<Filter, string> = {
   healthy: "Healthy",
 };
 
-function PaymentIndicator({ clientId }: { clientId: string }) {
-  const health = getClientHealth(clientId);
-  if (!health) return <span className="text-gray-400">—</span>;
-  if (health.paymentStatus === "paid")
+function PaymentIndicator({ lane }: { lane: ClientLane }) {
+  if (lane.paymentStatus === "paid")
     return (
       <span className="text-emerald-600 dark:text-emerald-400 font-medium">
         Paid
       </span>
     );
-  if (health.paymentStatus === "overdue")
+  if (lane.paymentStatus === "overdue")
     return (
       <span className="text-red-600 dark:text-red-400 font-medium">
-        Overdue {health.paymentDaysOverdue}d
+        Overdue {lane.paymentDaysOverdue ?? 0}d
       </span>
     );
-  return (
-    <span className="text-amber-600 dark:text-amber-400">Pending</span>
-  );
+  if (lane.paymentStatus === "pending")
+    return (
+      <span className="text-amber-600 dark:text-amber-400">Pending</span>
+    );
+  return <span className="text-gray-400">—</span>;
 }
 
-function AdsIndicator({ clientId }: { clientId: string }) {
-  const health = getClientHealth(clientId);
-  if (!health) return <span className="text-gray-400">—</span>;
-  if (health.adsStatus === "ok")
+function AdsIndicator({ lane }: { lane: ClientLane }) {
+  if (lane.adsRoas != null)
     return (
       <span className="text-emerald-600 dark:text-emerald-400">
-        {health.adsRoasTrend}
-      </span>
-    );
-  if (health.adsStatus === "alert")
-    return (
-      <span className="text-amber-600 dark:text-amber-400">
-        {health.adsRoasTrend}
+        {lane.adsRoasTrend ?? `${lane.adsRoas.toFixed(1)}x`}
       </span>
     );
   return <span className="text-gray-400">—</span>;
 }
 
 export function ClientTriageTable() {
-  const { clients } = useClients();
+  const { clients, invoices, loading } = useClients();
   const { isDark } = useTheme();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
 
-  const lanes = useMemo(() => buildClientLanes(clients), [clients]);
+  const lanes = useMemo(() => buildClientLanes(clients, invoices), [clients, invoices]);
 
   const filtered = useMemo(() => {
     let list = lanes;
@@ -211,10 +203,10 @@ export function ClientTriageTable() {
                   {lane.urgencySignal ?? "—"}
                 </td>
                 <td className={`py-3 px-4 ${tdCls}`}>
-                  <PaymentIndicator clientId={lane.clientId} />
+                  <PaymentIndicator lane={lane} />
                 </td>
                 <td className={`py-3 px-4 ${tdCls}`}>
-                  <AdsIndicator clientId={lane.clientId} />
+                  <AdsIndicator lane={lane} />
                 </td>
                 <td className={`py-3 px-4 ${tdCls}`}>{lane.contentBufferDays}d</td>
                 <td className={`py-3 px-4 ${tdCls}`}>
@@ -252,7 +244,7 @@ export function ClientTriageTable() {
         <div
           className={`py-12 text-center ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}
         >
-          No clients match
+          {loading ? "Loading clients…" : "No clients match"}
         </div>
       )}
     </div>

@@ -51,6 +51,24 @@ export const api = {
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
   getContentRaw: (clientId?: string) =>
     fetchAPI<ApiContentResponse>(`/content${clientId ? `?clientId=${clientId}` : ''}`),
+  getInvoicesRaw: () =>
+    fetchAPI<ApiInvoicesResponse>('/invoices'),
+};
+
+export type ApiInvoiceItem = {
+  id: string;
+  clientId: string;
+  client?: { name: string };
+  invoiceNumber: string;
+  amount: number;
+  status: string;
+  dueDate: string;
+  paidDate?: string | null;
+  description?: string | null;
+};
+
+export type ApiInvoicesResponse = {
+  invoices: ApiInvoiceItem[];
 };
 
 // ─── API response types ─────────────────────────────────────────────────────
