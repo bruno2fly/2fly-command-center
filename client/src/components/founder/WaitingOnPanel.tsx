@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MOCK_BOTTLENECKS } from "@/lib/founderData";
+import { api } from "@/lib/api";
+import type { ApiRequestItem } from "@/lib/api";
 
 type WaitingItem = {
   id: string;
@@ -18,6 +21,46 @@ const AGE_BY_ID: Record<string, number> = {
   b4: 3,
   b5: 1,
 };
+
+function computeAgeDays(dateStr: string): number {
+  const created = new Date(dateStr);
+  const now = new Date();
+  return Math.max(0, Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+}
+
+function buildWaitingItems(requests: ApiRequestItem[]): {
+  onClient: WaitingItem[];
+  onTeam: WaitingItem[];
+  onMe: WaitingItem[];
+} {
+  const onClient: WaitingItem[] = [];
+  const onTeam: WaitingItem[] = [];
+  const onMe: WaitingItem[] = [];
+
+  for (const r of requests) {
+    // Only include in-progress or pending requests
+    if (r.status === "completed" || r.status === "cancelled") continue;
+
+    const item: WaitingItem = {
+      id: r.id,
+      clientId: r.clientId,
+      clientName: r.client?.name || "Unknown",
+      reason: r.title,
+      ageDays: computeAgeDays(r.createdAt),
+    };
+
+    // Categorize based on status and assignee
+    if (r.status === "waiting_on_client" || r.status === "blocked") {
+      onClient.push(item);
+    } else if (r.assignedTo && r.assignedTo !== "You" && r.assignedTo !== "Unassigned") {
+      onTeam.push(item);
+    } else {
+      onMe.push(item);
+    }
+  }
+
+  return { onClient, onTeam, onMe };
+}
 
 function WaitingColumn({
   title,
@@ -59,6 +102,7 @@ function WaitingColumn({
 }
 
 export function WaitingOnPanel() {
+  // Start with mock data as fallback
   const toItem = (b: { id: string; clientId: string; clientName: string; action: string }): WaitingItem => ({
     id: b.id,
     clientId: b.clientId,
@@ -67,9 +111,34 @@ export function WaitingOnPanel() {
     ageDays: AGE_BY_ID[b.id] ?? 0,
   });
 
-  const onClient = MOCK_BOTTLENECKS.filter((b) => b.category === "waiting_on_client").map(toItem);
-  const onTeam = MOCK_BOTTLENECKS.filter((b) => b.category === "waiting_on_team").map(toItem);
-  const onMe = MOCK_BOTTLENECKS.filter((b) => b.category === "waiting_on_me").map(toItem);
+  const mockOnClient = MOCK_BOTTLENECKS.filter((b) => b.category === "waiting_on_client").map(toItem);
+  const mockOnTeam = MOCK_BOTTLENECKS.filter((b) => b.category === "waiting_on_team").map(toItem);
+  const mockOnMe = MOCK_BOTTLENECKS.filter((b) => b.category === "waiting_on_me").map(toItem);
+
+  const [onClient, setOnClient] = useState<WaitingItem[]>(mockOnClient);
+  const [onTeam, setOnTeam] = useState<WaitingItem[]>(mockOnTeam);
+  const [onMe, setOnMe] = useState<WaitingItem[]>(mockOnMe);
+
+  useEffect(() => {
+    async function loadRealBottlenecks() {
+      try {
+        const data = await api.getRequestsRaw();
+        const requests = data.requests || [];
+        if (requests.length > 0) {
+          const { onClient: rc, onTeam: rt, onMe: rm } = buildWaitingItems(requests);
+          // Only replace if we got at least some items (avoid empty panel when API returns no waiting items)
+          if (rc.length > 0 || rt.length > 0 || rm.length > 0) {
+            setOnClient(rc);
+            setOnTeam(rt);
+            setOnMe(rm);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load real bottlenecks, using mock:", err);
+      }
+    }
+    loadRealBottlenecks();
+  }, []);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">

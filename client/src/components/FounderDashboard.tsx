@@ -21,14 +21,20 @@ export function FounderDashboard() {
   const { executionItems, momentum } = useActions();
   const { fire, cash, delivery } = executionItems;
 
-  /* Fetch real activity from pulse endpoint, fall back to mock */
+  /* Fetch real activity from pulse + brief endpoints, fall back to mock */
   const [activity, setActivity] = useState<ActivityEvent[]>(MOCK_ACTIVITY);
   useEffect(() => {
-    api.getPulse()
-      .then((pulse) => {
-        // Build activity events from pulse health data
+    async function loadActivity() {
+      try {
+        const [pulse, brief] = await Promise.all([
+          api.getPulse(),
+          api.getBrief().catch(() => null),
+        ]);
+
         const events: ActivityEvent[] = [];
         const now = new Date();
+
+        // Events from pulse: red health clients
         if (pulse.health?.clients) {
           pulse.health.clients.forEach((c, i) => {
             if (c.status === "red") {
@@ -53,10 +59,44 @@ export function FounderDashboard() {
             timestamp: now.toISOString(),
           });
         }
-        // Use real events if available, otherwise keep mock
+
+        // Events from brief: overdue requests
+        if (brief?.requests?.overdueItems) {
+          for (const item of brief.requests.overdueItems) {
+            events.push({
+              id: `brief-req-${events.length}`,
+              type: "request",
+              clientName: item.client || "Unknown",
+              clientId: "",
+              message: `Overdue: ${item.title} (${item.priority})`,
+              timestamp: item.dueDate || now.toISOString(),
+            });
+          }
+        }
+
+        // Events from brief: urgent content
+        if (brief?.content?.urgentItems) {
+          for (const item of brief.content.urgentItems) {
+            events.push({
+              id: `brief-content-${events.length}`,
+              type: "approval_requested",
+              clientName: item.client || "Unknown",
+              clientId: "",
+              message: `Due soon: ${item.title} (${item.status})`,
+              timestamp: item.scheduledDate || now.toISOString(),
+            });
+          }
+        }
+
+        // Sort by timestamp descending
+        events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
         if (events.length > 0) setActivity(events);
-      })
-      .catch(() => { /* API down, keep mock data */ });
+      } catch {
+        /* API down, keep mock data */
+      }
+    }
+    loadActivity();
   }, []);
 
   /* Boot sequence: green dot pings during panel power-on, then goes solid */

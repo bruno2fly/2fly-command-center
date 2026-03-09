@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -15,9 +16,12 @@ import {
   type ExecutionColumn,
   type ExecutionItem,
   type PriorityItem,
+  type PriorityTag,
 } from "@/lib/founder/mockFounderData";
 import { MOCK_MOMENTUM } from "@/lib/founder/mockFounderData";
 import type { TaskPriority } from "@/lib/founderConfig";
+import { api } from "@/lib/api";
+import type { ApiRequestItem } from "@/lib/api";
 
 export type SnoozeUntil = "1h" | "tomorrow" | "nextweek" | string;
 
@@ -71,20 +75,99 @@ function getSnoozeDate(until: SnoozeUntil): string {
   return until;
 }
 
+function mapPriorityTag(priority: string): PriorityTag {
+  if (priority === "urgent") return "CASH_NOW";
+  if (priority === "high") return "PREVENT_FIRE";
+  return "STRATEGIC";
+}
+
+function buildPriorityItem(r: ApiRequestItem): PriorityItem {
+  const now = new Date();
+  const dueDate = r.dueDate ? new Date(r.dueDate) : null;
+  return {
+    id: r.id,
+    title: r.title,
+    clientId: r.clientId,
+    clientName: r.client?.name || "Unknown",
+    tags: [mapPriorityTag(r.priority)],
+    dueAt: r.dueDate || now.toISOString(),
+    isOverdue: dueDate ? dueDate < now : false,
+    dueToday: dueDate ? dueDate.toDateString() === now.toDateString() : false,
+    cashImpact: 0,
+    riskLevel: r.priority === "urgent" ? "red" : r.priority === "high" ? "yellow" : "green",
+    source: "Manual",
+    assignedTo: r.assignedTo || "Unassigned",
+    summary: r.description || r.title,
+  };
+}
+
 export function ActionsProvider({ children }: { children: ReactNode }) {
+  const [priorityItems, setPriorityItems] = useState<PriorityItem[]>(MOCK_PRIORITY_ITEMS);
   const [completedIds, setCompletedIds] = useState<Set<string>>(() => new Set());
   const [snoozedUntil, setSnoozedUntil] = useState<Map<string, string>>(() => new Map());
+  const [baseMomentum, setBaseMomentum] = useState(MOCK_MOMENTUM);
   const [completedTodayCount, setCompletedTodayCount] = useState(MOCK_MOMENTUM.completedToday);
+
+  // Fetch real data from API, fall back to mock on error
+  useEffect(() => {
+    async function loadRealData() {
+      try {
+        const [requestsData, briefData] = await Promise.all([
+          api.getRequestsRaw(),
+          api.getBrief().catch(() => null),
+        ]);
+
+        const requests = requestsData.requests || [];
+        // Only use open/in-progress requests as priority items
+        const openRequests = requests.filter(
+          (r) => r.status !== "completed" && r.status !== "cancelled"
+        );
+
+        if (openRequests.length > 0) {
+          const realPriorities = openRequests.map(buildPriorityItem);
+          setPriorityItems(realPriorities);
+        }
+
+        // Compute momentum from completed requests
+        if (requests.length > 0) {
+          const now = new Date();
+          const todayStr = now.toDateString();
+          const weekStart = new Date(now);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+
+          const completedToday = requests.filter(
+            (r) => r.status === "completed" && r.resolvedAt && new Date(r.resolvedAt).toDateString() === todayStr
+          ).length;
+
+          const completedThisWeek = requests.filter(
+            (r) => r.status === "completed" && r.resolvedAt && new Date(r.resolvedAt) >= weekStart
+          ).length;
+
+          setBaseMomentum({
+            completedToday,
+            completedThisWeek,
+            streak: MOCK_MOMENTUM.streak, // No easy way to compute streak from API
+          });
+          setCompletedTodayCount(completedToday);
+        }
+      } catch (err) {
+        console.warn("Failed to load real data, using mock:", err);
+        // Falls back to MOCK_PRIORITY_ITEMS already set as initial state
+      }
+    }
+    loadRealData();
+  }, []);
 
   const activePriorities = useMemo(() => {
     const now = new Date().toISOString();
-    return MOCK_PRIORITY_ITEMS.filter((p) => {
+    return priorityItems.filter((p) => {
       if (completedIds.has(p.id)) return false;
       const snooze = snoozedUntil.get(p.id);
       if (snooze && snooze > now) return false;
       return true;
     });
-  }, [completedIds, snoozedUntil]);
+  }, [priorityItems, completedIds, snoozedUntil]);
 
   const executionItems = useMemo(() => {
     return getExecutionItems(activePriorities);
@@ -104,10 +187,10 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   const momentum = useMemo(
     () => ({
       completedToday: completedTodayCount,
-      completedThisWeek: Math.max(MOCK_MOMENTUM.completedThisWeek, completedTodayCount),
-      streak: MOCK_MOMENTUM.streak,
+      completedThisWeek: Math.max(baseMomentum.completedThisWeek, completedTodayCount),
+      streak: baseMomentum.streak,
     }),
-    [completedTodayCount]
+    [completedTodayCount, baseMomentum]
   );
 
   const markComplete = useCallback((itemId: string, _column: ExecutionColumn) => {

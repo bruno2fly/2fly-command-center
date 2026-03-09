@@ -45,6 +45,12 @@ export const api = {
     fetchAPI(`/ads${clientId ? `?clientId=${clientId}` : ''}`),
   getHealth: () => fetchAPI<ApiHealthResponse>('/health'),
   getPulse: () => fetchAPI<ApiPulseResponse>('/pulse'),
+  getBrief: () => fetchAPI<ApiBriefResponse>('/brief'),
+  getRevenue: () => fetchAPI<ApiRevenueResponse>('/revenue'),
+  getRequestsRaw: (clientId?: string) =>
+    fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
+  getContentRaw: (clientId?: string) =>
+    fetchAPI<ApiContentResponse>(`/content${clientId ? `?clientId=${clientId}` : ''}`),
 };
 
 // ─── API response types ─────────────────────────────────────────────────────
@@ -102,4 +108,86 @@ export type ApiPulseResponse = {
   };
   requests: { total: number; breached: number };
   content: { scheduledNext7Days: number };
+};
+
+export type ApiBriefResponse = {
+  greeting: string;
+  health: {
+    green: number;
+    yellow: number;
+    red: number;
+    redClients: string[];
+  };
+  content: {
+    dueToday: number;
+    dueThisWeek: number;
+    urgentItems: {
+      title: string;
+      client: string;
+      scheduledDate: string;
+      status: string;
+    }[];
+  };
+  requests: {
+    open: number;
+    overdue: number;
+    overdueItems: {
+      title: string;
+      client: string;
+      priority: string;
+      dueDate: string;
+    }[];
+  };
+  revenue: {
+    mrr: number;
+    atRisk: number;
+  };
+};
+
+export type ApiRevenueResponse = {
+  mrr: number;
+  atRiskRevenue: number;
+  adSpend: number;
+  clients: {
+    name: string;
+    retainer: number;
+    adBudget: number;
+  }[];
+};
+
+export type ApiRequestItem = {
+  id: string;
+  title: string;
+  description?: string;
+  clientId: string;
+  client?: { name: string };
+  priority: string;
+  status: string;
+  dueDate?: string;
+  assignedTo?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiRequestsResponse = {
+  requests: ApiRequestItem[];
+  total: number;
+};
+
+export type ApiContentItem = {
+  id: string;
+  title: string;
+  clientId: string;
+  client?: { name: string };
+  platform: string;
+  status: string;
+  scheduledDate?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiContentResponse = {
+  content: ApiContentItem[];
+  total: number;
 };
