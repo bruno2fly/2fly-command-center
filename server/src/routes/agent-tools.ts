@@ -597,6 +597,103 @@ router.patch('/invoices/:id', async (req: Request, res: Response) => {
 });
 
 // ================================================================
+// AD CAMPAIGNS — Used by: meta-traffic, founder-boss
+// ================================================================
+
+// GET /campaigns — list campaigns (optional ?clientId=&status=)
+router.get('/campaigns', async (req: Request, res: Response) => {
+  try {
+    const where: Record<string, unknown> = {};
+    if (req.query.clientId) where.clientId = req.query.clientId;
+    if (req.query.status) where.status = req.query.status;
+    const campaigns = await prisma.adCampaign.findMany({
+      where,
+      include: {
+        client: { select: { name: true } },
+        adSets: { include: { ads: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ campaigns, total: campaigns.length });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /campaigns — create a campaign (typically from meta-traffic agent)
+router.post('/campaigns', async (req: Request, res: Response) => {
+  try {
+    const { clientId, name, objective, dailyBudget, lifetimeBudget, startDate, endDate, strategy, audienceSpec, adCopy, expectedCpa, expectedRoas, notes } = req.body;
+    if (!clientId || !name || !objective) {
+      return res.status(400).json({ error: 'clientId, name, and objective are required' });
+    }
+    const campaign = await prisma.adCampaign.create({
+      data: {
+        clientId,
+        name,
+        objective,
+        dailyBudget: dailyBudget ? parseFloat(dailyBudget) : null,
+        lifetimeBudget: lifetimeBudget ? parseFloat(lifetimeBudget) : null,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        strategy: strategy ? (typeof strategy === 'string' ? strategy : JSON.stringify(strategy)) : null,
+        audienceSpec: audienceSpec ? (typeof audienceSpec === 'string' ? audienceSpec : JSON.stringify(audienceSpec)) : null,
+        adCopy: adCopy ? (typeof adCopy === 'string' ? adCopy : JSON.stringify(adCopy)) : null,
+        expectedCpa: expectedCpa ? parseFloat(expectedCpa) : null,
+        expectedRoas: expectedRoas ? parseFloat(expectedRoas) : null,
+        notes: notes || null,
+        status: 'draft',
+      },
+      include: { client: { select: { name: true } } },
+    });
+    res.json({ success: true, campaign });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// PATCH /campaigns/:id — update campaign (approve, activate, pause, etc.)
+router.patch('/campaigns/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data: Record<string, unknown> = {};
+    if (req.body.status) data.status = req.body.status;
+    if (req.body.name) data.name = req.body.name;
+    if (req.body.strategy) data.strategy = typeof req.body.strategy === 'string' ? req.body.strategy : JSON.stringify(req.body.strategy);
+    if (req.body.audienceSpec) data.audienceSpec = typeof req.body.audienceSpec === 'string' ? req.body.audienceSpec : JSON.stringify(req.body.audienceSpec);
+    if (req.body.adCopy) data.adCopy = typeof req.body.adCopy === 'string' ? req.body.adCopy : JSON.stringify(req.body.adCopy);
+    if (req.body.notes) data.notes = req.body.notes;
+    if (req.body.dailyBudget) data.dailyBudget = parseFloat(req.body.dailyBudget);
+
+    const campaign = await prisma.adCampaign.update({ where: { id }, data });
+    res.json({ success: true, campaign });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /campaigns/:id — single campaign with all ad sets and ads
+router.get('/campaigns/:id', async (req: Request, res: Response) => {
+  try {
+    const campaign = await prisma.adCampaign.findUnique({
+      where: { id: req.params.id },
+      include: {
+        client: { select: { name: true, contactName: true, industry: true } },
+        adSets: { include: { ads: true } },
+      },
+    });
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    res.json(campaign);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ================================================================
 // CONTENT CALENDAR — Cross-client content view
 // ================================================================
 

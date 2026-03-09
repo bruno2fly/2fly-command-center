@@ -61,6 +61,7 @@ model Client {
   adReports       AdReport[]
   healthLogs      HealthLog[]
   invoices        Invoice[]
+  adCampaigns     AdCampaign[]
 }
 
 // Tracks health changes over time for trend visibility
@@ -168,6 +169,64 @@ model Invoice {
   description     String?  // "March 2026 retainer" etc.
   type            String   @default("retainer") // retainer | ad_spend | project | one_time
   notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────
+// MODULE 6: AD CAMPAIGNS (Meta Traffic Agent)
+// ─────────────────────────────────────────────────
+
+model AdCampaign {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  name            String
+  objective       String   // LEADS | TRAFFIC | AWARENESS | CONVERSIONS | REACH
+  status          String   @default("draft") // draft | review | approved | active | paused | completed
+  dailyBudget     Float?
+  lifetimeBudget  Float?
+  startDate       DateTime?
+  endDate         DateTime?
+  strategy        String?  // JSON: full strategy document
+  audienceSpec    String?  // JSON: targeting spec
+  adCopy          String?  // JSON: copy variations
+  expectedCpa     Float?
+  expectedRoas    Float?
+  notes           String?
+  createdBy       String   @default("meta-traffic") // agent or user
+  adSets          AdSet[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AdSet {
+  id              String   @id @default(cuid())
+  campaignId      String
+  campaign        AdCampaign @relation(fields: [campaignId], references: [id])
+  name            String
+  targeting       String?  // JSON: audience targeting
+  placements      String?  // JSON: placement config
+  dailyBudget     Float?
+  status          String   @default("draft")
+  ads             Ad[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Ad {
+  id              String   @id @default(cuid())
+  adSetId         String
+  adSet           AdSet    @relation(fields: [adSetId], references: [id])
+  name            String
+  primaryText     String
+  headline        String
+  description     String?
+  callToAction    String   // BOOK_NOW | LEARN_MORE | SHOP_NOW | GET_OFFER | SIGN_UP
+  imageUrl        String?
+  videoUrl        String?
+  landingPageUrl  String?
+  status          String   @default("draft")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

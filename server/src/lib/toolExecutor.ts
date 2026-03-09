@@ -214,6 +214,57 @@ export const ALL_TOOLS: ToolDefinition[] = [
   },
 
   {
+    name: 'get_campaigns',
+    description: 'Get ad campaigns. Optional filters: clientId, status (draft/review/approved/active/paused/completed). Returns campaigns with ad sets and ads.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string', description: 'Filter by client ID' },
+        status: { type: 'string', description: 'Filter by status' },
+      },
+    },
+  },
+  {
+    name: 'create_campaign',
+    description: 'Create a new ad campaign for a client. Stores strategy, audience spec, and ad copy as JSON. Use after generating a campaign plan.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string', description: 'Client ID' },
+        name: { type: 'string', description: 'Campaign name' },
+        objective: { type: 'string', description: 'LEADS | TRAFFIC | AWARENESS | CONVERSIONS | REACH' },
+        dailyBudget: { type: 'number', description: 'Daily budget in USD' },
+        lifetimeBudget: { type: 'number', description: 'Total lifetime budget' },
+        startDate: { type: 'string', description: 'Start date ISO' },
+        endDate: { type: 'string', description: 'End date ISO' },
+        strategy: { type: 'object', description: 'Full strategy document as JSON' },
+        audienceSpec: { type: 'object', description: 'Audience targeting spec as JSON' },
+        adCopy: { type: 'object', description: 'Ad copy variations as JSON' },
+        expectedCpa: { type: 'number', description: 'Expected CPA' },
+        expectedRoas: { type: 'number', description: 'Expected ROAS' },
+        notes: { type: 'string' },
+      },
+      required: ['clientId', 'name', 'objective'],
+    },
+  },
+  {
+    name: 'update_campaign',
+    description: 'Update an ad campaign (change status, update strategy/copy, adjust budget).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        campaignId: { type: 'string', description: 'Campaign ID' },
+        status: { type: 'string', description: 'New status' },
+        strategy: { type: 'object' },
+        audienceSpec: { type: 'object' },
+        adCopy: { type: 'object' },
+        dailyBudget: { type: 'number' },
+        notes: { type: 'string' },
+      },
+      required: ['campaignId'],
+    },
+  },
+  {
     name: 'get_content_calendar',
     description: 'Get content scheduled across all clients for a date range. Returns items grouped by date with client, platform, type, and status. Default: current week.',
     input_schema: {
@@ -284,6 +335,7 @@ const AGENT_TOOL_ACCESS: Record<string, string[]> = {
   'client-memory': ['get_client_detail', 'get_clients', 'update_client', 'get_health', 'get_ads'],
   'project-manager': ['get_requests', 'create_request', 'update_request', 'get_clients', 'get_pulse', 'get_team', 'get_team_workload'],
   'approval-feedback': ['get_content', 'update_content', 'get_requests', 'update_request'],
+  'meta-traffic': ['get_clients', 'get_client_detail', 'get_ads', 'get_content', 'get_health', 'get_pulse', 'web_search', 'get_campaigns', 'create_campaign', 'update_campaign'],
   'content-system': ['get_content', 'create_content', 'update_content', 'get_clients', 'get_health', 'get_brief', 'get_requests', 'get_content_calendar'],
   'founder-boss': ALL_TOOLS.map(t => t.name), // full access
   'research-intel': ['get_clients', 'get_client_detail', 'get_content', 'get_health', 'get_ads', 'get_pulse', 'web_search', 'update_client', 'create_content'],
@@ -389,6 +441,22 @@ export async function executeTool(
 
     case 'get_revenue':
       return callAgentTools('GET', '/revenue');
+
+    case 'get_campaigns': {
+      const params = new URLSearchParams();
+      if (input.clientId) params.set('clientId', input.clientId as string);
+      if (input.status) params.set('status', input.status as string);
+      const qs = params.toString();
+      return callAgentTools('GET', `/campaigns${qs ? `?${qs}` : ''}`);
+    }
+
+    case 'create_campaign':
+      return callAgentTools('POST', '/campaigns', input);
+
+    case 'update_campaign': {
+      const { campaignId, ...rest } = input as Record<string, unknown>;
+      return callAgentTools('PATCH', `/campaigns/${campaignId}`, rest);
+    }
 
     case 'get_content_calendar': {
       const params = new URLSearchParams();
