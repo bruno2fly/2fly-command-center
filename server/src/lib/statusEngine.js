@@ -16,14 +16,14 @@ const prisma = new PrismaClient();
 
 const THRESHOLDS = {
   buffer: {
-    green: 15,  // >= 15 days of scheduled content
-    yellow: 7,  // 7-14 days
-    // red: < 7 days
+    green: 5,   // >= 5 days of scheduled content = healthy
+    yellow: 2,  // 2-4 days = needs attention
+    // red: < 2 days = urgent
   },
   requests: {
-    greenHours: 24,   // resolved within 24h
-    yellowHours: 48,  // pending 24-48h
-    // red: > 48h unresolved
+    greenHours: 72,    // resolved within 3 days = green
+    yellowHours: 168,  // pending 3-7 days = yellow
+    // red: > 7 days unresolved
   },
   ads: {
     greenPct: 1.0,    // ROAS >= 100% of target
@@ -44,18 +44,18 @@ async function getBufferStatus(clientId) {
     },
   });
 
-  // Each scheduled item ≈ 1 day of buffer (simplification).
-  // For more accuracy, count distinct scheduled dates.
-  const distinctDays = await prisma.contentItem.groupBy({
-    by: ["scheduledDate"],
+  // Buffer = number of future scheduled items (each ≈ 1 delivery).
+  // Also count approved items ready to schedule as partial buffer.
+  const approvedCount = await prisma.contentItem.count({
     where: {
       clientId,
-      status: "scheduled",
+      status: { in: ["approved"] },
       scheduledDate: { gte: now },
     },
   });
 
-  const bufferDays = distinctDays.length;
+  // Total buffer: scheduled items + half of approved items (they're close to ready)
+  const bufferDays = scheduledCount + Math.floor(approvedCount / 2);
 
   let status = "red";
   if (bufferDays >= THRESHOLDS.buffer.green) status = "green";
