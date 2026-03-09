@@ -1,6 +1,6 @@
 /**
- * Founder Mode mock data
- * TODO: Replace with real API/billing/project data. WhatsApp + 2FlyFlow hooks go here.
+ * Founder Mode mock data — Real 2FLY clients
+ * Overridden by API when backend is live. Falls back to these.
  */
 
 export type ClientSummary = {
@@ -57,7 +57,7 @@ export type ActivityEvent = {
 
 export type RevenuePulse = {
   cashInThisMonth: number;
-  cashInDeltaVsLastMonth: number; // % or absolute
+  cashInDeltaVsLastMonth: number;
   expectedNext30Days: number;
   expectedCount: number;
   overdue: number;
@@ -74,119 +74,131 @@ export type PipelineSnapshot = {
   churnRiskCount: number;
 };
 
+// Real client IDs
+const SHAPE_MIAMI = "cmmil114j0001j2tq80ty6zag";
+const SHAPE_FLL = "cmmil114l0002j2tq3in1w0iz";
+const SUDBURY = "cmmil114m0003j2tq5q9mgpg4";
+const PRO_FORTUNA = "cmmil114m0004j2tqluvp06lw";
+const CASA_NOVA = "cmmil114n0005j2tqy0k2trgm";
+const ARDAN = "cmmil114n0006j2tqy2ewcrd6";
+const THIS_IS_IT = "cmmil114o0007j2tq9mxw9a7x";
+const SUPER_CRISP = "cmmil114o0008j2tq3sviv4ed";
+const HAFIZA = "cmmil114p0009j2tqcmy06xrz";
+const CRISTIANE = "cmmil114p000aj2tq2hhn6euo";
+
 // ─── Mock data ─────────────────────────────────────────────────────────────
 
 export const MOCK_REVENUE_PULSE: RevenuePulse = {
-  cashInThisMonth: 12400,
-  cashInDeltaVsLastMonth: 8,
-  expectedNext30Days: 18200,
-  expectedCount: 7,
-  overdue: 3200,
-  overdueCount: 1,
-  atRiskRevenue: 6700,
+  cashInThisMonth: 9300,
+  cashInDeltaVsLastMonth: 0,
+  expectedNext30Days: 9300,
+  expectedCount: 10,
+  overdue: 2500,
+  overdueCount: 2,
+  atRiskRevenue: 3100,
   atRiskClientCount: 2,
 };
 
 export const MOCK_PRIORITY_ITEMS: PriorityItem[] = [
   {
     id: "p1",
-    title: "Chase invoice",
-    clientId: "3",
-    clientName: "Gamma Inc",
+    title: "Chase retainer payment",
+    clientId: ARDAN,
+    clientName: "Ardan Med Spa",
     tags: ["CASH_NOW"],
-    dueAt: "2025-02-10",
+    dueAt: new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
     isOverdue: true,
     dueToday: false,
-    cashImpact: 3200,
+    cashImpact: 1300,
     riskLevel: "red",
     source: "Manual",
     assignedTo: "You",
-    summary: "Invoice #INV-103 overdue by 6 days. Client has not responded to reminders.",
+    summary: "March retainer invoice overdue 6 days. Follow up with Ana.",
   },
   {
     id: "p2",
-    title: "Send monthly report",
-    clientId: "1",
-    clientName: "Acme Corp",
-    tags: ["STRATEGIC"],
-    dueAt: "2025-02-16",
-    isOverdue: false,
-    dueToday: true,
-    cashImpact: 0,
-    riskLevel: "green",
-    source: "2FlyFlow",
-    assignedTo: "You",
-    summary: "Q1 report due today. Data is ready, just needs send.",
-  },
-  {
-    id: "p3",
-    title: "Approve creatives",
-    clientId: "2",
-    clientName: "Beta Labs",
+    title: "Review content batch",
+    clientId: CASA_NOVA,
+    clientName: "Casa Nova",
     tags: ["PREVENT_FIRE"],
-    dueAt: "2025-02-16",
-    isOverdue: false,
-    dueToday: true,
-    cashImpact: 0,
-    riskLevel: "yellow",
-    source: "WhatsApp",
-    assignedTo: "You",
-    summary: "Campaign launch blocked until creatives approved. Client waiting 2 days.",
-  },
-  {
-    id: "p4",
-    title: "Produce content batch",
-    clientId: "3",
-    clientName: "Gamma Inc",
-    tags: ["PREVENT_FIRE"],
-    dueAt: "2025-02-15",
+    dueAt: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10),
     isOverdue: true,
     dueToday: false,
     cashImpact: 0,
     riskLevel: "red",
     source: "2FlyFlow",
     assignedTo: "Designer",
-    summary: "Buffer down to 5 days. Need 3 posts scheduled.",
+    summary: "Content batch 2 days overdue. 4 posts need review before scheduling.",
+  },
+  {
+    id: "p3",
+    title: "Approve ad creatives",
+    clientId: SHAPE_MIAMI,
+    clientName: "The Shape SPA Miami",
+    tags: ["PREVENT_FIRE"],
+    dueAt: new Date().toISOString().slice(0, 10),
+    isOverdue: false,
+    dueToday: true,
+    cashImpact: 0,
+    riskLevel: "yellow",
+    source: "WhatsApp",
+    assignedTo: "You",
+    summary: "New ad creatives for body sculpting campaign. Grace waiting for approval.",
+  },
+  {
+    id: "p4",
+    title: "Send monthly report",
+    clientId: SUPER_CRISP,
+    clientName: "Super Crisp",
+    tags: ["STRATEGIC"],
+    dueAt: new Date().toISOString().slice(0, 10),
+    isOverdue: false,
+    dueToday: true,
+    cashImpact: 0,
+    riskLevel: "green",
+    source: "2FlyFlow",
+    assignedTo: "You",
+    summary: "March performance report for Emily. Data ready, needs send.",
   },
   {
     id: "p5",
-    title: "Call client - renewal",
-    clientId: "5",
-    clientName: "Epsilon Studio",
-    tags: ["CASH_NOW", "STRATEGIC"],
-    dueAt: "2025-02-18",
-    isOverdue: false,
+    title: "Fix website hero section",
+    clientId: THIS_IS_IT,
+    clientName: "This is it Brazil",
+    tags: ["PREVENT_FIRE"],
+    dueAt: new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10),
+    isOverdue: true,
     dueToday: false,
-    cashImpact: 1500,
+    cashImpact: 0,
     riskLevel: "yellow",
     source: "Manual",
     assignedTo: "You",
-    summary: "Retainer renews in 2 days. Confirm extension.",
+    summary: "Hero section needs update for new product line. Julianna requested last week.",
   },
 ];
 
 export const MOCK_BLOCKERS: BlockerItem[] = [
-  { id: "b1", clientName: "Delta Agency", clientId: "4", type: "team", reason: "Hero assets from designer", ageDays: 3 },
-  { id: "b2", clientName: "Beta Labs", clientId: "2", type: "client", reason: "Creative approval", ageDays: 2 },
-  { id: "b3", clientName: "Gamma Inc", clientId: "3", type: "client", reason: "Payment (invoice overdue)", ageDays: 6 },
-  { id: "b4", clientName: "Epsilon Studio", clientId: "5", type: "client", reason: "Content brief", ageDays: 1 },
+  { id: "b1", clientName: "Super Crisp", clientId: SUPER_CRISP, type: "team", reason: "Designer: menu update graphics", ageDays: 3 },
+  { id: "b2", clientName: "The Shape SPA Miami", clientId: SHAPE_MIAMI, type: "client", reason: "Creative approval from Grace", ageDays: 2 },
+  { id: "b3", clientName: "Ardan Med Spa", clientId: ARDAN, type: "client", reason: "Payment (retainer overdue)", ageDays: 6 },
+  { id: "b4", clientName: "Casa Nova", clientId: CASA_NOVA, type: "client", reason: "Content brief approval", ageDays: 1 },
 ];
 
 export const MOCK_ACTIVITY: ActivityEvent[] = [
-  { id: "a1", type: "whatsapp", clientName: "Beta Labs", clientId: "2", message: "Sent creative options for review", timestamp: new Date(Date.now() - 1000 * 60 * 12).toISOString() },
-  { id: "a2", type: "invoice_paid", clientName: "Acme Corp", clientId: "1", message: "Invoice $2,500 paid", timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString() },
-  { id: "a3", type: "approval_requested", clientName: "Gamma Inc", clientId: "3", message: "Monthly report approval needed", timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString() },
-  { id: "a4", type: "invoice_overdue", clientName: "Gamma Inc", clientId: "3", message: "Invoice $3,200 overdue 6 days", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-  { id: "a5", type: "ads_alert", clientName: "Delta Agency", clientId: "4", message: "ROAS dropped 15% vs last week", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString() },
-  { id: "a6", type: "request", clientName: "Epsilon Studio", clientId: "5", message: "New request: Update FAQ page", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
+  { id: "a1", type: "whatsapp", clientName: "The Shape SPA Miami", clientId: SHAPE_MIAMI, message: "Grace sent new photos for social media", timestamp: new Date(Date.now() - 1000 * 60 * 14).toISOString() },
+  { id: "a2", type: "invoice_paid", clientName: "Sudbury Point Grill", clientId: SUDBURY, message: "Invoice $700 paid — March retainer", timestamp: new Date(Date.now() - 1000 * 60 * 47).toISOString() },
+  { id: "a3", type: "approval_requested", clientName: "Pro Fortuna", clientId: PRO_FORTUNA, message: "Website copy approval needed", timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString() },
+  { id: "a4", type: "invoice_overdue", clientName: "Ardan Med Spa", clientId: ARDAN, message: "Invoice $1,300 overdue 6 days", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
+  { id: "a5", type: "ads_alert", clientName: "Super Crisp", clientId: SUPER_CRISP, message: "Ad spend pacing 15% under budget this week", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString() },
+  { id: "a6", type: "request", clientName: "Hafiza", clientId: HAFIZA, message: "New request: Update service menu on website", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString() },
 ];
 
 export const MOCK_PIPELINE: PipelineSnapshot = {
-  leadsThisWeek: 4,
-  demosBooked: 2,
-  proposalsOut: 1,
-  newClientsThisMonth: 1,
-  churnRiskCount: 1,
+  leadsThisWeek: 2,
+  demosBooked: 1,
+  proposalsOut: 0,
+  newClientsThisMonth: 0,
+  churnRiskCount: 0,
 };
 
 /** Sort priorities by: cashImpact desc, dueToday first, risk (red>yellow>green), overdue first */
