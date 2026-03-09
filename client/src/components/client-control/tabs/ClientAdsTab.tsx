@@ -276,7 +276,9 @@ export function ClientAdsTab({ clientId }: Props) {
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [agentActions, setAgentActions] = useState(() => getAgentActions(clientId) ?? []);
 
-  const kpiData = getAdsKPIData(clientId) ?? FALLBACK_KPI;
+  const rawKpiData = getAdsKPIData(clientId);
+  const hasMockData = rawKpiData != null;
+  const kpiData = rawKpiData ?? FALLBACK_KPI;
   const alerts = getAdsAlertsEnhanced(clientId) ?? [];
   const campaigns = getAdsCampaignsEnhanced(clientId) ?? [];
   const spendData = getSpendOverTime(clientId) ?? [];
@@ -384,6 +386,54 @@ export function ClientAdsTab({ clientId }: Props) {
 
   const bgCls = isDark ? "bg-zinc-950" : "bg-gray-50";
 
+  // Mock data takes priority: show dashboard for clients with mock ads data
+  if (hasMockData) {
+    return (
+      <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
+        {connectionStatus === "connected" && connectionData.adAccountName && (
+          <MetaConnectedHeader
+            adAccountName={connectionData.adAccountName}
+            clientId={clientId}
+            isDark={isDark}
+            onDisconnect={handleDisconnect}
+          />
+        )}
+        <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={0}>
+          <AdsKPIBar data={kpiData} />
+        </motion.div>
+        <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={1}>
+          <AdsChartsRow
+            spendData={spendData}
+            roasData={roasData}
+            conversionsData={conversionsData}
+          />
+        </motion.div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 px-4">
+          <div className="lg:col-span-7">
+            <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={2}>
+              <AgentActionsPanel
+                actions={agentActions}
+                onApprove={handleApprove}
+                onReject={handleReject}
+              />
+            </motion.div>
+          </div>
+          <div className="lg:col-span-5">
+            <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={3}>
+              <AlertsInsights alerts={alerts} />
+            </motion.div>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 p-4">
+          <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={4} className="h-full">
+            <CampaignsTable campaigns={campaigns} />
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // No mock data: check MetaConnection status
   if (connectionStatus === "loading") {
     return (
       <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
@@ -437,6 +487,7 @@ export function ClientAdsTab({ clientId }: Props) {
     );
   }
 
+  // Connected (no mock data): show dashboard with real/fallback data
   return (
     <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
       {connectionStatus === "connected" && connectionData.adAccountName && (
