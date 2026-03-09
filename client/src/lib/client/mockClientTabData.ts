@@ -133,19 +133,94 @@ export function getKpis(clientId: string): ClientKpi[] {
   return withClientId(MOCK_KPIS.filter((k) => k.clientId === "1"), clientId);
 }
 
+// Clients with active Meta ads (by name match since IDs change on reseed)
+const CLIENTS_WITH_ADS = new Set([
+  "The Shape SPA Miami",
+  "The Shape Spa FLL",
+  "Ardan Med Spa",
+  "Super Crisp",
+]);
+
+// Map client names to ad profile data
+const CLIENT_AD_PROFILES: Record<string, { spend: number; roasTrend: string; campaigns: AdsCampaign[]; alerts: AdsAlert[] }> = {
+  "The Shape SPA Miami": {
+    spend: 1250,
+    roasTrend: "+8% WoW",
+    campaigns: [
+      { id: "c-sm1", clientId: "", name: "Body Sculpting - Leads", spend: 650, roas: 3.8, status: "active" },
+      { id: "c-sm2", clientId: "", name: "Retargeting - IG Engagers", spend: 350, roas: 5.2, status: "active" },
+      { id: "c-sm3", clientId: "", name: "New Client Promo", spend: 250, roas: 2.9, status: "paused" },
+    ],
+    alerts: [
+      { id: "a-sm1", clientId: "", message: "ROAS 3.8x on body sculpting campaign — above 3.0 target", severity: "info", createdAt: new Date().toISOString() },
+    ],
+  },
+  "The Shape Spa FLL": {
+    spend: 1100,
+    roasTrend: "+5% WoW",
+    campaigns: [
+      { id: "c-sf1", clientId: "", name: "Fort Lauderdale Awareness", spend: 600, roas: 2.5, status: "active" },
+      { id: "c-sf2", clientId: "", name: "Service Highlight - Leads", spend: 500, roas: 3.1, status: "active" },
+    ],
+    alerts: [],
+  },
+  "Ardan Med Spa": {
+    spend: 800,
+    roasTrend: "+12% WoW",
+    campaigns: [
+      { id: "c-ar1", clientId: "", name: "Spring 2026 - Prospecting", spend: 450, roas: 3.2, status: "active" },
+      { id: "c-ar2", clientId: "", name: "Retargeting - Web Visitors", spend: 350, roas: 5.1, status: "active" },
+    ],
+    alerts: [
+      { id: "a-ar1", clientId: "", message: "ROAS +12% WoW — retargeting performing well. Keep current creative mix.", severity: "info", createdAt: new Date().toISOString() },
+      { id: "a-ar2", clientId: "", message: "Prospecting spend pacing 5% under — consider increasing to hit monthly target", severity: "warning", createdAt: new Date().toISOString() },
+    ],
+  },
+  "Super Crisp": {
+    spend: 750,
+    roasTrend: "-3% WoW",
+    campaigns: [
+      { id: "c-sc1", clientId: "", name: "Menu Launch - Local Reach", spend: 400, roas: 2.1, status: "active" },
+      { id: "c-sc2", clientId: "", name: "Weekend Specials - Traffic", spend: 350, roas: 1.8, status: "active" },
+    ],
+    alerts: [
+      { id: "a-sc1", clientId: "", message: "Weekend Specials CTR dropped 15% — consider refreshing creative", severity: "warning", createdAt: new Date().toISOString() },
+    ],
+  },
+};
+
+// Resolve client name from mock names map
+function getClientNameById(clientId: string): string {
+  return MOCK_CLIENT_NAMES[clientId] ?? "";
+}
+
+function hasActiveAds(clientId: string): boolean {
+  const name = getClientNameById(clientId);
+  return CLIENTS_WITH_ADS.has(name);
+}
+
 export function getAdsCampaigns(clientId: string): AdsCampaign[] {
   if (MOCK_IDS.has(clientId)) return MOCK_ADS_CAMPAIGNS.filter((c) => c.clientId === clientId);
-  return withClientId(MOCK_ADS_CAMPAIGNS.filter((c) => c.clientId === "1"), clientId);
+  const name = getClientNameById(clientId);
+  const profile = CLIENT_AD_PROFILES[name];
+  if (!profile) return [];
+  return profile.campaigns.map(c => ({ ...c, clientId }));
 }
 
 export function getAdsAlerts(clientId: string): AdsAlert[] {
   if (MOCK_IDS.has(clientId)) return MOCK_ADS_ALERTS.filter((a) => a.clientId === clientId);
-  return withClientId(MOCK_ADS_ALERTS.filter((a) => a.clientId === "1"), clientId);
+  const name = getClientNameById(clientId);
+  const profile = CLIENT_AD_PROFILES[name];
+  if (!profile) return [];
+  return profile.alerts.map(a => ({ ...a, clientId }));
 }
 
 export function getAdsSummary(clientId: string): { spend: number; roasTrend: string } | null {
   if (MOCK_ADS_SUMMARY[clientId]) return MOCK_ADS_SUMMARY[clientId];
-  return MOCK_ADS_SUMMARY["1"] ?? { spend: 4400, roasTrend: "+12% WoW" };
+  const name = getClientNameById(clientId);
+  const profile = CLIENT_AD_PROFILES[name];
+  if (!profile) return null; // No ads for this client
+  return { spend: profile.spend, roasTrend: profile.roasTrend };
 }
 
 export function getContentCalendar(clientId: string): ContentCalendarItem[] {
