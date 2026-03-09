@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useFocusMode } from "@/contexts/FocusModeContext";
 import { useActions } from "@/contexts/ActionsContext";
 import { useAgentChat } from "@/contexts/AgentChatContext";
@@ -16,6 +17,7 @@ export function CommandBar() {
   const pathname = usePathname() ?? "";
   const [searchOpen, setSearchOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { theme, setTheme, isDark } = useTheme();
   const { focusMode, setFocusMode } = useFocusMode();
   const { focusItems, markCompleteById } = useActions();
   const { togglePanel: toggleAgentChat, panelOpen: agentChatOpen } = useAgentChat();
@@ -82,18 +84,28 @@ export function CommandBar() {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-center gap-4 shrink-0">
+      <header
+        className={`px-4 py-2.5 flex items-center gap-4 shrink-0 ${
+          isDark
+            ? "bg-[#08080c] border-b border-[#1a1810]"
+            : "bg-white border-b border-gray-100"
+        }`}
+      >
         {/* Left: CmdK search + Quick Capture */}
         <div className="flex items-center gap-3 flex-1 min-w-0 max-w-2xl">
           <button
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700 text-sm min-w-[160px]"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm min-w-[160px] ${
+              isDark
+                ? "bg-[#0a0a0e] hover:bg-[#141210] text-[#8a7e6d] hover:text-[#c4b8a8] border border-[#1a1810]"
+                : "bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+            }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <span>Search clients & tasks</span>
-            <kbd className="ml-auto px-1.5 py-0.5 text-xs bg-gray-200 rounded">⌘K</kbd>
+            <kbd className={`ml-auto px-1.5 py-0.5 text-xs rounded ${isDark ? "bg-[#1a1810] text-[#5a5040]" : "bg-gray-200"}`}>⌘K</kbd>
           </button>
           <div className="flex-1 relative">
             <input
@@ -102,7 +114,11 @@ export function CommandBar() {
               onChange={(e) => setQuickCapture(e.target.value)}
               onKeyDown={handleQuickCaptureKeyDown}
               placeholder="Quick capture: task / note / request... (Enter to save, /task /request for type)"
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60"
+              className={`w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-60 ${
+                isDark
+                  ? "bg-[#0a0a0e] border border-[#1a1810] text-[#c4b8a8] placeholder-[#5a5040]"
+                  : "border border-gray-200 placeholder-gray-400"
+              }`}
               disabled={quickCaptureLoading}
             />
             {quickCaptureLoading && (
@@ -119,20 +135,30 @@ export function CommandBar() {
                 href={`/clients/${t.clientId}`}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
                   i === 0
-                    ? "bg-blue-600 text-white hover:bg-blue-500"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? isDark
+                      ? "bg-emerald-600/80 text-white hover:bg-emerald-500/80"
+                      : "bg-blue-600 text-white hover:bg-blue-500"
+                    : isDark
+                      ? "bg-[#141210] text-[#8a7e6d] hover:bg-[#1a1810] hover:text-[#c4b8a8]"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <span className="font-medium truncate max-w-[140px]">
                   {i === 0 ? "Now:" : ""} {t.title}
                 </span>
-                <span className={i === 0 ? "text-blue-100" : "text-gray-500"}>· {t.clientName}</span>
+                <span className={i === 0 ? (isDark ? "text-emerald-200/80" : "text-blue-100") : isDark ? "text-[#5a5040]" : "text-gray-500"}>· {t.clientName}</span>
               </Link>
               <button
                 type="button"
                 onClick={(e) => handleDoIt(e, t.id)}
                 className={`px-2 py-1.5 rounded text-xs font-medium ${
-                  i === 0 ? "bg-white/20 hover:bg-white/30 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+                  i === 0
+                    ? isDark
+                      ? "bg-white/20 hover:bg-white/30 text-white"
+                      : "bg-white/20 hover:bg-white/30 text-white"
+                    : isDark
+                      ? "bg-[#1a1810] hover:bg-[#242018] text-[#8a7e6d]"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-700"
                 }`}
               >
                 Do it
@@ -140,7 +166,7 @@ export function CommandBar() {
             </div>
           ))}
           {focusItems.length === 0 && (
-            <span className="text-sm text-gray-500 px-3 py-2">No priorities</span>
+            <span className={`text-sm px-3 py-2 ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}>No priorities</span>
           )}
         </div>
 
@@ -148,7 +174,9 @@ export function CommandBar() {
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="relative p-2.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            className={`relative p-2.5 rounded-lg ${
+              isDark ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            }`}
             title="Alerts & Approvals"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,7 +191,9 @@ export function CommandBar() {
           {alerts.length > 0 && (
             <button
               onClick={() => setDrawerOpen(true)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100"
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium ${
+                isDark ? "text-red-400 bg-red-500/20 hover:bg-red-500/30" : "text-red-600 bg-red-50 hover:bg-red-100"
+              }`}
               title="Alerts"
             >
               {alerts.length}
@@ -172,7 +202,9 @@ export function CommandBar() {
           {approvals.length > 0 && (
             <button
               onClick={() => setDrawerOpen(true)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100"
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium ${
+                isDark ? "text-amber-400 bg-amber-500/20 hover:bg-amber-500/30" : "text-amber-600 bg-amber-50 hover:bg-amber-100"
+              }`}
               title="Approvals"
             >
               {approvals.length}
@@ -181,7 +213,9 @@ export function CommandBar() {
           {overdueAmount > 0 && (
             <button
               onClick={() => setDrawerOpen(true)}
-              className="p-2.5 rounded-lg text-red-600 hover:bg-red-50 font-medium text-sm"
+              className={`p-2.5 rounded-lg font-medium text-sm ${
+                isDark ? "text-red-400 hover:bg-red-500/20" : "text-red-600 hover:bg-red-50"
+              }`}
               title="Overdue invoices"
             >
               ${(overdueAmount / 1000).toFixed(0)}k
@@ -190,7 +224,9 @@ export function CommandBar() {
           <button
             onClick={toggleAgentChat}
             className={`p-2.5 rounded-lg text-sm font-medium flex items-center gap-1.5 ${
-              agentChatOpen ? "bg-purple-100 text-purple-700" : "text-gray-600 hover:bg-gray-100"
+              agentChatOpen
+                ? isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"
+                : isDark ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]" : "text-gray-600 hover:bg-gray-100"
             }`}
             title="Agent Chat (⌘M)"
           >
@@ -200,19 +236,44 @@ export function CommandBar() {
             Agents
           </button>
           <button
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className={`p-2.5 rounded-lg ${
+              isDark ? "text-amber-400/90 hover:bg-[#141210] hover:text-amber-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            }`}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDark ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+          </button>
+          <button
             onClick={() => setFocusMode(!focusMode)}
             className={`p-2.5 rounded-lg text-sm font-medium ${
-              focusMode ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
+              focusMode
+                ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-100 text-blue-700"
+                : isDark ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]" : "text-gray-600 hover:bg-gray-100"
             }`}
-            title="Focus mode"
+            title="Focus mode (Flight Deck)"
           >
             Focus
           </button>
-          <div className="w-px h-6 bg-gray-200 mx-1" />
+          <div className={`w-px h-6 mx-1 ${isDark ? "bg-[#1a1810]" : "bg-gray-200"}`} />
           <Link
             href="/"
             className={`px-2.5 py-2 rounded-lg text-sm font-medium ${
-              pathname === "/" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-100"
+              pathname === "/"
+                ? isDark
+                  ? "bg-[#141210] text-emerald-400/90"
+                  : "bg-gray-100 text-gray-900"
+                : isDark
+                  ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+                  : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             Dashboard
@@ -220,7 +281,13 @@ export function CommandBar() {
           <Link
             href="/clients"
             className={`px-2.5 py-2 rounded-lg text-sm font-medium ${
-              pathname === "/clients" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-100"
+              pathname === "/clients"
+                ? isDark
+                  ? "bg-[#141210] text-emerald-400/90"
+                  : "bg-gray-100 text-gray-900"
+                : isDark
+                  ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+                  : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             Clients
@@ -228,7 +295,13 @@ export function CommandBar() {
           <Link
             href="/settings"
             className={`px-2.5 py-2 rounded-lg text-sm font-medium ${
-              pathname === "/settings" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-100"
+              pathname === "/settings"
+                ? isDark
+                  ? "bg-[#141210] text-emerald-400/90"
+                  : "bg-gray-100 text-gray-900"
+                : isDark
+                  ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+                  : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             Settings
@@ -236,7 +309,13 @@ export function CommandBar() {
           <Link
             href="/whatsapp"
             className={`px-2.5 py-2 rounded-lg text-sm font-medium ${
-              pathname === "/whatsapp" || pathname === "/whatsapp-inbox" ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-100"
+              pathname === "/whatsapp" || pathname === "/whatsapp-inbox"
+                ? isDark
+                  ? "bg-[#141210] text-emerald-400/90"
+                  : "bg-gray-100 text-gray-900"
+                : isDark
+                  ? "text-[#8a7e6d] hover:bg-[#141210] hover:text-[#c4b8a8]"
+                  : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             WhatsApp Inbox

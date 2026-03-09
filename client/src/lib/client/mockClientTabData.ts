@@ -101,49 +101,66 @@ export type ContentIdea = {
 };
 
 // —— Getters ——
+// Fallback: API clients (CUIDs) get mock data from client "1" until backend endpoints exist.
+const MOCK_IDS = new Set(["1", "2", "3", "4", "5"]);
+
+function withClientId<T extends { clientId: string; id: string }>(items: T[], clientId: string): T[] {
+  return items.map((i) => ({ ...i, id: `${i.id}-fb-${clientId.slice(0, 8)}`, clientId }));
+}
 
 export function getRequests(clientId: string): RequestItem[] {
-  return MOCK_REQUESTS.filter((r) => r.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_REQUESTS.filter((r) => r.clientId === clientId);
+  return withClientId(MOCK_REQUESTS.filter((r) => r.clientId === "1"), clientId);
 }
 
 export function getTasks(clientId: string): TaskItem[] {
-  return MOCK_TASKS.filter((t) => t.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_TASKS.filter((t) => t.clientId === clientId);
+  return withClientId(MOCK_TASKS.filter((t) => t.clientId === "1"), clientId);
 }
 
 export function getGoals(clientId: string): ClientGoal[] {
-  return MOCK_GOALS.filter((g) => g.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_GOALS.filter((g) => g.clientId === clientId);
+  return withClientId(MOCK_GOALS.filter((g) => g.clientId === "1"), clientId);
 }
 
 export function getRoadmap(clientId: string): RoadmapItem[] {
-  return MOCK_ROADMAP.filter((r) => r.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_ROADMAP.filter((r) => r.clientId === clientId);
+  return withClientId(MOCK_ROADMAP.filter((r) => r.clientId === "1"), clientId);
 }
 
 export function getKpis(clientId: string): ClientKpi[] {
-  return MOCK_KPIS.filter((k) => k.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_KPIS.filter((k) => k.clientId === clientId);
+  return withClientId(MOCK_KPIS.filter((k) => k.clientId === "1"), clientId);
 }
 
 export function getAdsCampaigns(clientId: string): AdsCampaign[] {
-  return MOCK_ADS_CAMPAIGNS.filter((c) => c.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_ADS_CAMPAIGNS.filter((c) => c.clientId === clientId);
+  return withClientId(MOCK_ADS_CAMPAIGNS.filter((c) => c.clientId === "1"), clientId);
 }
 
 export function getAdsAlerts(clientId: string): AdsAlert[] {
-  return MOCK_ADS_ALERTS.filter((a) => a.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_ADS_ALERTS.filter((a) => a.clientId === clientId);
+  return withClientId(MOCK_ADS_ALERTS.filter((a) => a.clientId === "1"), clientId);
 }
 
 export function getAdsSummary(clientId: string): { spend: number; roasTrend: string } | null {
-  return MOCK_ADS_SUMMARY[clientId] ?? null;
+  if (MOCK_ADS_SUMMARY[clientId]) return MOCK_ADS_SUMMARY[clientId];
+  return MOCK_ADS_SUMMARY["1"] ?? { spend: 4400, roasTrend: "+12% WoW" };
 }
 
 export function getContentCalendar(clientId: string): ContentCalendarItem[] {
-  return MOCK_CONTENT_CALENDAR.filter((c) => c.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_CONTENT_CALENDAR.filter((c) => c.clientId === clientId);
+  return withClientId(MOCK_CONTENT_CALENDAR.filter((c) => c.clientId === "1"), clientId);
 }
 
 export function getContentPipeline(clientId: string): ContentPipelineItem[] {
-  return MOCK_CONTENT_PIPELINE.filter((p) => p.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_CONTENT_PIPELINE.filter((p) => p.clientId === clientId);
+  return withClientId(MOCK_CONTENT_PIPELINE.filter((p) => p.clientId === "1"), clientId);
 }
 
 export function getContentIdeas(clientId: string): ContentIdea[] {
-  return MOCK_CONTENT_IDEAS.filter((i) => i.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) return MOCK_CONTENT_IDEAS.filter((i) => i.clientId === clientId);
+  return withClientId(MOCK_CONTENT_IDEAS.filter((i) => i.clientId === "1"), clientId);
 }
 
 // —— Mock Data ——

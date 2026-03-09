@@ -2,8 +2,11 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useClients } from "@/contexts/ClientsContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { api, type ApiClient } from "@/lib/api";
+import { ClientFormModal } from "@/components/ClientFormModal";
 import { buildClientLanes } from "@/lib/clientLanes";
 import {
   getInboxItems,
@@ -40,7 +43,9 @@ export default function ClientControlRoomPage() {
   const searchParams = useSearchParams();
   const id = params?.id ?? "";
   const { clients } = useClients();
+  const { isDark } = useTheme();
   const { activePriorities, markCompleteById } = useActions();
+  const [editClient, setEditClient] = useState<ApiClient | null>(null);
 
   const activeTab = useMemo(() => parseTabFromUrl(searchParams), [searchParams]);
 
@@ -63,8 +68,8 @@ export default function ClientControlRoomPage() {
   if (!client || !lane) {
     return (
       <div className="p-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-          <p className="text-gray-500">Client not found.</p>
+        <div className={`rounded-xl shadow-sm p-8 text-center ${isDark ? "bg-[#0a0a0e] border border-[#1a1810]" : "bg-white border border-gray-100"}`}>
+          <p className={isDark ? "text-[#8a7e6d]" : "text-gray-500"}>Client not found.</p>
           <Link href="/clients" className="text-blue-600 hover:text-blue-700 font-medium mt-2 inline-block">
             Back to clients
           </Link>
@@ -88,46 +93,62 @@ export default function ClientControlRoomPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 bg-white border-b border-gray-100">
+      <div className={`flex-shrink-0 px-6 py-4 border-b ${isDark ? "bg-[#08080c] border-[#1a1810]" : "bg-white border-gray-100"}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-gray-900">{client.name}</h1>
+              <h1 className={`text-xl font-bold ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>{client.name}</h1>
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white ${statusColor}`}
               >
                 {statusLabel}
               </span>
             </div>
-            <div className="flex items-center gap-3 mt-1.5 text-sm text-gray-500">
+            <div className={`flex items-center gap-3 mt-1.5 text-sm ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}>
               <span>Last delivery {formatDate(meta?.lastDelivery ?? null)}</span>
               <span>·</span>
               <span>Next promise {formatDate(meta?.nextPromiseDate ?? null)}</span>
-              {meta?.monthlyRetainer != null && (
+              {(client.monthlyRetainer != null || meta?.monthlyRetainer != null) && (
                 <>
                   <span>·</span>
-                  <span>${meta.monthlyRetainer.toLocaleString()}/mo</span>
+                  <span>${(client.monthlyRetainer ?? meta?.monthlyRetainer ?? 0).toLocaleString()}/mo</span>
                 </>
               )}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+            <button
+              onClick={() => api.getClient(id).then(setEditClient).catch(() => {})}
+              className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
+              }`}
+            >
+              Edit
+            </button>
+            <button className={`px-3 py-2 text-sm font-medium rounded-lg ${
+              isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
+            }`}>
               Quick Note
             </button>
-            <button className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+            <button className={`px-3 py-2 text-sm font-medium rounded-lg ${
+              isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
+            }`}>
               New Request
             </button>
             <a
               href="#"
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className={`px-3 py-2 text-sm font-medium rounded-lg ${
+                isDark ? "text-[#8a7e6d] bg-[#141210] hover:bg-[#1a1810] hover:text-[#c4b8a8]" : "text-gray-700 bg-gray-100 hover:bg-gray-200"
+              }`}
             >
               Open WhatsApp
             </a>
-            <button className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-500">
+            <button className={`px-3 py-2 text-sm font-medium rounded-lg ${
+              isDark ? "text-white bg-emerald-600/80 hover:bg-emerald-500/80" : "text-white bg-blue-600 hover:bg-blue-500"
+            }`}>
               Create Task
             </button>
-            <Link href="/" className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900">
+            <Link href="/" className={`px-3 py-2 text-sm font-medium rounded-lg ${isDark ? "text-[#8a7e6d] hover:text-[#c4b8a8]" : "text-gray-600 hover:text-gray-900"}`}>
               ← Dashboard
             </Link>
           </div>
@@ -160,6 +181,12 @@ export default function ClientControlRoomPage() {
         {activeTab === "content" && <ClientContentTab clientId={id} />}
         {activeTab === "social" && <ClientSocialMediaTab clientId={id} />}
       </div>
+      <ClientFormModal
+        isOpen={!!editClient}
+        onClose={() => setEditClient(null)}
+        mode="edit"
+        client={editClient ?? undefined}
+      />
     </div>
   );
 }

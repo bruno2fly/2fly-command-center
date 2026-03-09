@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useFocusMode } from "@/contexts/FocusModeContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useActions } from "@/contexts/ActionsContext";
 import { ExecutionBoard } from "./founder/ExecutionBoard";
 import { WhatJustCameIn } from "./founder/WhatJustCameIn";
@@ -16,6 +17,7 @@ import { api } from "@/lib/api";
 
 export function FounderDashboard() {
   const { focusMode, setFocusMode } = useFocusMode();
+  const { isDark } = useTheme();
   const { executionItems, momentum } = useActions();
   const { fire, cash, delivery } = executionItems;
 
@@ -69,13 +71,11 @@ export function FounderDashboard() {
   }, [focusMode]);
 
   return (
-    <div className={`flex flex-col min-h-full ${focusMode ? "bg-[#06060a]" : "bg-gray-50"}`}>
+    <div className={`flex flex-col min-h-full ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
       {/* Header strip — Mode Control Panel */}
       <header
         className={`shrink-0 px-5 py-2.5 flex items-center justify-between ${
-          focusMode
-            ? "border-b border-[#1a1810] bg-[#08080c]"
-            : "border-b border-gray-200 bg-white"
+          isDark ? "border-b border-[#1a1810] bg-[#08080c]" : "border-b border-gray-200 bg-white"
         }`}
       >
         <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export function FounderDashboard() {
           )}
           <span
             className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${
-              focusMode ? "text-emerald-400/80" : "text-gray-900"
+              isDark ? "text-emerald-400/80" : "text-gray-900"
             }`}
           >
             {focusMode ? "Flight Deck" : "Full Board"}
@@ -117,8 +117,8 @@ export function FounderDashboard() {
             onClick={() => setFocusMode(true)}
             className={`px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
               focusMode
-                ? "bg-[#141210] text-emerald-400/90"
-                : "text-gray-400 hover:text-gray-600"
+                ? isDark ? "bg-[#141210] text-emerald-400/90" : "bg-blue-100 text-blue-700"
+                : isDark ? "text-[#4a4030] hover:text-[#8a7e6d]" : "text-gray-400 hover:text-gray-600"
             }`}
           >
             Focus
@@ -127,11 +127,11 @@ export function FounderDashboard() {
             type="button"
             onClick={() => setFocusMode(false)}
             className={`px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors border-l ${
-              focusMode ? "border-[#1a1810]" : "border-gray-200"
+              isDark ? "border-[#1a1810]" : "border-gray-200"
             } ${
               !focusMode
-                ? "bg-white text-gray-900"
-                : "text-[#4a4030] hover:text-[#8a7e6d]"
+                ? isDark ? "text-[#4a4030] hover:text-[#8a7e6d]" : "bg-white text-gray-900"
+                : isDark ? "text-[#4a4030] hover:text-[#8a7e6d]" : "text-gray-400 hover:text-gray-600"
             }`}
           >
             Full

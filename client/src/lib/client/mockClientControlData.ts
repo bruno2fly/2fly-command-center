@@ -79,37 +79,105 @@ export type ClientControlMeta = {
 };
 
 // —— Mock data ——
+// Known mock client IDs (legacy). API clients use CUIDs — they get fallback data below.
+const MOCK_IDS = new Set(["1", "2", "3", "4", "5"]);
+
+function getFallbackInbox(clientId: string): InboxItem[] {
+  return MOCK_INBOX.filter((i) => i.clientId === "1").map((i) => ({
+    ...i,
+    id: `${i.id}-fb-${clientId.slice(0, 8)}`,
+    clientId,
+  }));
+}
+
+function getFallbackHealth(clientId: string): ClientHealth {
+  return {
+    ...MOCK_HEALTH["1"]!,
+    websiteLastChecked: new Date().toISOString(),
+  };
+}
+
+function getFallbackControl(clientId: string): ControlItem[] {
+  return MOCK_CONTROL.filter((i) => i.clientId === "1").map((i) => ({
+    ...i,
+    id: `${i.id}-fb-${clientId.slice(0, 8)}`,
+    clientId,
+    linkedInboxId: undefined,
+  }));
+}
+
+function getFallbackNotes(clientId: string): NoteItem[] {
+  return MOCK_NOTES.filter((n) => n.clientId === "1")
+    .map((n) => ({ ...n, id: `${n.id}-fb-${clientId.slice(0, 8)}`, clientId }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function getFallbackIdeas(clientId: string): IdeaItem[] {
+  return MOCK_IDEAS.filter((i) => i.clientId === "1")
+    .map((i) => ({ ...i, id: `${i.id}-fb-${clientId.slice(0, 8)}`, clientId }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function getFallbackInsights(clientId: string): InsightItem[] {
+  return MOCK_INSIGHTS.filter((i) => i.clientId === "1").map((i) => ({
+    ...i,
+    id: `${i.id}-fb-${clientId.slice(0, 8)}`,
+    clientId,
+  }));
+}
+
+function getFallbackMeta(clientId: string): ClientControlMeta {
+  const base = MOCK_META["1"]!;
+  return { ...base, clientId };
+}
 
 export function getInboxItems(clientId: string): InboxItem[] {
-  return MOCK_INBOX.filter((i) => i.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) {
+    return MOCK_INBOX.filter((i) => i.clientId === clientId);
+  }
+  return getFallbackInbox(clientId);
 }
 
 export function getClientHealth(clientId: string): ClientHealth | null {
-  return MOCK_HEALTH[clientId] ?? null;
+  if (MOCK_HEALTH[clientId]) return MOCK_HEALTH[clientId];
+  return getFallbackHealth(clientId);
 }
 
 export function getControlItems(clientId: string): ControlItem[] {
-  return MOCK_CONTROL.filter((i) => i.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) {
+    return MOCK_CONTROL.filter((i) => i.clientId === clientId);
+  }
+  return getFallbackControl(clientId);
 }
 
 export function getNotes(clientId: string): NoteItem[] {
-  return MOCK_NOTES.filter((n) => n.clientId === clientId).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  if (MOCK_IDS.has(clientId)) {
+    return MOCK_NOTES.filter((n) => n.clientId === clientId).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+  return getFallbackNotes(clientId);
 }
 
 export function getIdeas(clientId: string): IdeaItem[] {
-  return MOCK_IDEAS.filter((i) => i.clientId === clientId).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  if (MOCK_IDS.has(clientId)) {
+    return MOCK_IDEAS.filter((i) => i.clientId === clientId).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+  return getFallbackIdeas(clientId);
 }
 
 export function getInsights(clientId: string): InsightItem[] {
-  return MOCK_INSIGHTS.filter((i) => i.clientId === clientId);
+  if (MOCK_IDS.has(clientId)) {
+    return MOCK_INSIGHTS.filter((i) => i.clientId === clientId);
+  }
+  return getFallbackInsights(clientId);
 }
 
 export function getClientControlMeta(clientId: string): ClientControlMeta | null {
-  return MOCK_META[clientId] ?? null;
+  if (MOCK_META[clientId]) return MOCK_META[clientId];
+  return getFallbackMeta(clientId);
 }
 
 /** Global alerts (urgent inbox + blockers) for command bar */

@@ -78,20 +78,29 @@ router.get('/clients/:id', async (req: Request, res: Response) => {
 // POST /api/agent-tools/clients — Create a new client
 router.post('/clients', async (req: Request, res: Response) => {
   try {
-    const { name, contactName, contactEmail, platforms, monthlyRetainer, adBudget, roasTarget, notes } = req.body;
+    const {
+      name, contactName, contactEmail, platforms, monthlyRetainer, adBudget,
+      roasTarget, notes, status, healthStatus,
+    } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Client name is required' });
+
+    const platformsStr =
+      typeof platforms === 'string' ? platforms :
+      Array.isArray(platforms) ? JSON.stringify(platforms) : '["meta"]';
 
     const client = await prisma.client.create({
       data: {
         name,
         contactName: contactName || null,
         contactEmail: contactEmail || null,
-        platforms: platforms || '["meta"]',
-        monthlyRetainer: monthlyRetainer || 0,
-        adBudget: adBudget || 0,
-        roasTarget: roasTarget || 3.0,
+        platforms: platformsStr,
+        monthlyRetainer: monthlyRetainer ?? 0,
+        adBudget: adBudget ?? 0,
+        roasTarget: roasTarget ?? 3.0,
         notes: notes || null,
+        status: status || 'active',
+        healthStatus: healthStatus || 'green',
       },
     });
 
@@ -105,11 +114,35 @@ router.post('/clients', async (req: Request, res: Response) => {
 // PATCH /api/agent-tools/clients/:id — Update client fields
 router.patch('/clients/:id', async (req: Request, res: Response) => {
   try {
+    const allowed = [
+      'name', 'contactName', 'contactEmail', 'monthlyRetainer', 'adBudget',
+      'roasTarget', 'platforms', 'status', 'healthStatus', 'notes',
+    ];
+    const data: Record<string, unknown> = {};
+    for (const k of allowed) {
+      if (req.body[k] !== undefined) data[k] = req.body[k];
+    }
+    if (typeof data.platforms === 'object' && Array.isArray(data.platforms)) {
+      data.platforms = JSON.stringify(data.platforms);
+    }
     const client = await prisma.client.update({
       where: { id: req.params.id },
-      data: req.body,
+      data,
     });
     res.json(client);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(400).json({ error: message });
+  }
+});
+
+// DELETE /api/agent-tools/clients/:id — Delete client
+router.delete('/clients/:id', async (req: Request, res: Response) => {
+  try {
+    await prisma.client.delete({
+      where: { id: req.params.id },
+    });
+    res.status(204).send();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(400).json({ error: message });

@@ -16,6 +16,7 @@ export type Client = {
   openRequests: number;
   websiteBacklog: number;
   performanceTrend: "up" | "flat" | "down";
+  monthlyRetainer?: number | null;
   // Computed
   contentBufferStatus: Status;
   adsHealthStatus: Status;
@@ -33,6 +34,7 @@ export type ClientRaw = {
   openRequests: number;
   websiteBacklog: number;
   performanceTrend: "up" | "flat" | "down";
+  monthlyRetainer?: number | null;
 };
 
 export function createClient(raw: ClientRaw): Client {

@@ -29,6 +29,7 @@ function mapApiClient(ac: ApiClient): Client {
     openRequests: pendingRequests,
     websiteBacklog: 0, // not tracked in API yet
     performanceTrend: "flat", // not tracked in API yet
+    monthlyRetainer: ac.monthlyRetainer ?? null,
   });
 }
 
@@ -53,12 +54,14 @@ function toRaw(c: Client): ClientRaw {
     openRequests: c.openRequests,
     websiteBacklog: c.websiteBacklog,
     performanceTrend: c.performanceTrend,
+    monthlyRetainer: c.monthlyRetainer,
   };
 }
 
 type ClientsContextValue = {
   clients: Client[];
   loading: boolean;
+  refreshClients: () => Promise<void>;
   addClient: (raw: ClientRaw) => void;
   deleteClient: (id: string) => void;
 };
@@ -107,6 +110,22 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshClients = useCallback(async () => {
+    try {
+      const data = await api.getClients();
+      if (data.clients && data.clients.length > 0) {
+        const mapped = data.clients.map(mapApiClient);
+        setClients(mapped);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped.map(toRaw)));
+        }
+      }
+    } catch {
+      const cached = loadCachedClients();
+      if (cached && cached.length > 0) setClients(cached);
+    }
+  }, []);
+
   const addClient = useCallback(
     (raw: ClientRaw) => {
       const next = [...clients, createClient(raw)];
@@ -131,8 +150,8 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ clients, loading, addClient, deleteClient }),
-    [clients, loading, addClient, deleteClient]
+    () => ({ clients, loading, refreshClients, addClient, deleteClient }),
+    [clients, loading, refreshClients, addClient, deleteClient]
   );
 
   return <ClientsContext.Provider value={value}>{children}</ClientsContext.Provider>;

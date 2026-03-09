@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { ClientHealth } from "@/lib/client/mockClientControlData";
 
 type Props = {
@@ -29,13 +30,14 @@ function StatusDot({ status }: { status: "ok" | "alert" | "unknown" | "up" | "do
 }
 
 export function ClientHealthPanel({ health }: Props) {
+  const { isDark } = useTheme();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (!health) {
     return (
-      <div className="rounded-lg border border-gray-100 bg-white p-4">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Health</h2>
-        <p className="text-sm text-gray-500">No health data</p>
+      <div className={`rounded-lg border p-4 ${isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-100 bg-white"}`}>
+        <h2 className={`text-sm font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-[#8a7e6d]" : "text-gray-700"}`}>Health</h2>
+        <p className={`text-sm ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}>No health data</p>
       </div>
     );
   }
@@ -82,20 +84,22 @@ export function ClientHealthPanel({ health }: Props) {
   ];
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-white p-4">
-      <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Health</h2>
+    <div className={`rounded-lg border p-4 ${isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-100 bg-white"}`}>
+      <h2 className={`text-sm font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-[#8a7e6d]" : "text-gray-700"}`}>Health</h2>
       <div className="space-y-2">
         {signals.map((s) => (
           <div key={s.id}>
             <button
               onClick={() => setExpanded(expanded === s.id ? null : s.id)}
-              className="w-full flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 text-left"
+              className={`w-full flex items-center gap-3 py-2 px-2 rounded-lg text-left ${
+                isDark ? "hover:bg-[#141210]" : "hover:bg-gray-50"
+              }`}
             >
               <StatusDot status={s.status as "ok" | "alert" | "unknown"} />
-              <span className="text-sm font-medium text-gray-700 flex-1">{s.label}</span>
-              <span className="text-xs text-gray-500 truncate max-w-[120px]">{s.reason}</span>
+              <span className={`text-sm font-medium flex-1 ${isDark ? "text-[#c4b8a8]" : "text-gray-700"}`}>{s.label}</span>
+              <span className={`text-xs truncate max-w-[120px] ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}>{s.reason}</span>
               <svg
-                className={`w-4 h-4 text-gray-400 transition-transform ${expanded === s.id ? "rotate-180" : ""}`}
+                className={`w-4 h-4 transition-transform ${expanded === s.id ? "rotate-180" : ""} ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -111,7 +115,7 @@ export function ClientHealthPanel({ health }: Props) {
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
                 >
-                  <p className="text-xs text-gray-500 pl-7 pb-2">{s.detail}</p>
+                  <p className={`text-xs pl-7 pb-2 ${isDark ? "text-[#5a5040]" : "text-gray-500"}`}>{s.detail}</p>
                 </motion.div>
               )}
             </AnimatePresence>
