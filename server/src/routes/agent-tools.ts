@@ -455,6 +455,148 @@ router.get('/revenue', async (_req: Request, res: Response) => {
 });
 
 // ================================================================
+// INVOICES / PAYMENTS — Used by: founder-boss, project-manager
+// ================================================================
+
+// GET /invoices — list all invoices (optional ?clientId=&status=)
+router.get('/invoices', async (req: Request, res: Response) => {
+  try {
+    const where: Record<string, unknown> = {};
+    if (req.query.clientId) where.clientId = req.query.clientId;
+    if (req.query.status) where.status = req.query.status;
+    const invoices = await prisma.invoice.findMany({
+      where,
+      include: { client: { select: { name: true } } },
+      orderBy: { dueDate: 'asc' },
+    });
+    res.json({ invoices });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /payments — payment dashboard summary
+router.get('/payments', async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekEnd = new Date(today);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const allInvoices = await prisma.invoice.findMany({
+      include: { client: { select: { name: true } } },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    const overdue = allInvoices.filter((inv: { status: string; dueDate: Date }) =>
+      inv.status === 'overdue' || (inv.status === 'sent' && new Date(inv.dueDate) < today)
+    );
+    const dueSoon = allInvoices.filter((inv: { status: string; dueDate: Date }) =>
+      inv.status === 'sent' && new Date(inv.dueDate) >= today && new Date(inv.dueDate) <= weekEnd
+    );
+    const recentlyPaid = allInvoices
+      .filter((inv: { status: string }) => inv.status === 'paid')
+      .sort((a: { paidDate: Date | null }, b: { paidDate: Date | null }) =>
+        (b.paidDate?.getTime() || 0) - (a.paidDate?.getTime() || 0)
+      )
+      .slice(0, 10);
+
+    const totalOutstanding = [...overdue, ...dueSoon].reduce(
+      (s: number, inv: { amount: number }) => s + inv.amount, 0
+    );
+    const totalOverdue = overdue.reduce(
+      (s: number, inv: { amount: number }) => s + inv.amount, 0
+    );
+    const totalDueSoon = dueSoon.reduce(
+      (s: number, inv: { amount: number }) => s + inv.amount, 0
+    );
+
+    res.json({
+      totalOutstanding,
+      totalOverdue,
+      totalDueSoon,
+      overdueCount: overdue.length,
+      overdue: overdue.map((inv: { id: string; invoiceNumber: string; amount: number; dueDate: Date; client: { name: string } }) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        amount: inv.amount,
+        dueDate: inv.dueDate,
+        daysOverdue: Math.floor((today.getTime() - new Date(inv.dueDate).getTime()) / 86400000),
+        clientName: inv.client?.name,
+      })),
+      dueSoon: dueSoon.map((inv: { id: string; invoiceNumber: string; amount: number; dueDate: Date; client: { name: string } }) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        amount: inv.amount,
+        dueDate: inv.dueDate,
+        clientName: inv.client?.name,
+      })),
+      recentlyPaid: recentlyPaid.map((inv: { id: string; invoiceNumber: string; amount: number; paidDate: Date | null; client: { name: string } }) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        amount: inv.amount,
+        paidDate: inv.paidDate,
+        clientName: inv.client?.name,
+      })),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /invoices — create invoice
+router.post('/invoices', async (req: Request, res: Response) => {
+  try {
+    const { clientId, invoiceNumber, amount, dueDate, description, type, status } = req.body;
+    if (!clientId || !invoiceNumber || !amount || !dueDate) {
+      return res.status(400).json({ error: 'clientId, invoiceNumber, amount, and dueDate are required' });
+    }
+    const invoice = await prisma.invoice.create({
+      data: {
+        clientId,
+        invoiceNumber,
+        amount: parseFloat(amount),
+        dueDate: new Date(dueDate),
+        description: description || null,
+        type: type || 'retainer',
+        status: status || 'sent',
+      },
+    });
+    res.json({ success: true, invoice });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// PATCH /invoices/:id — update invoice (mark paid, change status, etc.)
+router.patch('/invoices/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data: Record<string, unknown> = {};
+    if (req.body.status) data.status = req.body.status;
+    if (req.body.paidDate) data.paidDate = new Date(req.body.paidDate);
+    if (req.body.paidAmount !== undefined) data.paidAmount = parseFloat(req.body.paidAmount);
+    if (req.body.notes) data.notes = req.body.notes;
+    if (req.body.amount) data.amount = parseFloat(req.body.amount);
+    if (req.body.dueDate) data.dueDate = new Date(req.body.dueDate);
+
+    // Auto-set paidDate if marking as paid
+    if (data.status === 'paid' && !data.paidDate) {
+      data.paidDate = new Date();
+    }
+
+    const invoice = await prisma.invoice.update({ where: { id }, data });
+    res.json({ success: true, invoice });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ================================================================
 // DAILY BRIEF — Used by: founder-boss, content-system
 // GET /brief — Full agency daily briefing
 // ================================================================

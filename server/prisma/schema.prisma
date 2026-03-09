@@ -38,6 +38,7 @@ model Client {
   requests        ClientRequest[]
   adReports       AdReport[]
   healthLogs      HealthLog[]
+  invoices        Invoice[]
 }
 
 // Tracks health changes over time for trend visibility
@@ -122,6 +123,31 @@ model AdReport {
   topCampaign     String?  // best performing campaign name
   notes           String?
   createdAt       DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────
+// MODULE 5: INVOICES & PAYMENTS
+// ─────────────────────────────────────────────────
+// Tracks invoices per client with status, amounts, and aging.
+// Powers the Payments page and revenue at-risk calculations.
+
+model Invoice {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  invoiceNumber   String   // e.g., INV-103
+  amount          Float
+  currency        String   @default("USD")
+  status          String   @default("draft") // draft | sent | overdue | paid | void
+  issuedDate      DateTime @default(now())
+  dueDate         DateTime
+  paidDate        DateTime?
+  paidAmount      Float?
+  description     String?  // "March 2026 retainer" etc.
+  type            String   @default("retainer") // retainer | ad_spend | project | one_time
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────────

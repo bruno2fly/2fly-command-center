@@ -214,6 +214,14 @@ export const ALL_TOOLS: ToolDefinition[] = [
   },
 
   {
+    name: 'get_payments',
+    description: 'Get payments dashboard: outstanding invoices, overdue amounts, due this week, recently paid. Use for financial tracking and cash flow visibility.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
     name: 'get_brief',
     description: 'Get the daily agency briefing: health status per client (green/yellow/red), content due this week, overdue requests, revenue at risk. Perfect for morning check-ins and Monday overviews.',
     input_schema: {
@@ -351,6 +359,9 @@ export async function executeTool(
 
     case 'get_revenue':
       return callAgentTools('GET', '/revenue');
+
+    case 'get_payments':
+      return callAgentTools('GET', '/payments');
 
     case 'get_brief':
       return callAgentTools('GET', '/brief');
