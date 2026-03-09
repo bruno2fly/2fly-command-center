@@ -8,15 +8,54 @@ import { ExecutionBoard } from "./founder/ExecutionBoard";
 import { WhatJustCameIn } from "./founder/WhatJustCameIn";
 import { WaitingOnPanel } from "./founder/WaitingOnPanel";
 import { MomentumModule } from "./founder/MomentumModule";
-import { MOCK_ACTIVITY } from "@/lib/founder/mockFounderData";
+import { MOCK_ACTIVITY, type ActivityEvent } from "@/lib/founder/mockFounderData";
 import { DailyPlanner } from "./daily-planner/DailyPlanner";
 import { AgentStatusWidget } from "./founder/AgentStatusWidget";
 import { EASE, T } from "@/lib/planner/animations";
+import { api } from "@/lib/api";
 
 export function FounderDashboard() {
   const { focusMode, setFocusMode } = useFocusMode();
   const { executionItems, momentum } = useActions();
   const { fire, cash, delivery } = executionItems;
+
+  /* Fetch real activity from pulse endpoint, fall back to mock */
+  const [activity, setActivity] = useState<ActivityEvent[]>(MOCK_ACTIVITY);
+  useEffect(() => {
+    api.getPulse()
+      .then((pulse) => {
+        // Build activity events from pulse health data
+        const events: ActivityEvent[] = [];
+        const now = new Date();
+        if (pulse.health?.clients) {
+          pulse.health.clients.forEach((c, i) => {
+            if (c.status === "red") {
+              events.push({
+                id: `pulse-${i}`,
+                type: "ads_alert",
+                clientName: c.name,
+                clientId: String(i + 1),
+                message: `Health status: ${c.status}${c.roas != null ? ` (ROAS ${c.roas.toFixed(1)})` : ""}`,
+                timestamp: new Date(now.getTime() - i * 60 * 60 * 1000).toISOString(),
+              });
+            }
+          });
+        }
+        if (pulse.requests?.breached > 0) {
+          events.push({
+            id: "pulse-breached",
+            type: "request",
+            clientName: "System",
+            clientId: "0",
+            message: `${pulse.requests.breached} request(s) breached SLA`,
+            timestamp: now.toISOString(),
+          });
+        }
+        // Use real events if available, otherwise keep mock
+        if (events.length > 0) setActivity(events);
+      })
+      .catch(() => { /* API down, keep mock data */ });
+  }, []);
 
   /* Boot sequence: green dot pings during panel power-on, then goes solid */
   const [booted, setBooted] = useState(false);
@@ -131,7 +170,7 @@ export function FounderDashboard() {
                 <aside className="lg:col-span-1 space-y-6">
                   <div className="lg:sticky lg:top-6 space-y-6">
                     <AgentStatusWidget />
-                    <WhatJustCameIn events={MOCK_ACTIVITY} />
+                    <WhatJustCameIn events={activity} />
                     <MomentumModule stats={momentum} />
                   </div>
                 </aside>
