@@ -62,6 +62,29 @@ model Client {
   healthLogs      HealthLog[]
   invoices        Invoice[]
   adCampaigns     AdCampaign[]
+  metaConnection  MetaConnection?
+}
+
+// ─────────────────────────────────────────────────
+// META ADS OAUTH CONNECTION
+// ─────────────────────────────────────────────────
+
+model MetaConnection {
+  id              String    @id @default(cuid())
+  clientId        String    @unique
+  client          Client    @relation(fields: [clientId], references: [id])
+  metaUserId      String?
+  accessToken     String
+  tokenExpiresAt  DateTime?
+  adAccountId     String?   // act_XXXXXXXXX
+  adAccountName   String?
+  pageId          String?
+  pageName        String?
+  igAccountId     String?
+  scopes          String?  // comma-separated granted scopes
+  status          String    @default("active") // active | expired | revoked
+  connectedAt     DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // Tracks health changes over time for trend visibility

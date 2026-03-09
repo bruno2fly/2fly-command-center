@@ -1074,6 +1074,228 @@ router.post('/invoices/:id/send-email', async (req: Request, res: Response) => {
   }
 });
 
+// ================================================================
+// META ADS OAUTH — Connect client Meta Business accounts
+// ================================================================
+
+const META_APP_ID = process.env.META_APP_ID || '';
+const META_APP_SECRET = process.env.META_APP_SECRET || '';
+const META_REDIRECT_URI = process.env.META_REDIRECT_URI || 'http://localhost:4000/api/agent-tools/meta/callback';
+const META_SCOPES = 'ads_read,ads_management,business_management,pages_read_engagement,instagram_basic,read_insights';
+
+// GET /meta/auth-url?clientId=XXX — Returns Meta OAuth URL with state=clientId
+router.get('/meta/auth-url', async (req: Request, res: Response) => {
+  try {
+    const clientId = req.query.clientId as string;
+    if (!clientId) return res.status(400).json({ error: 'clientId is required' });
+    if (!META_APP_ID) return res.status(500).json({ error: 'META_APP_ID not configured' });
+
+    const url = new URL('https://www.facebook.com/v21.0/dialog/oauth');
+    url.searchParams.set('client_id', META_APP_ID);
+    url.searchParams.set('redirect_uri', META_REDIRECT_URI);
+    url.searchParams.set('state', clientId);
+    url.searchParams.set('scope', META_SCOPES);
+
+    res.json({ url: url.toString() });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /meta/callback?code=XXX&state=XXX — Exchanges code for token, saves MetaConnection
+router.get('/meta/callback', async (req: Request, res: Response) => {
+  try {
+    const code = req.query.code as string;
+    const state = req.query.state as string; // clientId
+    const error = req.query.error as string;
+
+    if (error) {
+      const redirectUrl = `http://localhost:3001/clients/${state || ''}?tab=ads&error=${encodeURIComponent(error)}`;
+      return res.redirect(redirectUrl);
+    }
+
+    if (!code || !state) {
+      return res.redirect(`http://localhost:3001/clients/${state || ''}?tab=ads&error=missing_params`);
+    }
+
+    if (!META_APP_ID || !META_APP_SECRET) {
+      return res.redirect(`http://localhost:3001/clients/${state}?tab=ads&error=server_config`);
+    }
+
+    // Exchange code for short-lived token
+    const tokenUrl = new URL('https://graph.facebook.com/v21.0/oauth/access_token');
+    tokenUrl.searchParams.set('client_id', META_APP_ID);
+    tokenUrl.searchParams.set('client_secret', META_APP_SECRET);
+    tokenUrl.searchParams.set('redirect_uri', META_REDIRECT_URI);
+    tokenUrl.searchParams.set('code', code);
+
+    const tokenRes = await fetch(tokenUrl.toString());
+    const tokenData = (await tokenRes.json()) as { access_token?: string; expires_in?: number };
+
+    if (!tokenData.access_token) {
+      return res.redirect(`http://localhost:3001/clients/${state}?tab=ads&error=token_exchange`);
+    }
+
+    // Exchange for long-lived token (60 days)
+    const longLivedUrl = new URL('https://graph.facebook.com/v21.0/oauth/access_token');
+    longLivedUrl.searchParams.set('grant_type', 'fb_exchange_token');
+    longLivedUrl.searchParams.set('client_id', META_APP_ID);
+    longLivedUrl.searchParams.set('client_secret', META_APP_SECRET);
+    longLivedUrl.searchParams.set('fb_exchange_token', tokenData.access_token);
+
+    const longRes = await fetch(longLivedUrl.toString());
+    const longData = (await longRes.json()) as { access_token?: string; expires_in?: number };
+
+    const accessToken = longData.access_token || tokenData.access_token;
+    const expiresIn = longData.expires_in ?? tokenData.expires_in ?? 5184000; // 60 days default
+    const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+
+    // Fetch user info
+    const meRes = await fetch(
+      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(accessToken)}`
+    );
+    const meData = (await meRes.json()) as { id?: string; name?: string };
+
+    // Fetch ad accounts
+    const adAccountsRes = await fetch(
+      `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&access_token=${encodeURIComponent(accessToken)}`
+    );
+    const adAccountsData = (await adAccountsRes.json()) as { data?: Array<{ id: string; name: string; account_status: number }> };
+
+    const accounts = adAccountsData.data || [];
+
+    await prisma.metaConnection.upsert({
+      where: { clientId: state },
+      create: {
+        clientId: state,
+        metaUserId: meData.id || null,
+        accessToken,
+        tokenExpiresAt,
+        scopes: META_SCOPES,
+        status: 'active',
+      },
+      update: {
+        metaUserId: meData.id || undefined,
+        accessToken,
+        tokenExpiresAt,
+        scopes: META_SCOPES,
+        status: 'active',
+      },
+    });
+
+    // If only 1 ad account, auto-select it
+    if (accounts.length === 1) {
+      await prisma.metaConnection.update({
+        where: { clientId: state },
+        data: {
+          adAccountId: accounts[0].id,
+          adAccountName: accounts[0].name,
+        },
+      });
+    }
+
+    res.redirect(`http://localhost:3001/clients/${state}?tab=ads&connected=true`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const state = (req.query.state as string) || '';
+    res.redirect(`http://localhost:3001/clients/${state}?tab=ads&error=${encodeURIComponent(message)}`);
+  }
+});
+
+// GET /meta/status/:clientId — Returns connection status for a client
+router.get('/meta/status/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.metaConnection.findUnique({
+      where: { clientId },
+    });
+
+    if (!conn) {
+      return res.json({
+        connected: false,
+        status: 'not_connected',
+      });
+    }
+
+    const isExpired = conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) < new Date();
+
+    return res.json({
+      connected: conn.status === 'active' && !isExpired,
+      status: isExpired ? 'expired' : conn.status,
+      adAccountName: conn.adAccountName || undefined,
+      adAccountId: conn.adAccountId || undefined,
+      connectedAt: conn.connectedAt?.toISOString?.(),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /meta/disconnect/:clientId — Removes connection
+router.post('/meta/disconnect/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    await prisma.metaConnection.deleteMany({
+      where: { clientId },
+    });
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /meta/ad-accounts?clientId=XXX — Lists ad accounts after connection
+router.get('/meta/ad-accounts', async (req: Request, res: Response) => {
+  try {
+    const clientId = req.query.clientId as string;
+    if (!clientId) return res.status(400).json({ error: 'clientId is required' });
+
+    const conn = await prisma.metaConnection.findUnique({
+      where: { clientId },
+    });
+    if (!conn) return res.status(404).json({ error: 'Not connected' });
+
+    const res2 = await fetch(
+      `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&access_token=${encodeURIComponent(conn.accessToken)}`
+    );
+    const data = (await res2.json()) as { data?: Array<{ id: string; name: string; account_status: number }> };
+
+    const accounts = (data.data || []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      status: a.account_status,
+    }));
+
+    res.json({ accounts });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /meta/select-account — { clientId, adAccountId, adAccountName } → updates MetaConnection
+router.post('/meta/select-account', async (req: Request, res: Response) => {
+  try {
+    const { clientId, adAccountId, adAccountName } = req.body;
+    if (!clientId || !adAccountId || !adAccountName) {
+      return res.status(400).json({ error: 'clientId, adAccountId, and adAccountName are required' });
+    }
+
+    await prisma.metaConnection.update({
+      where: { clientId },
+      data: { adAccountId, adAccountName },
+    });
+
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 // POST /invoices/auto-generate — generate monthly invoices for all clients
 router.post('/invoices/auto-generate', async (_req: Request, res: Response) => {
   try {

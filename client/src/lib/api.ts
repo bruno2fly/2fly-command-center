@@ -102,6 +102,34 @@ export const api = {
     }),
   getTeamWorkload: (memberId: string) =>
     fetchAPI<ApiTeamWorkload>(`/team/${memberId}/workload`),
+
+  // Meta Ads OAuth
+  getMetaAuthUrl: (clientId: string) =>
+    fetchAPI<{ url: string }>(`/meta/auth-url?clientId=${encodeURIComponent(clientId)}`),
+  getMetaStatus: (clientId: string) =>
+    fetchAPI<{
+      connected: boolean;
+      status: string;
+      adAccountName?: string;
+      adAccountId?: string;
+      connectedAt?: string;
+    }>(`/meta/status/${clientId}`),
+  disconnectMeta: (clientId: string) =>
+    fetchAPI<{ success: boolean }>(`/meta/disconnect/${clientId}`, { method: "POST" }),
+  getMetaAdAccounts: (clientId: string) =>
+    fetchAPI<{
+      accounts: Array<{ id: string; name: string; status: number }>;
+    }>(`/meta/ad-accounts?clientId=${encodeURIComponent(clientId)}`),
+  selectMetaAccount: (data: {
+    clientId: string;
+    adAccountId: string;
+    adAccountName: string;
+  }) =>
+    fetchAPI<{ success: boolean }>("/meta/select-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }),
 };
 
 export type InvoiceCreatePayload = {
