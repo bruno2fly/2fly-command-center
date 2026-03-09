@@ -60,6 +60,12 @@ export const MOCK_INVOICES: Invoice[] = [
   { id: "i3", clientId: "5", clientName: "Epsilon Studio", amount: 1500, dueDate: "2025-02-16", status: "due_today" },
 ];
 
+// Recently paid (for Payments page)
+export const MOCK_PAID_INVOICES: Invoice[] = [
+  { id: "i4", clientId: "1", clientName: "Acme Corp", amount: 2500, dueDate: "2025-02-01", status: "paid" },
+  { id: "i5", clientId: "2", clientName: "Beta Labs", amount: 1800, dueDate: "2025-02-10", status: "paid" },
+];
+
 // Placeholder: Pipeline deals
 export const MOCK_PIPELINE: PipelineDeal[] = [
   { id: "d1", name: "Retainer expansion", clientName: "Acme Corp", expectedMrr: 800, stage: "Proposal", probability: 70 },
@@ -85,6 +91,10 @@ export type ClientLane = {
   nextPromiseDate: string | null;
   unpaidInvoiceAmount: number | null;
   primaryCta: string;
+  /** Triage: single most critical signal for sidebar/table */
+  urgencySignal?: string;
+  /** Count of critical items for badge */
+  badgeCount?: number;
 };
 
 /** Sum of MRR for clients in yellow or red */

@@ -128,9 +128,26 @@ export function SidebarClientList() {
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${HEALTH_DOT[lane.health]}`} />
-                  <span className={`font-medium truncate ${airplaneMode ? "text-[#c4b8a8]" : "text-white"}`}>{lane.clientName}</span>
+                  <span className={`font-medium truncate ${airplaneMode ? "text-[#c4b8a8]" : "text-white"}`}>
+                    {lane.clientName}
+                  </span>
+                  {lane.badgeCount != null && lane.badgeCount > 1 && (
+                    <span
+                      className={`shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-semibold ${
+                        lane.health === "red"
+                          ? "bg-red-500/90 text-white"
+                          : lane.health === "yellow"
+                            ? "bg-amber-500/90 text-white"
+                            : "bg-emerald-500/80 text-white"
+                      }`}
+                    >
+                      {lane.badgeCount}
+                    </span>
+                  )}
                 </div>
-                <p className={`mt-1.5 text-xs truncate ${airplaneMode ? "text-[#5a5040]" : "text-slate-400"}`}>{lane.primaryCta}</p>
+                <p className={`mt-1.5 text-xs truncate ${airplaneMode ? "text-[#5a5040]" : "text-slate-400"}`}>
+                  {lane.urgencySignal ?? lane.primaryCta}
+                </p>
               </Link>
               <button
                 type="button"

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTheme } from "@/contexts/ThemeContext";
 import { MissionStatusBadge, type StatusVariant } from "./StatusBadge";
 
@@ -97,12 +96,6 @@ export function ClientCommandHeader({
             <button onClick={onCreateTask} className={`${btnBase} ${btnPrimary}`}>
               Create Task
             </button>
-            <Link
-              href="/"
-              className={`${btnBase} ${isDark ? "text-[#8a7e6d] hover:text-[#c4b8a8]" : "text-gray-600 hover:text-gray-900"}`}
-            >
-              ← Dashboard
-            </Link>
           </div>
         </div>
       </div>

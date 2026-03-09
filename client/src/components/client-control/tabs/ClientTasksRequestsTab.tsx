@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   getRequests,
   getTasks,
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export function ClientTasksRequestsTab({ clientId }: Props) {
+  const { isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
@@ -34,7 +36,7 @@ export function ClientTasksRequestsTab({ clientId }: Props) {
   const setSubTab = useCallback(
     (sub: SubTabId) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
-      params.set("tab", "tasks");
+      params.set("tab", "tasksRequests");
       params.set("sub", sub);
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
@@ -69,15 +71,22 @@ export function ClientTasksRequestsTab({ clientId }: Props) {
     done: "Done",
   };
 
+  const bgBase = isDark ? "bg-[#06060a]" : "bg-gray-50";
+  const cardCls = isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-100 bg-white";
+  const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
+  const mutedCls = isDark ? "text-[#5a5040]" : "text-gray-500";
+  const subBtnActive = isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-100 text-blue-700";
+  const subBtnInactive = isDark ? "bg-[#141210] text-[#8a7e6d] hover:bg-[#1a1810]" : "bg-gray-100 text-gray-600 hover:bg-gray-200";
+
   return (
-    <div className="flex-1 overflow-auto p-6">
+    <div className={`flex-1 overflow-auto p-6 ${bgBase}`}>
       <div className="flex gap-2 mb-6">
         {SUB_TABS.map((s) => (
           <button
             key={s}
             onClick={() => setSubTab(s)}
             className={`px-4 py-2 rounded-lg text-sm font-medium capitalize ${
-              activeSub === s ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              activeSub === s ? subBtnActive : subBtnInactive
             }`}
           >
             {s}
@@ -87,22 +96,22 @@ export function ClientTasksRequestsTab({ clientId }: Props) {
 
       {activeSub === "requests" && (
         <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Request pipeline</h2>
+          <h2 className={`text-sm font-semibold uppercase tracking-wider ${mutedCls}`}>Request pipeline</h2>
           <div className="grid grid-cols-4 gap-4">
             {requestsByStage.map(({ stage, items }) => (
               <div
                 key={stage}
-                className="rounded-lg border border-gray-100 bg-white p-4 min-h-[200px]"
+                className={`rounded-lg border p-4 min-h-[200px] ${cardCls}`}
               >
-                <h3 className="text-xs font-medium text-gray-500 mb-3">{STAGE_LABELS[stage]}</h3>
+                <h3 className={`text-xs font-medium mb-3 ${mutedCls}`}>{STAGE_LABELS[stage]}</h3>
                 <ul className="space-y-2">
                   {items.map((r) => (
                     <li
                       key={r.id}
-                      className="p-2.5 rounded-lg bg-gray-50 border border-gray-100 text-sm"
+                      className={`p-2.5 rounded-lg border text-sm ${isDark ? "bg-[#0c0c10] border-[#1a1810]" : "bg-gray-50 border-gray-100"}`}
                     >
-                      <p className="font-medium text-gray-900 truncate">{r.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{r.source} · {formatDate(r.dueAt)}</p>
+                      <p className={`font-medium truncate ${textCls}`}>{r.title}</p>
+                      <p className={`text-xs mt-0.5 ${mutedCls}`}>{r.source} · {formatDate(r.dueAt)}</p>
                     </li>
                   ))}
                 </ul>
@@ -114,24 +123,24 @@ export function ClientTasksRequestsTab({ clientId }: Props) {
 
       {activeSub === "tasks" && (
         <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Tasks</h2>
+          <h2 className={`text-sm font-semibold uppercase tracking-wider ${mutedCls}`}>Tasks</h2>
           <div className="grid grid-cols-5 gap-4">
             {tasksByStatus.map(({ status, items }) => (
               <div
                 key={status}
-                className="rounded-lg border border-gray-100 bg-white p-4 min-h-[200px]"
+                className={`rounded-lg border p-4 min-h-[200px] ${cardCls}`}
               >
-                <h3 className="text-xs font-medium text-gray-500 mb-3">{STATUS_LABELS[status]}</h3>
+                <h3 className={`text-xs font-medium mb-3 ${mutedCls}`}>{STATUS_LABELS[status]}</h3>
                 <ul className="space-y-2">
                   {items.map((t) => (
                     <li
                       key={t.id}
-                      className="p-2.5 rounded-lg bg-gray-50 border border-gray-100 text-sm"
+                      className={`p-2.5 rounded-lg border text-sm ${isDark ? "bg-[#0c0c10] border-[#1a1810]" : "bg-gray-50 border-gray-100"}`}
                     >
-                      <p className="font-medium text-gray-900 truncate">{t.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{t.assignee} · {formatDate(t.dueAt)}</p>
+                      <p className={`font-medium truncate ${textCls}`}>{t.title}</p>
+                      <p className={`text-xs mt-0.5 ${mutedCls}`}>{t.assignee} · {formatDate(t.dueAt)}</p>
                       {t.priority === "high" && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">High</span>
+                        <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-xs ${isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-700"}`}>High</span>
                       )}
                     </li>
                   ))}

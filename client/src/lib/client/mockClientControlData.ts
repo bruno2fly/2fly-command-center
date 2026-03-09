@@ -180,6 +180,93 @@ export function getClientControlMeta(clientId: string): ClientControlMeta | null
   return getFallbackMeta(clientId);
 }
 
+// —— Overview tab ——
+
+export type BriefOfTheDay = {
+  clientId: string;
+  text: string;
+  agentName: string;
+  updatedAt: string;
+};
+
+export type ContentQualityOverview = {
+  clientId: string;
+  text: string;
+  agentName: string;
+  updatedAt: string;
+};
+
+export type TwoFlyFlowOverview = {
+  clientId: string;
+  pendingApproval: number;
+  pendingPosts: number;
+  items: Array<{ id: string; title: string; stage: string; source: string }>;
+};
+
+const MOCK_BRIEF: Record<string, BriefOfTheDay> = {
+  "1": {
+    clientId: "1",
+    text: "Acme is in good shape overall. Spring campaign is live and performing well (+12% WoW). Main focus today: (1) Invoice #1023 is 6d overdue – follow up with client. (2) Ad copy approval for Spring campaign pending – client requested minor tweaks. (3) Hero image update for new product – design in progress, due Thu. (4) Contact form bug reported – dev is investigating. Content buffer at 21 days. No blockers.",
+    agentName: "Sarah",
+    updatedAt: "2025-03-09T08:00:00Z",
+  },
+  "2": {
+    clientId: "2",
+    text: "Beta Labs: Ads pacing under target (-5% WoW). Content buffer at 10 days – at risk. Two posts in 2FlyFlow awaiting approval. Client happy with Q1 direction.",
+    agentName: "Sarah",
+    updatedAt: "2025-03-09T08:00:00Z",
+  },
+};
+
+const MOCK_CONTENT_QUALITY: Record<string, ContentQualityOverview> = {
+  "1": {
+    clientId: "1",
+    text: "Content pipeline healthy. 4 items in production: Spring launch post (scheduled), Product demo reel (draft), UGC testimonial (draft), Spring ad creatives (in review). Calendar is filled through mid-March. UGC campaign for new product is the main theme – client loves the direction. No quality issues.",
+    agentName: "Sarah",
+    updatedAt: "2025-03-09T08:00:00Z",
+  },
+};
+
+function getFallbackBrief(clientId: string): BriefOfTheDay {
+  const b = MOCK_BRIEF["1"]!;
+  return { ...b, clientId };
+}
+
+function getFallbackContentQuality(clientId: string): ContentQualityOverview {
+  const c = MOCK_CONTENT_QUALITY["1"]!;
+  return { ...c, clientId };
+}
+
+export function getBriefOfTheDay(clientId: string): BriefOfTheDay | null {
+  if (MOCK_BRIEF[clientId]) return MOCK_BRIEF[clientId];
+  return getFallbackBrief(clientId);
+}
+
+export function getContentQualityOverview(clientId: string): ContentQualityOverview | null {
+  if (MOCK_CONTENT_QUALITY[clientId]) return MOCK_CONTENT_QUALITY[clientId];
+  return getFallbackContentQuality(clientId);
+}
+
+export function get2FlyFlowOverview(clientId: string): TwoFlyFlowOverview {
+  const effectiveId = MOCK_IDS.has(clientId) ? clientId : "1";
+  const inbox = MOCK_INBOX.filter((i) => i.clientId === effectiveId && i.source === "2flyflow");
+  const approvals = MOCK_CONTROL.filter((i) => i.clientId === effectiveId && i.kind === "approval");
+
+  const items = [
+    ...inbox.map((i) => ({ id: i.id, title: i.summary, stage: i.type === "approval" ? "Awaiting approval" : "Request", source: "2FlyFlow" })),
+    ...approvals.map((i) => ({ id: i.id, title: i.title, stage: "Awaiting approval", source: "2FlyFlow" })),
+  ];
+  const pendingApproval = items.filter((i) => i.stage === "Awaiting approval").length;
+  const pendingPosts = items.length;
+
+  return {
+    clientId,
+    pendingApproval,
+    pendingPosts,
+    items,
+  };
+}
+
 /** Global alerts (urgent inbox + blockers) for command bar */
 export function getGlobalAlerts(): Array<{ id: string; title: string; clientName: string; clientId: string; kind: "inbox" | "blocker" }> {
   const fromInbox = MOCK_INBOX.filter((i) => i.tags.includes("urgent")).map((i) => ({

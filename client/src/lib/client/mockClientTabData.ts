@@ -214,10 +214,14 @@ const MOCK_ADS_SUMMARY: Record<string, { spend: number; roasTrend: string }> = {
 };
 
 const MOCK_CONTENT_CALENDAR: ContentCalendarItem[] = [
-  { id: "cc1", clientId: "1", title: "Spring launch post", date: "2025-02-18", type: "post", status: "scheduled" },
-  { id: "cc2", clientId: "1", title: "Product demo reel", date: "2025-02-20", type: "video", status: "draft" },
-  { id: "cc3", clientId: "1", title: "UGC testimonial", date: "2025-02-22", type: "story", status: "draft" },
-  { id: "cc4", clientId: "1", title: "Spring ad creatives", date: "2025-02-16", type: "ad", status: "review" },
+  { id: "cc1", clientId: "1", title: "Spring launch post", date: "2025-03-10", type: "post", status: "scheduled" },
+  { id: "cc2", clientId: "1", title: "Product demo reel", date: "2025-03-11", type: "video", status: "draft" },
+  { id: "cc3", clientId: "1", title: "UGC testimonial", date: "2025-03-12", type: "story", status: "draft" },
+  { id: "cc4", clientId: "1", title: "Spring ad creatives", date: "2025-03-09", type: "ad", status: "review" },
+  { id: "cc5", clientId: "2", title: "Brand refresh announcement", date: "2025-03-10", type: "post", status: "scheduled" },
+  { id: "cc6", clientId: "2", title: "Behind-the-scenes reel", date: "2025-03-13", type: "video", status: "draft" },
+  { id: "cc7", clientId: "3", title: "Product drop teaser", date: "2025-03-11", type: "story", status: "review" },
+  { id: "cc8", clientId: "3", title: "Retargeting ad set", date: "2025-03-14", type: "ad", status: "scheduled" },
 ];
 
 const MOCK_CONTENT_PIPELINE: ContentPipelineItem[] = [

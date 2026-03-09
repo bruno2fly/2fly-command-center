@@ -7,6 +7,8 @@ import { MOCK_CLIENTS } from "./mockData";
 import { MOCK_INVOICES } from "./founderData";
 import { computeClientHealth } from "./healthScoring";
 import type { ClientLane } from "./founderData";
+import { getClientUrgencySignal, sortByUrgency } from "./client/getClientUrgencySignal";
+import { getClientControlMeta } from "./client/mockClientControlData";
 
 // Augmented data per client (TODO: load from project/billing systems)
 const CLIENT_EXTRA: Record<
@@ -36,10 +38,11 @@ export function buildClientLanes(clients: Client[] = MOCK_CLIENTS): ClientLane[]
     }
   }
 
-  return clients.map((client) => {
+  const lanes = clients.map((client) => {
+    const meta = getClientControlMeta(client.id);
     const extra = CLIENT_EXTRA[client.id] ?? {
-      lastDeliveredDate: null,
-      nextPromiseDate: null,
+      lastDeliveredDate: meta?.lastDelivery ?? null,
+      nextPromiseDate: meta?.nextPromiseDate ?? null,
     };
     const unpaidAmount = overdueByClient.get(client.id) ?? null;
     const health = computeClientHealth({
@@ -62,6 +65,13 @@ export function buildClientLanes(clients: Client[] = MOCK_CLIENTS): ClientLane[]
       primaryCta: "",
     };
     lane.primaryCta = getPrimaryCta(client, lane);
+
+    const urgency = getClientUrgencySignal(client.id, client.name);
+    lane.urgencySignal = urgency.signal;
+    lane.badgeCount = urgency.badgeCount;
+
     return lane;
   });
+
+  return sortByUrgency(lanes, getClientUrgencySignal);
 }

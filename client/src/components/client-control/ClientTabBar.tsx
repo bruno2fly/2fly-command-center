@@ -4,16 +4,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-export const CLIENT_TABS = ["overview", "tasks", "plan", "ads", "content", "social"] as const;
+export const CLIENT_TABS = ["overview", "tasksRequests", "clientPlan", "ads", "content", "socialMedia"] as const;
 export type ClientTabId = (typeof CLIENT_TABS)[number];
 
 const TAB_LABELS: Record<ClientTabId, string> = {
   overview: "Overview",
-  tasks: "Tasks & Requests",
-  plan: "Client Plan",
+  tasksRequests: "Tasks & Requests",
+  clientPlan: "Client Plan",
   ads: "Ads",
   content: "Content",
-  social: "Social Media",
+  socialMedia: "Social Media",
 };
 
 type Props = {
@@ -30,7 +30,7 @@ export function ClientTabBar({ activeTab }: Props) {
     (tab: ClientTabId) => {
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       params.set("tab", tab);
-      if (tab !== "tasks") params.delete("sub");
+      params.delete("sub");
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams]
