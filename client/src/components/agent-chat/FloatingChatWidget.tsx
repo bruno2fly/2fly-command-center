@@ -152,7 +152,7 @@ export function FloatingChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`fixed z-[9999] flex flex-col border shadow-2xl backdrop-blur-xl ${panelBg} ${panelBorder} inset-0 w-full h-full sm:inset-auto sm:bottom-6 sm:right-8 sm:w-[380px] sm:h-[500px] sm:rounded-2xl`}
+            className={`fixed z-[9999] flex flex-col border shadow-2xl backdrop-blur-xl ${panelBg} ${panelBorder} sm:bottom-6 sm:right-8 sm:w-[380px] sm:h-[500px] sm:rounded-2xl bottom-0 right-0 w-full h-full sm:inset-auto`}
             style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.3)", left: "auto" }}
           >
             {/* Header */}
