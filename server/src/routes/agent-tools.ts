@@ -884,9 +884,10 @@ router.get('/brief', async (_req: Request, res: Response) => {
     const yellow: string[] = [];
     const red: string[] = [];
     for (const h of healthData) {
-      if (h.healthStatus === 'green') green.push(h.name);
-      else if (h.healthStatus === 'yellow') yellow.push(h.name);
-      else red.push(h.name);
+      const clientName = h.clientName || h.name || 'Unknown';
+      if (h.overall === 'green' || h.healthStatus === 'green') green.push(clientName);
+      else if (h.overall === 'yellow' || h.healthStatus === 'yellow') yellow.push(clientName);
+      else red.push(clientName);
     }
 
     // Content due this week
