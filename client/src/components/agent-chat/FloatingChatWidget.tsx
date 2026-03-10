@@ -135,7 +135,7 @@ export function FloatingChatWidget() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={panelOpen && minimized ? handleExpand : openPanel}
-            className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-[#013E99] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#0f172a] relative"
+            className="fixed bottom-6 right-8 z-[9999] w-14 h-14 rounded-full bg-[#013E99] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#0f172a] relative"
             style={{ boxShadow: "0 4px 20px rgba(1,62,153,0.4)" }}
           >
             <span className="absolute inset-0 rounded-full bg-[#013E99] animate-ping opacity-20" style={{ animationDuration: "2s" }} />
@@ -152,7 +152,7 @@ export function FloatingChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`fixed z-50 flex flex-col border shadow-2xl backdrop-blur-xl sm:rounded-2xl sm:bottom-6 sm:left-6 inset-0 w-full h-full sm:inset-auto sm:w-[380px] sm:h-[500px] ${panelBg} ${panelBorder}`}
+            className={`fixed z-[9999] flex flex-col border shadow-2xl backdrop-blur-xl sm:rounded-2xl sm:bottom-6 sm:right-8 inset-0 w-full h-full sm:inset-auto sm:w-[380px] sm:h-[500px] ${panelBg} ${panelBorder}`}
             style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}
           >
             {/* Header */}
