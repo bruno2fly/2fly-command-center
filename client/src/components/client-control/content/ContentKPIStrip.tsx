@@ -22,16 +22,24 @@ function AnimatedNumber({ value, duration = 400 }: { value: number; duration?: n
 }
 
 export type ContentKPIs = {
-  scheduledThisWeek: number;
-  inProduction: number;
+  ideasGenerated: number;
+  approved: number;
+  scheduled: number;
   publishedMTD: number;
-  contentScore: number;
-  postingStreak: number;
+  streak: number;
 };
 
 type Props = {
   kpis: ContentKPIs;
 };
+
+const METRICS: { key: keyof ContentKPIs; label: string; emoji: string; sub: string }[] = [
+  { key: "ideasGenerated", label: "Ideas Generated", emoji: "📝", sub: "" },
+  { key: "approved", label: "Approved", emoji: "✅", sub: "" },
+  { key: "scheduled", label: "Scheduled", emoji: "📅", sub: "" },
+  { key: "publishedMTD", label: "Published (MTD)", emoji: "🟢", sub: "" },
+  { key: "streak", label: "Streak", emoji: "🔥", sub: "days" },
+];
 
 export function ContentKPIStrip({ kpis }: Props) {
   const { isDark } = useTheme();
@@ -42,30 +50,24 @@ export function ContentKPIStrip({ kpis }: Props) {
   const labelCls = "text-[10px] font-semibold uppercase tracking-wider text-gray-500";
   const valueCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
 
-  const metrics = [
-    { label: "Scheduled", value: kpis.scheduledThisWeek, sub: "this week" },
-    { label: "In Production", value: kpis.inProduction, sub: "items" },
-    { label: "Published (MTD)", value: kpis.publishedMTD, sub: "posts" },
-    { label: "Content Score", value: kpis.contentScore, sub: "of target", suffix: "%" },
-    { label: "Posting Streak", value: kpis.postingStreak, sub: "days" },
-  ];
-
   return (
     <div className="flex flex-wrap gap-3 p-4 overflow-x-auto">
-      {metrics.map((m, i) => (
+      {METRICS.map((m, i) => (
         <motion.div
-          key={m.label}
+          key={m.key}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25, delay: i * 0.05 }}
-          className={`${cardCls} ${bgCls} min-w-[100px]`}
+          className={`${cardCls} ${bgCls} min-w-[90px]`}
         >
-          <p className={labelCls}>{m.label}</p>
-          <p className={`text-lg font-bold tabular-nums ${valueCls}`}>
-            <AnimatedNumber value={m.value} />
-            {m.suffix ?? ""}
+          <p className={labelCls}>
+            {m.emoji} {m.label}
           </p>
-          <p className="text-[10px] text-gray-500">{m.sub}</p>
+          <p className={`text-lg font-bold tabular-nums ${valueCls}`}>
+            <AnimatedNumber value={kpis[m.key]} />
+            {m.key === "streak" && kpis.streak > 0 ? " days" : ""}
+          </p>
+          {m.sub && <p className="text-[10px] text-gray-500">{m.sub}</p>}
         </motion.div>
       ))}
     </div>

@@ -6,47 +6,30 @@ import { api } from "@/lib/api";
 import type { ApiContentItem } from "@/lib/api";
 import { getContentCalendar } from "@/lib/client/mockClientTabData";
 import { ContentKPIStrip, type ContentKPIs } from "@/components/client-control/content/ContentKPIStrip";
-import { ContentCalendarCommand } from "@/components/client-control/content/ContentCalendarCommand";
-import { ContentPipelineKanban } from "@/components/client-control/content/ContentPipelineKanban";
-import { ContentIdeasBank, type ContentIdeaItem } from "@/components/client-control/content/ContentIdeasBank";
-import { IndustryTipsCard } from "@/components/client-control/content/IndustryTipsCard";
-import { InspirationBoard, type InspirationItem } from "@/components/client-control/content/InspirationBoard";
+import { AIContentIdeasSection } from "@/components/client-control/content/AIContentIdeasSection";
+import { ReelIdeasRow, type ReelIdeaCard } from "@/components/client-control/content/ReelIdeasRow";
+import { ReferenceLinksRow } from "@/components/client-control/content/ReferenceLinksRow";
+import { MonthlyPlannerCompact } from "@/components/client-control/content/MonthlyPlannerCompact";
+import type { ContentIdea, ReferenceLink } from "@/components/client-control/content/contentIdeaTypes";
+import { generateIdeaId, generateRefId } from "@/components/client-control/content/contentIdeaTypes";
+import {
+  getIndustryForClient,
+  getPreSeededIdeas,
+} from "@/components/client-control/content/contentIdeasSeed";
 
 const IDEAS_KEY_PREFIX = "2fly-content-ideas-";
-const INSPIRATION_KEY_PREFIX = "2fly-inspiration-";
-const CONTENT_TARGET_MONTHLY = 16;
-
-function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function getWeekRange(weekStart: Date) {
-  const end = new Date(weekStart);
-  end.setDate(weekStart.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-  return { start: weekStart, end };
-}
-
-function getStartOfMonth(d: Date): Date {
-  const x = new Date(d.getFullYear(), d.getMonth(), 1);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
+const REFERENCES_KEY_PREFIX = "2fly-references-";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 function computePostingStreak(content: ApiContentItem[]): number {
-  const published = content.filter((c) => c.status === "published" && c.publishedDate);
+  const published = content.filter((c) => c.status === "published" && (c as { publishedDate?: string }).publishedDate);
   if (published.length === 0) return 0;
   const dates = new Set(
-    published.map((c) => c.publishedDate!.slice(0, 10))
+    published.map((c) => ((c as { publishedDate?: string }).publishedDate ?? "").slice(0, 10))
   );
   const today = new Date().toISOString().slice(0, 10);
   let count = 0;
-  let d = new Date();
+  const d = new Date();
   for (let i = 0; i < 31; i++) {
     const key = d.toISOString().slice(0, 10);
     if (dates.has(key)) count++;
@@ -56,6 +39,12 @@ function computePostingStreak(content: ApiContentItem[]): number {
   return count;
 }
 
+function getStartOfMonth(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), 1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
 type Props = {
   clientId: string;
 };
@@ -63,13 +52,79 @@ type Props = {
 export function ClientContentTab({ clientId }: Props) {
   const { isDark } = useTheme();
   const [content, setContent] = useState<ApiContentItem[]>([]);
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
-  const [ideas, setIdeas] = useState<ContentIdeaItem[]>([]);
-  const [inspiration, setInspiration] = useState<InspirationItem[]>([]);
-  const [industry, setIndustry] = useState<string | null>(null);
+  const [ideas, setIdeas] = useState<ContentIdea[]>([]);
+  const [references, setReferences] = useState<ReferenceLink[]>([]);
+  const [clientName, setClientName] = useState<string | null>(null);
+  const [schedulingIdea, setSchedulingIdea] = useState<ContentIdea | null>(null);
+  const [scheduleDate, setScheduleDate] = useState<string>("");
 
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  // Load ideas from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(IDEAS_KEY_PREFIX + clientId);
+      if (raw) {
+        const parsed = JSON.parse(raw) as ContentIdea[];
+        if (Array.isArray(parsed)) {
+          setIdeas(parsed.length > 0 ? parsed : []);
+          return;
+        }
+      }
+      setIdeas([]);
+    } catch {
+      setIdeas([]);
+    }
+  }, [clientId]);
 
+  // Load references from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REFERENCES_KEY_PREFIX + clientId);
+      if (raw) setReferences(JSON.parse(raw) as ReferenceLink[]);
+    } catch {
+      // ignore
+    }
+  }, [clientId]);
+
+  // Client name for industry detection + pre-seed ideas when localStorage is empty
+  useEffect(() => {
+    api.getClient(clientId).then((c) => {
+      const name = (c as { name?: string })?.name ?? null;
+      setClientName(name ?? null);
+      const raw = localStorage.getItem(IDEAS_KEY_PREFIX + clientId);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as ContentIdea[];
+          if (Array.isArray(parsed) && parsed.length > 0) return;
+        } catch {
+          // fall through to seed
+        }
+      }
+      const industry = getIndustryForClient(clientId, name ?? undefined);
+      const seeded = getPreSeededIdeas(clientId, industry);
+      if (seeded.length > 0) setIdeas(seeded);
+    }).catch(() => {});
+  }, [clientId]);
+
+  // Persist ideas
+  useEffect(() => {
+    if (ideas.length === 0) return;
+    try {
+      localStorage.setItem(IDEAS_KEY_PREFIX + clientId, JSON.stringify(ideas));
+    } catch {
+      // ignore
+    }
+  }, [clientId, ideas]);
+
+  // Persist references
+  useEffect(() => {
+    try {
+      localStorage.setItem(REFERENCES_KEY_PREFIX + clientId, JSON.stringify(references));
+    } catch {
+      // ignore
+    }
+  }, [clientId, references]);
+
+  // Fetch content from API (for KPIs + monthly planner)
   useEffect(() => {
     fetch(`${API}/api/agent-tools/content?clientId=${clientId}`)
       .then((r) => r.json())
@@ -94,101 +149,128 @@ export function ClientContentTab({ clientId }: Props) {
           }))
         );
       });
-  }, [clientId, API]);
-
-  useEffect(() => {
-    api.getClient(clientId).then((c) => setIndustry((c as { industry?: string })?.industry ?? null)).catch(() => {});
   }, [clientId]);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(IDEAS_KEY_PREFIX + clientId);
-      if (raw) setIdeas(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-  }, [clientId]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(INSPIRATION_KEY_PREFIX + clientId);
-      if (raw) setInspiration(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-  }, [clientId]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(IDEAS_KEY_PREFIX + clientId, JSON.stringify(ideas));
-    } catch {
-      // ignore
-    }
-  }, [clientId, ideas]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(INSPIRATION_KEY_PREFIX + clientId, JSON.stringify(inspiration));
-    } catch {
-      // ignore
-    }
-  }, [clientId, inspiration]);
-
-  const { start: weekStartDate, end: weekEndDate } = getWeekRange(weekStart);
   const startOfMonth = getStartOfMonth(new Date());
 
   const kpis = useMemo((): ContentKPIs => {
-    const now = new Date();
-    const weekStartStr = weekStartDate.getTime();
-    const weekEndStr = weekEndDate.getTime();
-
-    let scheduledThisWeek = 0;
-    let inProduction = 0;
+    let approved = 0;
+    let scheduled = 0;
     let publishedMTD = 0;
-
+    for (const i of ideas) {
+      if (i.status === "approved") approved++;
+      if (i.status === "scheduled") scheduled++;
+    }
     for (const c of content) {
       const s = (c.status || "").toLowerCase();
-      const scheduled = c.scheduledDate ? new Date(c.scheduledDate).getTime() : 0;
-      if (s === "scheduled" && scheduled >= weekStartStr && scheduled <= weekEndStr) scheduledThisWeek++;
-      if (s === "draft" || s === "in_review" || s === "review") inProduction++;
-      if (s === "published" && c.publishedDate && new Date(c.publishedDate) >= startOfMonth) publishedMTD++;
+      if (s === "published" && (c as { publishedDate?: string }).publishedDate) {
+        if (new Date((c as { publishedDate: string }).publishedDate) >= startOfMonth) publishedMTD++;
+      }
     }
-
-    const publishedOrScheduled = content.filter(
-      (c) => c.status === "published" || c.status === "scheduled"
-    ).length;
-    const contentScore = Math.min(100, Math.round((publishedOrScheduled / CONTENT_TARGET_MONTHLY) * 100));
-    const postingStreak = computePostingStreak(content);
-
+    const streak = computePostingStreak(content);
     return {
-      scheduledThisWeek,
-      inProduction,
+      ideasGenerated: ideas.length,
+      approved,
+      scheduled,
       publishedMTD,
-      contentScore,
-      postingStreak,
+      streak,
     };
-  }, [content, weekStartDate, weekEndDate]);
+  }, [ideas, content, startOfMonth]);
 
-  const contentForCalendar = useMemo(
+  const reelCards = useMemo((): ReelIdeaCard[] => {
+    return ideas
+      .filter((i) => i.type === "reel")
+      .map((i) => ({
+        id: i.id,
+        title: i.title,
+        description: i.hook || i.whyItWorks || "",
+        tag: "High Engagement" as const,
+        refLink: i.references?.[0],
+      }));
+  }, [ideas]);
+
+  const scheduledForPlanner = useMemo(
     () =>
-      content.map((c) => ({
-        id: c.id,
-        title: c.title,
-        type: c.type ?? c.contentType ?? "post",
-        status: c.status,
-        scheduledDate: c.scheduledDate,
-      })),
+      content
+        .filter((c) => c.scheduledDate)
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          type: (c as { type?: string }).type ?? (c as { contentType?: string }).contentType,
+          scheduledDate: c.scheduledDate!,
+        })),
     [content]
   );
 
-  const contentForPipeline = contentForCalendar;
+  // Also add ideas that have scheduledDate
+  const scheduledIdeasForPlanner = useMemo(
+    () =>
+      ideas
+        .filter((i) => i.status === "scheduled" && i.scheduledDate)
+        .map((i) => ({
+          id: i.id,
+          title: i.title,
+          type: i.type,
+          scheduledDate: i.scheduledDate!,
+        })),
+    [ideas]
+  );
 
-  const handleWeekChange = useCallback((delta: number) => {
-    setWeekStart((prev) => {
-      const next = new Date(prev);
-      next.setDate(prev.getDate() + delta * 7);
-      return next;
-    });
+  const allScheduledItems = useMemo(
+    () => [...scheduledForPlanner, ...scheduledIdeasForPlanner],
+    [scheduledForPlanner, scheduledIdeasForPlanner]
+  );
+
+  const handleSchedule = useCallback(
+    (idea: ContentIdea) => {
+      setSchedulingIdea(idea);
+      setScheduleDate(new Date().toISOString().slice(0, 16));
+    },
+    []
+  );
+
+  const confirmSchedule = useCallback(() => {
+    if (!schedulingIdea) return;
+    const dateStr = scheduleDate.slice(0, 10);
+    setIdeas((prev) =>
+      prev.map((i) =>
+        i.id === schedulingIdea.id
+          ? { ...i, status: "scheduled" as const, scheduledDate: dateStr }
+          : i
+      )
+    );
+    setSchedulingIdea(null);
+    setScheduleDate("");
+  }, [schedulingIdea, scheduleDate]);
+
+  const addReelIdea = useCallback(() => {
+    const newIdea: ContentIdea = {
+      id: generateIdeaId(),
+      clientId,
+      type: "reel",
+      title: "New Reel Idea",
+      caption: "",
+      hook: "",
+      format: "9:16 vertical",
+      bestTime: "",
+      hashtags: [],
+      whyItWorks: "",
+      references: [],
+      status: "idea",
+      source: "ai",
+      createdAt: new Date().toISOString(),
+    };
+    setIdeas((prev) => [...prev, newIdea]);
+  }, [clientId]);
+
+  const addReference = useCallback(() => {
+    const newRef: ReferenceLink = {
+      id: generateRefId(),
+      title: "New reference",
+      url: "https://",
+      source: "other",
+    };
+    setReferences((prev) => [...prev, newRef]);
   }, []);
 
   const bgBase = isDark ? "bg-[#06060a]" : "bg-gray-50";
@@ -198,31 +280,68 @@ export function ClientContentTab({ clientId }: Props) {
       <ContentKPIStrip kpis={kpis} />
 
       <div className="p-4 space-y-6">
-        <ContentCalendarCommand
-          content={contentForCalendar}
-          weekStart={weekStart}
-          onWeekChange={handleWeekChange}
-          onItemClick={(item) => console.log("Content clicked", item.id)}
+        {/* Main: AI Content Ideas — ~60% visual weight */}
+        <div className="min-h-[400px]">
+          <AIContentIdeasSection
+            ideas={ideas}
+            onIdeasChange={setIdeas}
+            onSchedule={handleSchedule}
+          />
+        </div>
+
+        {/* Reel Ideas row */}
+        <ReelIdeasRow
+          items={reelCards}
+          onAddNew={addReelIdea}
         />
 
-        <ContentPipelineKanban content={contentForPipeline} />
+        {/* Reference Links */}
+        <ReferenceLinksRow
+          items={references}
+          onItemsChange={setReferences}
+          onAdd={addReference}
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-          <div className="lg:col-span-4">
-            <ContentIdeasBank
-              clientId={clientId}
-              ideas={ideas}
-              onIdeasChange={setIdeas}
+        {/* Monthly Planner — compact */}
+        <MonthlyPlannerCompact items={allScheduledItems} />
+      </div>
+
+      {/* Schedule date picker modal */}
+      {schedulingIdea && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setSchedulingIdea(null)}
+        >
+          <div
+            className={`rounded-2xl border p-6 shadow-xl min-w-[280px] ${isDark ? "bg-[#0f0f14] border-slate-700" : "bg-white border-gray-200"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold mb-2">Schedule &quot;{schedulingIdea.title}&quot;</h3>
+            <input
+              type="datetime-local"
+              value={scheduleDate}
+              onChange={(e) => setScheduleDate(e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 text-sm ${isDark ? "bg-slate-800 border-slate-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}
             />
-          </div>
-          <div className="lg:col-span-3">
-            <IndustryTipsCard industry={industry} />
-          </div>
-          <div className="lg:col-span-3">
-            <InspirationBoard items={inspiration} onItemsChange={setInspiration} />
+            <div className="flex gap-2 mt-4 justify-end">
+              <button
+                type="button"
+                onClick={() => setSchedulingIdea(null)}
+                className="px-3 py-1.5 rounded-lg text-sm bg-gray-200 dark:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmSchedule}
+                className="px-3 py-1.5 rounded-lg text-sm bg-blue-500 text-white"
+              >
+                Schedule
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
