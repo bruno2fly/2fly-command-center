@@ -337,6 +337,7 @@ export type ApiRequestItem = {
   updatedAt: string;
   slaBreach?: boolean;
   type?: string;
+  source?: string;
 };
 
 export type ApiRequestsResponse = {
@@ -352,8 +353,11 @@ export type ApiContentItem = {
   platform: string;
   status: string;
   scheduledDate?: string;
+  publishedDate?: string;
   createdAt: string;
   updatedAt: string;
+  type?: string;
+  contentType?: string;
 };
 
 export type ApiContentResponse = {

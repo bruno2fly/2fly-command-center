@@ -1,21 +1,59 @@
 "use client";
 
-import {
-  getContentCalendar,
-  getContentPipeline,
-  getContentIdeas,
-} from "@/lib/client/mockClientTabData";
-import { ContentCalendar } from "@/components/ContentCalendar";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { api } from "@/lib/api";
+import type { ApiContentItem } from "@/lib/api";
+import { getContentCalendar } from "@/lib/client/mockClientTabData";
+import { ContentKPIStrip, type ContentKPIs } from "@/components/client-control/content/ContentKPIStrip";
+import { ContentCalendarCommand } from "@/components/client-control/content/ContentCalendarCommand";
+import { ContentPipelineKanban } from "@/components/client-control/content/ContentPipelineKanban";
+import { ContentIdeasBank, type ContentIdeaItem } from "@/components/client-control/content/ContentIdeasBank";
+import { IndustryTipsCard } from "@/components/client-control/content/IndustryTipsCard";
+import { InspirationBoard, type InspirationItem } from "@/components/client-control/content/InspirationBoard";
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${Math.floor(diffHours / 24)}d ago`;
+const IDEAS_KEY_PREFIX = "2fly-content-ideas-";
+const INSPIRATION_KEY_PREFIX = "2fly-inspiration-";
+const CONTENT_TARGET_MONTHLY = 16;
+
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getWeekRange(weekStart: Date) {
+  const end = new Date(weekStart);
+  end.setDate(weekStart.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return { start: weekStart, end };
+}
+
+function getStartOfMonth(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), 1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function computePostingStreak(content: ApiContentItem[]): number {
+  const published = content.filter((c) => c.status === "published" && c.publishedDate);
+  if (published.length === 0) return 0;
+  const dates = new Set(
+    published.map((c) => c.publishedDate!.slice(0, 10))
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  let count = 0;
+  let d = new Date();
+  for (let i = 0; i < 31; i++) {
+    const key = d.toISOString().slice(0, 10);
+    if (dates.has(key)) count++;
+    else if (key <= today) break;
+    d.setDate(d.getDate() - 1);
+  }
+  return count;
 }
 
 type Props = {
@@ -24,70 +62,166 @@ type Props = {
 
 export function ClientContentTab({ clientId }: Props) {
   const { isDark } = useTheme();
-  const calendar = getContentCalendar(clientId);
-  const pipeline = getContentPipeline(clientId);
-  const ideas = getContentIdeas(clientId);
+  const [content, setContent] = useState<ApiContentItem[]>([]);
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+  const [ideas, setIdeas] = useState<ContentIdeaItem[]>([]);
+  const [inspiration, setInspiration] = useState<InspirationItem[]>([]);
+  const [industry, setIndustry] = useState<string | null>(null);
 
-  const sectionCls = isDark ? "text-[#5a5040]" : "text-gray-700";
-  const cardCls = isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-100 bg-white";
-  const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
-  const mutedCls = isDark ? "text-[#5a5040]" : "text-gray-500";
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+  useEffect(() => {
+    fetch(`${API}/api/agent-tools/content?clientId=${clientId}`)
+      .then((r) => r.json())
+      .then((d: { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
+        const list = d.content ?? d.items ?? [];
+        setContent(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        const mock = getContentCalendar(clientId);
+        setContent(
+          mock.map((c) => ({
+            id: c.id,
+            clientId: c.clientId,
+            title: c.title,
+            platform: "instagram",
+            status: c.status,
+            scheduledDate: c.date,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            type: c.type,
+            contentType: c.type,
+          }))
+        );
+      });
+  }, [clientId, API]);
+
+  useEffect(() => {
+    api.getClient(clientId).then((c) => setIndustry((c as { industry?: string })?.industry ?? null)).catch(() => {});
+  }, [clientId]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(IDEAS_KEY_PREFIX + clientId);
+      if (raw) setIdeas(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(INSPIRATION_KEY_PREFIX + clientId);
+      if (raw) setInspiration(JSON.parse(raw));
+    } catch {
+      // ignore
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(IDEAS_KEY_PREFIX + clientId, JSON.stringify(ideas));
+    } catch {
+      // ignore
+    }
+  }, [clientId, ideas]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(INSPIRATION_KEY_PREFIX + clientId, JSON.stringify(inspiration));
+    } catch {
+      // ignore
+    }
+  }, [clientId, inspiration]);
+
+  const { start: weekStartDate, end: weekEndDate } = getWeekRange(weekStart);
+  const startOfMonth = getStartOfMonth(new Date());
+
+  const kpis = useMemo((): ContentKPIs => {
+    const now = new Date();
+    const weekStartStr = weekStartDate.getTime();
+    const weekEndStr = weekEndDate.getTime();
+
+    let scheduledThisWeek = 0;
+    let inProduction = 0;
+    let publishedMTD = 0;
+
+    for (const c of content) {
+      const s = (c.status || "").toLowerCase();
+      const scheduled = c.scheduledDate ? new Date(c.scheduledDate).getTime() : 0;
+      if (s === "scheduled" && scheduled >= weekStartStr && scheduled <= weekEndStr) scheduledThisWeek++;
+      if (s === "draft" || s === "in_review" || s === "review") inProduction++;
+      if (s === "published" && c.publishedDate && new Date(c.publishedDate) >= startOfMonth) publishedMTD++;
+    }
+
+    const publishedOrScheduled = content.filter(
+      (c) => c.status === "published" || c.status === "scheduled"
+    ).length;
+    const contentScore = Math.min(100, Math.round((publishedOrScheduled / CONTENT_TARGET_MONTHLY) * 100));
+    const postingStreak = computePostingStreak(content);
+
+    return {
+      scheduledThisWeek,
+      inProduction,
+      publishedMTD,
+      contentScore,
+      postingStreak,
+    };
+  }, [content, weekStartDate, weekEndDate]);
+
+  const contentForCalendar = useMemo(
+    () =>
+      content.map((c) => ({
+        id: c.id,
+        title: c.title,
+        type: c.type ?? c.contentType ?? "post",
+        status: c.status,
+        scheduledDate: c.scheduledDate,
+      })),
+    [content]
+  );
+
+  const contentForPipeline = contentForCalendar;
+
+  const handleWeekChange = useCallback((delta: number) => {
+    setWeekStart((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() + delta * 7);
+      return next;
+    });
+  }, []);
+
+  const bgBase = isDark ? "bg-[#06060a]" : "bg-gray-50";
 
   return (
-    <div className="flex-1 overflow-auto p-6">
-      <div className="max-w-4xl space-y-8">
-        <section>
-          <h2 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${sectionCls}`}>Content calendar</h2>
-          <ContentCalendar clientId={clientId} items={calendar} />
-        </section>
+    <div className={`flex-1 overflow-auto ${bgBase}`}>
+      <ContentKPIStrip kpis={kpis} />
 
-        <section>
-          <h2 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${sectionCls}`}>Production pipeline</h2>
-          <div className="grid grid-cols-4 gap-4">
-            {["ideation", "creation", "review", "scheduled"].map((stage) => {
-              const items = pipeline.filter((p) => p.stage === stage);
-              return (
-                <div
-                  key={stage}
-                  className={`rounded-lg border p-4 min-h-[120px] ${cardCls}`}
-                >
-                  <h3 className={`text-xs font-medium mb-3 capitalize ${mutedCls}`}>{stage}</h3>
-                  <ul className="space-y-2">
-                    {items.map((p) => (
-                      <li key={p.id} className={`text-sm font-medium truncate ${textCls}`}>
-                        {p.title}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+      <div className="p-4 space-y-6">
+        <ContentCalendarCommand
+          content={contentForCalendar}
+          weekStart={weekStart}
+          onWeekChange={handleWeekChange}
+          onItemClick={(item) => console.log("Content clicked", item.id)}
+        />
+
+        <ContentPipelineKanban content={contentForPipeline} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+          <div className="lg:col-span-4">
+            <ContentIdeasBank
+              clientId={clientId}
+              ideas={ideas}
+              onIdeasChange={setIdeas}
+            />
           </div>
-        </section>
-
-        <section>
-          <h2 className={`text-sm font-semibold uppercase tracking-wider mb-4 ${sectionCls}`}>Content ideas</h2>
-          <ul className="space-y-2">
-            {ideas.length === 0 ? (
-              <li className={`text-sm py-4 rounded-lg border border-dashed ${isDark ? "border-[#1a1810] bg-[#0a0a0e]/50 text-[#5a5040]" : "border-gray-200 bg-gray-50/50 text-gray-500"}`}>
-                No ideas yet
-              </li>
-            ) : (
-              ideas.map((i) => (
-                <li
-                  key={i.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${cardCls}`}
-                >
-                  <p className={`text-sm flex-1 ${textCls}`}>{i.text}</p>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-xs ${mutedCls}`}>{i.source}</span>
-                    <span className={`text-xs ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>{formatTime(i.createdAt)}</span>
-                  </div>
-                </li>
-              ))
-            )}
-          </ul>
-        </section>
+          <div className="lg:col-span-3">
+            <IndustryTipsCard industry={industry} />
+          </div>
+          <div className="lg:col-span-3">
+            <InspirationBoard items={inspiration} onItemsChange={setInspiration} />
+          </div>
+        </div>
       </div>
     </div>
   );
