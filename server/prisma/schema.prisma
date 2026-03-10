@@ -19,6 +19,8 @@ generator client {
 // ─────────────────────────────────────────────────
 // Agency employees/contractors for task assignment and workload tracking.
 
+// ⚠️ CURSOR: When changing schema, use `npx prisma db push` (NOT --force-reset).
+// If it fails, run `bash prisma/seed-all.sh` after reset to restore all data.
 model TeamMember {
   id              String   @id @default(cuid())
   name            String
