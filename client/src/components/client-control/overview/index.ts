@@ -16,3 +16,8 @@ export { ActivityLog } from "./ActivityLog";
 export { QuickActionsPanel } from "./QuickActionsPanel";
 export { PipelineSummary } from "./PipelineSummary";
 export { IdeasPanel } from "./IdeasPanel";
+export { OverviewKPIStrip } from "./OverviewKPIStrip";
+export { ActionQueue, type ActionQueueItem, type ActionQueuePriority } from "./ActionQueue";
+export { PipelineBar } from "./PipelineBar";
+export { ActivityTimeline, type ActivityTimelineEntry } from "./ActivityTimeline";
+export { QuickActionsCompact } from "./QuickActionsCompact";

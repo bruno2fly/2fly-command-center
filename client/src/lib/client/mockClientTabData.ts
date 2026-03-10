@@ -2,6 +2,25 @@
  * Mock data for client tab sections: Tasks, Requests, Plan, Ads, Content.
  */
 
+// Minimal client name map for ads resolution (full map in mockClientControlData)
+const MOCK_CLIENT_NAMES: Record<string, string> = {
+  "1": "Acme Corp",
+  "2": "Beta Labs",
+  "3": "Gamma Inc",
+  "4": "Delta Agency",
+  "5": "Epsilon Studio",
+  "cmmil114j0001j2tq80ty6zag": "The Shape SPA Miami",
+  "cmmil114l0002j2tq3in1w0iz": "The Shape Spa FLL",
+  "cmmil114m0003j2tq5q9mgpg4": "Sudbury Point Grill",
+  "cmmil114m0004j2tqluvp06lw": "Pro Fortuna",
+  "cmmil114n0005j2tqy0k2trgm": "Casa Nova",
+  "cmmil114n0006j2tqy2ewcrd6": "Ardan Med Spa",
+  "cmmil114o0007j2tq9mxw9a7x": "This is it Brazil",
+  "cmmil114o0008j2tq3sviv4ed": "Super Crisp",
+  "cmmil114p0009j2tqcmy06xrz": "Hafiza",
+  "cmmil114p000aj2tq2hhn6euo": "Cristiane Amorim",
+};
+
 // —— Tasks & Requests ——
 
 export type RequestStage = "new" | "in_review" | "in_progress" | "done";

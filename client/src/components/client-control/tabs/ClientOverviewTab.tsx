@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { motion } from "framer-motion";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api } from "@/lib/api";
 import type { ApiRequestItem, ApiContentItem } from "@/lib/api";
@@ -11,6 +10,7 @@ import {
   getIdeas,
   getControlItems,
   getInboxItems,
+  getClientControlMeta,
 } from "@/lib/client/mockClientControlData";
 import { getTasks, getKpis } from "@/lib/client/mockClientTabData";
 import { getRequests } from "@/lib/client/mockClientTabData";
@@ -18,14 +18,15 @@ import type { TaskItem } from "@/lib/client/mockClientTabData";
 import type { RequestItem } from "@/lib/client/mockClientTabData";
 import type { ClientHealth } from "@/lib/client/mockClientControlData";
 import type { BlockerItem } from "@/components/client-control/overview/CriticalBlockersPanel";
-import type { ActivityEntry } from "@/components/client-control/overview/ActivityLog";
+import type { ActionQueueItem, ActionQueuePriority } from "@/components/client-control/overview/ActionQueue";
+import type { ActivityTimelineEntry } from "@/components/client-control/overview/ActivityTimeline";
+import { getAdsKPIData } from "@/lib/client/mockAdsData";
 import {
-  HealthPerformanceStrip,
-  CriticalBlockersPanel,
-  WorkbenchPanel,
-  ActivityLog,
-  QuickActionsPanel,
-  PipelineSummary,
+  OverviewKPIStrip,
+  ActionQueue,
+  PipelineBar,
+  ActivityTimeline,
+  QuickActionsCompact,
   IdeasPanel,
 } from "@/components/client-control/overview";
 
@@ -70,26 +71,6 @@ function apiRequestToRequestItem(r: ApiRequestItem): RequestItem {
   };
 }
 
-const ACTIVITY_MOCK: ActivityEntry[] = [
-  { id: "a1", text: "M. Tanaka linked creative to Slack", time: "1m ago" },
-  { id: "a2", text: "Ad copy approved by client", time: "12m ago" },
-  { id: "a3", text: "Invoice reminder sent", time: "1h ago" },
-  { id: "a4", text: "Hero image draft uploaded", time: "2h ago" },
-  { id: "a5", text: "Spring campaign brief updated", time: "3h ago" },
-  { id: "a6", text: "UGC testimonial in review", time: "5h ago" },
-  { id: "a7", text: "Contact form fix deployed", time: "6h ago" },
-  { id: "a8", text: "Weekly sync completed", time: "1d ago" },
-];
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 6 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.03, duration: 0.2, ease: "easeOut" },
-  }),
-};
-
 type Props = {
   clientId: string;
 };
@@ -97,20 +78,28 @@ type Props = {
 export function ClientOverviewTab({ clientId }: Props) {
   const { isDark } = useTheme();
 
-  // API data (null = not loaded or failed → use mock)
   const [apiClient, setApiClient] = useState<Awaited<ReturnType<typeof api.getClient>> | null>(null);
   const [apiRequests, setApiRequests] = useState<ApiRequestItem[] | null>(null);
   const [apiContent, setApiContent] = useState<ApiContentItem[] | null>(null);
-  const [apiHealthClients, setApiHealthClients] = useState<Array<{ clientId: string; overall?: string; modules?: Record<string, { bufferDays?: number; status?: string }> }> | null>(null);
+  const [apiHealthClients, setApiHealthClients] = useState<
+    Array<{ clientId?: string; overall?: string; modules?: Record<string, { bufferDays?: number; status?: string }> }>
+  | null>(null);
   const [apiPayments, setApiPayments] = useState<Awaited<ReturnType<typeof api.getPayments>> | null>(null);
 
   const fetchApi = useCallback(() => {
-    const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     Promise.all([
       api.getClient(clientId).then(setApiClient).catch(() => {}),
       api.getRequestsRaw(clientId).then((d) => setApiRequests(d.requests ?? [])).catch(() => {}),
       api.getContentItems(clientId).then(setApiContent).catch(() => {}),
-      api.getHealth().then((h) => setApiHealthClients((h as { clients?: Array<{ clientId?: string; overall?: string; modules?: Record<string, unknown> }> }).clients ?? null)).catch(() => {}),
+      api
+        .getHealth()
+        .then((h) =>
+          setApiHealthClients(
+            (h as { clients?: Array<{ clientId?: string; overall?: string; modules?: Record<string, { bufferDays?: number; status?: string }> }> })
+              .clients ?? null
+          )
+        )
+        .catch(() => {}),
       api.getPayments().then(setApiPayments).catch(() => {}),
     ]).catch(() => {});
   }, [clientId]);
@@ -119,7 +108,6 @@ export function ClientOverviewTab({ clientId }: Props) {
     fetchApi();
   }, [fetchApi]);
 
-  // —— Fallback mock data ——
   const healthMock = getClientHealth(clientId);
   const insights = getInsights(clientId);
   const ideas = getIdeas(clientId);
@@ -128,16 +116,14 @@ export function ClientOverviewTab({ clientId }: Props) {
   const controlItems = getControlItems(clientId);
   const inboxItems = getInboxItems(clientId);
   const kpisMock = getKpis(clientId);
+  const meta = getClientControlMeta(clientId);
+  const adsKpi = getAdsKPIData(clientId);
 
-  // —— Requests: API or mock ——
   const requests: RequestItem[] = useMemo(() => {
-    if (apiRequests && apiRequests.length >= 0) {
-      return apiRequests.map(apiRequestToRequestItem);
-    }
+    if (apiRequests && apiRequests.length >= 0) return apiRequests.map(apiRequestToRequestItem);
     return requestsMock;
   }, [apiRequests, requestsMock]);
 
-  // —— Critical blockers from API: new/acknowledged + (urgent/high | slaBreach | past due) + overdue invoice ——
   const apiBlockers = useMemo((): BlockerItem[] | undefined => {
     if (!apiRequests && apiPayments == null && !apiClient) return undefined;
     const now = new Date();
@@ -154,7 +140,9 @@ export function ClientOverviewTab({ clientId }: Props) {
             id: `req-${r.id}`,
             title: r.title,
             reason: r.slaBreach ? "SLA breach" : isPastDue ? "Past due" : "High priority",
-            delayIndicator: r.dueDate ? `${Math.ceil((new Date(r.dueDate).getTime() - now.getTime()) / 86400000)}d` : undefined,
+            delayIndicator: r.dueDate
+              ? `${Math.ceil((new Date(r.dueDate).getTime() - now.getTime()) / 86400000)}d`
+              : undefined,
             severity: r.slaBreach || isPastDue ? "critical" : "warning",
           });
         }
@@ -162,17 +150,14 @@ export function ClientOverviewTab({ clientId }: Props) {
     }
 
     if (apiPayments?.overdue && clientName) {
-      const clientOverdue = apiPayments.overdue.filter(
-        (o) => (o as { clientName?: string }).clientName === clientName
-      );
+      const clientOverdue = apiPayments.overdue.filter((o) => (o as { clientName?: string }).clientName === clientName);
       if (clientOverdue.length > 0) {
         const first = clientOverdue[0] as { daysOverdue?: number };
-        const days = first.daysOverdue ?? 0;
         list.push({
           id: "invoice-overdue",
           title: "Invoice overdue",
-          reason: `Payment ${days} days late`,
-          delayIndicator: `${days}d`,
+          reason: `Payment ${first.daysOverdue ?? 0} days late`,
+          delayIndicator: `${first.daysOverdue ?? 0}d`,
           severity: "critical",
         });
       }
@@ -180,8 +165,7 @@ export function ClientOverviewTab({ clientId }: Props) {
     return list;
   }, [apiRequests, apiPayments, apiClient]);
 
-  // —— Health: from API health (by clientId) + payment overdue from payments ——
-  const health: ClientHealth | null = useMemo(() => {
+  const health = useMemo((): ClientHealth | null => {
     const base = apiHealthClients
       ? (() => {
           const c = apiHealthClients.find((h) => h.clientId === clientId);
@@ -196,7 +180,11 @@ export function ClientOverviewTab({ clientId }: Props) {
             adsPacing: "—",
             adsRoasTrend: "—",
             paymentStatus: "pending" as const,
-            deliveryStatus: (contentBuffer?.status === "red" ? "late" : contentBuffer?.status === "yellow" ? "at_risk" : "ok") as "ok" | "at_risk" | "late",
+            deliveryStatus: (contentBuffer?.status === "red"
+              ? "late"
+              : contentBuffer?.status === "yellow"
+                ? "at_risk"
+                : "ok") as "ok" | "at_risk" | "late",
             deliveryBufferDays: contentBuffer?.bufferDays ?? 0,
             missedPromises: 0,
           };
@@ -208,135 +196,193 @@ export function ClientOverviewTab({ clientId }: Props) {
     );
     if (clientOverdue.length === 0) return base;
     const first = clientOverdue[0] as { daysOverdue?: number };
-    return {
-      ...base,
-      paymentStatus: "overdue" as const,
-      paymentDaysOverdue: first.daysOverdue ?? 0,
-    };
+    return { ...base, paymentStatus: "overdue" as const, paymentDaysOverdue: first.daysOverdue ?? 0 } as ClientHealth;
   }, [apiHealthClients, clientId, apiPayments, apiClient, healthMock]);
 
-  // —— Content %: (delivered + scheduled) / total from API content ——
-  const contentDeliveryPct = useMemo(() => {
-    if (apiContent && apiContent.length > 0) {
-      const deliveredOrScheduled = apiContent.filter(
-        (c) => c.status === "published" || c.status === "scheduled" || c.status === "delivered"
-      ).length;
-      return Math.round((deliveredOrScheduled / apiContent.length) * 100);
-    }
-    const kpi = kpisMock.find((k) => k.name === "Content delivery");
-    if (kpi?.value) return parseInt(kpi.value, 10) || 98;
-    return 98;
-  }, [apiContent, kpisMock]);
+  const workbenchRequests = useMemo(
+    () => requests.filter((r) => r.stage === "in_progress" || r.stage === "in_review"),
+    [requests]
+  );
 
-  // —— Workbench: requests with status in_progress or acknowledged (API: in_progress, acknowledged; mock: in_progress, in_review) ——
-  const workbenchRequests = useMemo(() => {
-    return requests.filter((r) => r.stage === "in_progress" || r.stage === "in_review");
-  }, [requests]);
-
-  // —— Pipeline counts from API requests ——
-  const pipelineCounts = useMemo((): Record<string, number> | undefined => {
-    if (!apiRequests) return undefined;
-    const counts = {
-      requests: 0,
-      in_progress: 0,
-      waiting_client: 0,
-      review: 0,
-      delivered: 0,
-    };
-    for (const r of apiRequests) {
-      if (r.status === "new") counts.requests++;
-      else if (r.status === "in_progress" || r.status === "acknowledged") counts.in_progress++;
-      else if (r.status === "waiting_client") counts.waiting_client++;
-      else if (r.status === "review") counts.review++;
-      else if (r.status === "completed" || r.status === "closed") counts.delivered++;
+  const pipelineCounts = useMemo((): Record<string, number> => {
+    if (apiRequests) {
+      const counts = { requests: 0, in_progress: 0, waiting_client: 0, review: 0, delivered: 0 };
+      for (const r of apiRequests) {
+        if (r.status === "new") counts.requests++;
+        else if (r.status === "in_progress" || r.status === "acknowledged") counts.in_progress++;
+        else if (r.status === "waiting_client") counts.waiting_client++;
+        else if (r.status === "review") counts.review++;
+        else if (r.status === "completed" || r.status === "closed") counts.delivered++;
+      }
+      return counts;
     }
+    const counts = { requests: 0, in_progress: 0, waiting_client: 0, review: 0, delivered: 0 };
+    for (const r of requests) {
+      if (r.stage === "new") counts.requests++;
+      else if (r.stage === "in_progress") counts.in_progress++;
+      else if (r.stage === "in_review") counts.review++;
+      else if (r.stage === "done") counts.delivered++;
+    }
+    counts.waiting_client = controlItems.filter((c) => c.kind === "blocker").length;
     return counts;
-  }, [apiRequests]);
+  }, [apiRequests, requests, controlItems]);
 
-  // —— Activity: recent 5 requests by updatedAt (API) or mock ——
-  const activityEntries = useMemo((): ActivityEntry[] => {
+  const actionQueueItems = useMemo((): ActionQueueItem[] => {
+    const now = new Date();
+    const items: ActionQueueItem[] = [];
+    const blockerIds = new Set((apiBlockers ?? []).map((b) => b.id));
+
+    for (const b of apiBlockers ?? []) {
+      items.push({
+        id: b.id,
+        title: b.title,
+        dueAt: null,
+        type: "Blocker",
+        source: "System",
+        status: b.reason,
+        priority: b.severity === "critical" ? "urgent" : "warning",
+      });
+    }
+
+    const approvals = controlItems.filter((c) => c.kind === "approval");
+    for (const a of approvals) {
+      items.push({
+        id: `approval-${a.id}`,
+        title: a.title,
+        dueAt: a.dueAt,
+        type: "Approval",
+        source: "2FlyFlow",
+        status: "Awaiting approval",
+        priority: a.dueAt && new Date(a.dueAt) < now ? "urgent" : "warning",
+      });
+    }
+
+    for (const t of tasksMock.filter((x) => x.status !== "done")) {
+      items.push({
+        id: `task-${t.id}`,
+        title: t.title,
+        dueAt: t.dueAt,
+        type: "Task",
+        source: "Task",
+        status: t.status === "in_progress" ? "In Progress" : t.status === "review" ? "Review" : "To Do",
+        priority: t.dueAt && new Date(t.dueAt) < now ? "urgent" : t.priority === "high" ? "warning" : "on_track",
+      });
+    }
+
+    for (const r of workbenchRequests) {
+      const id = `req-${r.id}`;
+      if (blockerIds.has(id)) continue;
+      items.push({
+        id,
+        title: r.title,
+        dueAt: r.dueAt,
+        type: "Request",
+        source: r.source,
+        status: r.stage === "in_progress" ? "In Progress" : r.stage === "in_review" ? "Review" : r.stage,
+        priority: r.dueAt && new Date(r.dueAt) < now ? "urgent" : "on_track",
+      });
+    }
+
+    items.sort((a, b) => {
+      const order: Record<ActionQueuePriority, number> = { urgent: 0, warning: 1, on_track: 2 };
+      const pa = order[a.priority];
+      const pb = order[b.priority];
+      if (pa !== pb) return pa - pb;
+      const da = a.dueAt ? new Date(a.dueAt).getTime() : Infinity;
+      const db = b.dueAt ? new Date(b.dueAt).getTime() : Infinity;
+      return da - db;
+    });
+
+    return items;
+  }, [apiBlockers, controlItems, tasksMock, workbenchRequests]);
+
+  const activityEntries = useMemo((): ActivityTimelineEntry[] => {
     if (apiRequests && apiRequests.length > 0) {
       const sorted = [...apiRequests].sort(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
-      return sorted.slice(0, 5).map((r) => ({
-        id: r.id,
-        text: `${r.status} – ${r.title}`,
-        time: formatTime(r.updatedAt),
-      }));
+      return sorted.slice(0, 8).map((r) => {
+        let type: ActivityTimelineEntry["type"] = "info";
+        if (r.status === "completed" || r.status === "closed") type = "completed";
+        else if (r.status === "waiting_client") type = "waiting";
+        return {
+          id: r.id,
+          text: `${r.status} – ${r.title}`,
+          time: formatTime(r.updatedAt),
+          type,
+        };
+      });
     }
     if (insights.length > 0) {
       return insights.slice(0, 8).map((s) => ({
         id: s.id,
         text: s.text,
         time: formatTime(s.createdAt),
+        type: "info" as const,
       }));
     }
-    return ACTIVITY_MOCK;
+    return [
+      { id: "a1", text: "Request created: \"Update pricing\"", time: "2h ago", type: "info" as const },
+      { id: "a2", text: "Content approved: \"March IG post\"", time: "5h ago", type: "completed" as const },
+      { id: "a3", text: "Invoice sent: #1042", time: "1d ago", type: "info" as const },
+      { id: "a4", text: "Agent action: Budget increase approved", time: "2d ago", type: "completed" as const },
+    ];
   }, [apiRequests, insights]);
 
-  // KPIs: use mock for MQLs, ROAS, Website; strip already uses health (payment) and contentDeliveryPct
-  const kpis = kpisMock;
-  const tasks = tasksMock;
+  const retainer = apiClient?.monthlyRetainer ?? meta?.monthlyRetainer ?? null;
+  const retainerPaid = health?.paymentStatus === "paid";
+  const retainerOverdueDays = health?.paymentStatus === "overdue" ? (health.paymentDaysOverdue ?? 0) : 0;
+  const contentBufferDays = health?.deliveryBufferDays ?? 0;
+  const contentBufferStatus =
+    health?.deliveryStatus === "ok" ? "green" : health?.deliveryStatus === "at_risk" ? "yellow" : "red";
+  const activeRequestsCount = requests.filter((r) => r.stage !== "done").length;
+  const roas = adsKpi ? `${adsKpi.roas}x` : null;
+  const roasTrend = adsKpi?.roasTrend !== "—" ? adsKpi?.roasTrend : undefined;
+  const roasTrendUp = adsKpi?.roasTrendDir === "up";
+  const healthVariant =
+    health?.paymentStatus === "overdue" || health?.deliveryStatus === "late"
+      ? "red"
+      : health?.deliveryStatus === "at_risk" || health?.paymentStatus === "pending"
+        ? "yellow"
+        : "green";
+  const healthLabel = healthVariant === "green" ? "Healthy" : healthVariant === "yellow" ? "At risk" : "Critical";
+
   const bgCls = isDark ? "bg-zinc-950" : "bg-gray-50";
 
   return (
     <div className={`flex flex-col h-full overflow-auto ${bgCls}`}>
-      <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={0}>
-        <HealthPerformanceStrip
-          health={health}
-          kpis={kpis}
-          contentDeliveryPct={contentDeliveryPct}
-        />
-      </motion.div>
+      <OverviewKPIStrip
+        retainer={retainer}
+        retainerPaid={retainerPaid}
+        retainerOverdueDays={retainerOverdueDays}
+        contentBufferDays={contentBufferDays}
+        contentBufferStatus={contentBufferStatus}
+        activeRequestsCount={activeRequestsCount}
+        roas={roas}
+        roasTrend={roasTrend}
+        roasTrendUp={roasTrendUp}
+        health={healthVariant}
+        healthLabel={healthLabel}
+      />
 
-      <div className="flex-1 min-h-0 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="flex-1 min-h-0 p-4 grid grid-cols-1 md:grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 space-y-4">
-          <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={1}>
-            <CriticalBlockersPanel
-              controlItems={controlItems}
-              health={health}
-              inboxItems={inboxItems}
-              blockers={apiBlockers}
-            />
-          </motion.div>
+          <ActionQueue items={actionQueueItems} />
+          <PipelineBar counts={pipelineCounts} />
         </div>
-
-        <div className="lg:col-span-6">
-          <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={2}>
-            <WorkbenchPanel
-              tasks={tasks}
-              requests={workbenchRequests}
-              controlItems={controlItems}
-            />
-          </motion.div>
-        </div>
-
-        <div className="lg:col-span-3 space-y-4">
-          <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={3}>
-            <ActivityLog entries={activityEntries} />
-          </motion.div>
-          <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={4}>
-            <QuickActionsPanel />
-          </motion.div>
-        </div>
-      </div>
-
-      <div className="px-4 pb-4">
-        <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={5}>
-          <PipelineSummary
-            tasks={tasks}
-            requests={requests}
-            controlItems={controlItems}
-            pipelineCounts={pipelineCounts}
+        <div className="lg:col-span-2 space-y-4">
+          <ActivityTimeline entries={activityEntries} />
+          <QuickActionsCompact
+            onWhatsApp={() => {}}
+            onNewRequest={() => {}}
+            onDrive={() => {}}
+            onAdPlatform={() => {}}
           />
-        </motion.div>
+        </div>
       </div>
 
       <div className="px-4 pb-4">
-        <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={6}>
-          <IdeasPanel ideas={ideas} />
-        </motion.div>
+        <IdeasPanel ideas={ideas} defaultCollapsed />
       </div>
     </div>
   );
