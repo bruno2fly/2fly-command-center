@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAgentChat, AGENTS, type AgentId } from "@/contexts/AgentChatContext";
@@ -124,7 +125,12 @@ export function FloatingChatWidget() {
   const panelBg = isDark ? "bg-[#0f172a]" : "bg-white";
   const panelBorder = isDark ? "border-[rgba(51,65,85,0.5)]" : "border-[rgba(226,232,240,1)]";
 
-  return (
+  // Portal to body ensures fixed positioning works regardless of parent transforms
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       {/* Floating bubble — always visible when panel is closed or minimized */}
       <AnimatePresence>
@@ -249,6 +255,7 @@ export function FloatingChatWidget() {
         )}
       </AnimatePresence>
 
-    </>
+    </>,
+    document.body
   );
 }
