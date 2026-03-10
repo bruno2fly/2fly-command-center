@@ -51,6 +51,15 @@ export const api = {
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
   getContentRaw: (clientId?: string) =>
     fetchAPI<ApiContentResponse>(`/content${clientId ? `?clientId=${clientId}` : ''}`),
+  /** Returns content items for a client; handles server returning either .content or .items */
+  getContentItems: async (clientId: string): Promise<ApiContentItem[]> => {
+    const data = await fetchAPI<ApiContentResponse & { items?: ApiContentItem[] }>(
+      `/content?clientId=${encodeURIComponent(clientId)}`
+    );
+    return (data as { content?: ApiContentItem[]; items?: ApiContentItem[] }).content ??
+      (data as { content?: ApiContentItem[]; items?: ApiContentItem[] }).items ??
+      [];
+  },
   getInvoicesRaw: () =>
     fetchAPI<ApiInvoicesResponse>('/invoices'),
   getPayments: () => fetchAPI<ApiPaymentsResponse>('/payments'),
@@ -326,6 +335,8 @@ export type ApiRequestItem = {
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
+  slaBreach?: boolean;
+  type?: string;
 };
 
 export type ApiRequestsResponse = {

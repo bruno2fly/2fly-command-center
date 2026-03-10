@@ -16,6 +16,8 @@ type Props = {
   tasks: TaskItem[];
   requests: RequestItem[];
   controlItems?: ControlItem[];
+  /** When provided (e.g. from API request counts), use for display instead of building from tasks/requests */
+  pipelineCounts?: Record<string, number>;
 };
 
 function buildCounts(tasks: TaskItem[], requests: RequestItem[], controlItems: ControlItem[] = []) {
@@ -46,9 +48,9 @@ function buildCounts(tasks: TaskItem[], requests: RequestItem[], controlItems: C
   return counts;
 }
 
-export function PipelineSummary({ tasks, requests, controlItems = [] }: Props) {
+export function PipelineSummary({ tasks, requests, controlItems = [], pipelineCounts: pipelineCountsOverride }: Props) {
   const { isDark } = useTheme();
-  const counts = buildCounts(tasks, requests, controlItems);
+  const counts = pipelineCountsOverride ?? buildCounts(tasks, requests, controlItems);
 
   const stripCls = isDark
     ? "bg-[#08080c] border-[#1a1810]"

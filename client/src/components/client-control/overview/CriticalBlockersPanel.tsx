@@ -17,6 +17,8 @@ type Props = {
   controlItems: ControlItem[];
   health: ClientHealth | null;
   inboxItems?: InboxItem[];
+  /** When provided (e.g. from API), use instead of building from controlItems/health/inbox */
+  blockers?: BlockerItem[];
 };
 
 function buildBlockers(controlItems: ControlItem[], health: ClientHealth | null, inboxItems: InboxItem[] = []): BlockerItem[] {
@@ -86,9 +88,11 @@ function buildBlockers(controlItems: ControlItem[], health: ClientHealth | null,
   return blockers;
 }
 
-export function CriticalBlockersPanel({ controlItems, health, inboxItems = [] }: Props) {
+export function CriticalBlockersPanel({ controlItems, health, inboxItems = [], blockers: blockersOverride }: Props) {
   const { isDark } = useTheme();
-  const blockers = buildBlockers(controlItems, health, inboxItems);
+  const blockers = blockersOverride !== undefined
+    ? blockersOverride
+    : buildBlockers(controlItems, health, inboxItems);
 
   const panelCls = isDark
     ? "bg-[#0a0a0e] border-red-500/20"
