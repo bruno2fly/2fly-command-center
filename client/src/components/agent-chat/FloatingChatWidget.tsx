@@ -141,8 +141,15 @@ export function FloatingChatWidget() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={panelOpen && minimized ? handleExpand : openPanel}
-            className="fixed bottom-6 right-8 z-[9999] w-14 h-14 rounded-full bg-[#013E99] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#0f172a] relative"
-            style={{ boxShadow: "0 4px 20px rgba(1,62,153,0.4)", left: "auto" }}
+            className="w-14 h-14 rounded-full bg-[#013E99] text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#0f172a] relative"
+            style={{
+              position: "fixed",
+              bottom: "1.5rem",
+              right: "2rem",
+              left: "auto",
+              zIndex: 9999,
+              boxShadow: "0 4px 20px rgba(1,62,153,0.4)",
+            }}
           >
             <span className="absolute inset-0 rounded-full bg-[#013E99] animate-ping opacity-20" style={{ animationDuration: "2s" }} />
             <span className="relative text-2xl">💬</span>
@@ -158,8 +165,12 @@ export function FloatingChatWidget() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`fixed z-[9999] flex flex-col border shadow-2xl backdrop-blur-xl ${panelBg} ${panelBorder} sm:bottom-6 sm:right-8 sm:w-[380px] sm:h-[500px] sm:rounded-2xl bottom-0 right-0 w-full h-full sm:inset-auto`}
-            style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.3)", left: "auto" }}
+            className={`fixed flex flex-col border shadow-2xl backdrop-blur-xl ${panelBg} ${panelBorder} inset-0 w-full h-full sm:inset-auto sm:bottom-6 sm:right-8 sm:w-[380px] sm:h-[500px] sm:rounded-2xl`}
+            style={{
+              zIndex: 9999,
+              left: "auto",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
           >
             {/* Header */}
             <div className={`shrink-0 px-4 py-3 border-b ${panelBorder} flex items-center justify-between`}>
