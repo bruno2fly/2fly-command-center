@@ -18,7 +18,8 @@ export type AgentId =
   | "approval-feedback"
   | "content-system"
   | "founder-boss"
-  | "research-intel";
+  | "research-intel"
+  | "meta-traffic";
 
 export interface AgentInfo {
   id: AgentId;
@@ -65,13 +66,14 @@ export interface AgentStatus {
 // ─── Constants ───────────────────────────────────────
 
 export const AGENTS: AgentInfo[] = [
-  { id: "inbox-triage", name: "Inbox Triage", description: "Routes and categorizes requests", emoji: "📬" },
+  { id: "inbox-triage", name: "Inbox Triage", description: "Routes and categorizes requests", emoji: "📥" },
   { id: "client-memory", name: "Client Memory", description: "Client knowledge keeper", emoji: "🧠" },
   { id: "project-manager", name: "Project Manager", description: "Task lifecycle management", emoji: "📋" },
   { id: "approval-feedback", name: "Approval & Feedback", description: "Review gate for deliverables", emoji: "✅" },
   { id: "content-system", name: "Content System", description: "Content pipeline management", emoji: "📝" },
-  { id: "founder-boss", name: "Founder Boss", description: "Strategic decisions & overrides", emoji: "👑" },
-  { id: "research-intel", name: "Research Intelligence", description: "Weekly market research & competitive intel", emoji: "🛰️" },
+  { id: "founder-boss", name: "Founder Boss", description: "Strategic decisions & overrides", emoji: "🤖" },
+  { id: "research-intel", name: "Research Intel", description: "Weekly market research & competitive intel", emoji: "🔍" },
+  { id: "meta-traffic", name: "Meta Traffic", description: "Daily ad performance check", emoji: "🎯" },
 ];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";

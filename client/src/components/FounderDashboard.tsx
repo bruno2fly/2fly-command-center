@@ -3,21 +3,19 @@
 import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useActions } from "@/contexts/ActionsContext";
-import { useAgentChat } from "@/contexts/AgentChatContext";
 import { MOCK_ACTIVITY, type ActivityEvent } from "@/lib/founder/mockFounderData";
 import { FireLane } from "./dashboard/FireLane";
 import { WaitingRadar } from "./dashboard/WaitingRadar";
 import { LiveFeed } from "./dashboard/LiveFeed";
 import { TodaySequence } from "./dashboard/TodaySequence";
 import { MomentumWidget } from "./dashboard/MomentumWidget";
-import { AgentStatusWidget } from "./founder/AgentStatusWidget";
+import { AgentActivityFeed } from "./dashboard/AgentActivityFeed";
+import { AgentStatusGrid } from "./dashboard/AgentStatusGrid";
 import { api } from "@/lib/api";
 
 export function FounderDashboard() {
   const { isDark } = useTheme();
   const { activePriorities, executionItems, momentum } = useActions();
-  const { togglePanel: toggleAgentChat } = useAgentChat();
-
   /* Fetch real activity from pulse + brief endpoints, fall back to mock */
   const [activity, setActivity] = useState<ActivityEvent[]>(MOCK_ACTIVITY);
 
@@ -113,20 +111,15 @@ export function FounderDashboard() {
           {/* Today's Sequence */}
           <TodaySequence />
 
-          {/* Footer: Momentum + AI Agents */}
+          {/* Footer: Momentum + Agent Activity */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <MomentumWidget stats={momentum} />
-            <div>
-              <AgentStatusWidget />
-              <button
-                onClick={toggleAgentChat}
-                className={`mt-3 w-full py-2 rounded-lg text-sm font-medium ${
-                  isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-50 text-purple-700 hover:bg-purple-100"
-                }`}
-              >
-                Open Agents Panel →
-              </button>
-            </div>
+            <AgentActivityFeed />
+          </div>
+
+          {/* Agent Status Grid */}
+          <div className="mt-4">
+            <AgentStatusGrid />
           </div>
         </div>
       </div>

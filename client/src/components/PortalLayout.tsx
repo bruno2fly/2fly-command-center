@@ -3,7 +3,7 @@
 import { Toaster } from "sonner";
 import { CommandBar } from "./CommandBar/CommandBar";
 import { SidebarClientList } from "./SidebarClientList";
-import { AgentChatPanel } from "./agent-chat/AgentChatPanel";
+import { FloatingChatWidget } from "./agent-chat/FloatingChatWidget";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { FocusModeProvider } from "@/contexts/FocusModeContext";
 import { ActionsProvider } from "@/contexts/ActionsContext";
@@ -35,7 +35,7 @@ function PortalLayoutInner({ children }: Props) {
           {children}
         </main>
       </div>
-      <AgentChatPanel />
+      <FloatingChatWidget />
       <Toaster position="bottom-right" richColors closeButton />
     </div>
   );
