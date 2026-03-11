@@ -229,11 +229,6 @@ export function ClientContentTab({ clientId }: Props) {
     [scheduledForPlanner, scheduledIdeasForPlanner]
   );
 
-  const agentCreatedContent = useMemo(
-    () => content.filter((c) => (c as ApiContentItem & { source?: string }).source === "agent"),
-    [content]
-  );
-
   const handleSchedule = useCallback(
     (idea: ContentIdea) => {
       setSchedulingIdea(idea);
@@ -276,6 +271,17 @@ export function ClientContentTab({ clientId }: Props) {
     setIdeas((prev) => [...prev, newIdea]);
   }, [clientId]);
 
+  const handleApproveContent = useCallback((id: string) => {
+    api.patchContent(id, { status: "approved" }).then(() => {
+      setContent((prev) => prev.map((c) => (c.id === id ? { ...c, status: "approved" } : c)));
+    }).catch(() => {});
+  }, []);
+  const handleRejectContent = useCallback((id: string) => {
+    api.patchContent(id, { status: "cancelled" }).then(() => {
+      setContent((prev) => prev.map((c) => (c.id === id ? { ...c, status: "cancelled" } : c)));
+    }).catch(() => {});
+  }, []);
+
   const addReference = useCallback(() => {
     const newRef: ReferenceLink = {
       id: generateRefId(),
@@ -297,8 +303,11 @@ export function ClientContentTab({ clientId }: Props) {
         <div className="min-h-[400px]">
           <AIContentIdeasSection
             ideas={ideas}
+            agentContent={content}
             onIdeasChange={setIdeas}
             onSchedule={handleSchedule}
+            onApproveContent={handleApproveContent}
+            onRejectContent={handleRejectContent}
           />
         </div>
 
@@ -314,27 +323,6 @@ export function ClientContentTab({ clientId }: Props) {
           onItemsChange={setReferences}
           onAdd={addReference}
         />
-
-        {/* From Agent Directives */}
-        {agentCreatedContent.length > 0 && (
-          <div className={`rounded-2xl border overflow-hidden ${isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-200 bg-white"}`}>
-            <div className={`px-4 py-3 border-b ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
-              <h2 className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                🤖 From Agent Directives
-              </h2>
-            </div>
-            <ul className={`divide-y ${isDark ? "divide-[#1a1810]" : "divide-gray-100"}`}>
-              {agentCreatedContent.map((item) => (
-                <li key={item.id} className={`px-4 py-2.5 flex items-center justify-between gap-2 ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>
-                  <span className="text-sm truncate">{item.title}</span>
-                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400">
-                    🤖 Agent Created
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {/* Monthly Planner — compact */}
         <MonthlyPlannerCompact items={allScheduledItems} />

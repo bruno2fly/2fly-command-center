@@ -13,6 +13,10 @@ export type ActionQueueItem = {
   source: string;
   status: string;
   priority: ActionQueuePriority;
+  /** For navigation: content | task | request | blocker | approval */
+  entityType?: "content" | "task" | "request" | "blocker" | "approval";
+  /** Real entity id for API (e.g. content id, task id, request id) */
+  entityId?: string;
 };
 
 function formatDue(d: string | null) {
@@ -41,9 +45,10 @@ type Props = {
   items: ActionQueueItem[];
   viewAllHref?: string;
   onViewAll?: () => void;
+  onItemClick?: (item: ActionQueueItem) => void;
 };
 
-export function ActionQueue({ items, viewAllHref, onViewAll }: Props) {
+export function ActionQueue({ items, viewAllHref, onViewAll, onItemClick }: Props) {
   const { isDark } = useTheme();
 
   const sectionCls = isDark
@@ -108,9 +113,10 @@ export function ActionQueue({ items, viewAllHref, onViewAll }: Props) {
                 <motion.div
                   key={item.id}
                   variants={itemVariants}
-                  className={`rounded-xl border border-l-4 ${priorityBorder[item.priority]} ${cardBg} ${borderCls} p-3 transition-all duration-200 hover:shadow-md hover:shadow-blue-500/5 hover:border-blue-500/20 cursor-pointer`}
+                  onClick={() => onItemClick?.(item)}
+                  className={`rounded-xl border border-l-4 ${priorityBorder[item.priority]} ${cardBg} ${borderCls} p-3 transition-all duration-200 hover:shadow-md hover:shadow-blue-500/5 hover:border-blue-500/20 cursor-pointer flex items-center justify-between gap-2 group`}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2 min-w-0 flex-1">
                     <div className="flex items-start gap-2 min-w-0 flex-1">
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${priorityDot[item.priority]}`}
@@ -144,7 +150,7 @@ export function ActionQueue({ items, viewAllHref, onViewAll }: Props) {
                         </div>
                       </div>
                     </div>
-                    <span className={`text-gray-400 shrink-0 ${metaCls}`} aria-hidden>
+                    <span className={`text-gray-400 shrink-0 ${metaCls} group-hover:text-blue-500 transition-colors`} aria-hidden>
                       →
                     </span>
                   </div>

@@ -181,6 +181,12 @@ export const api = {
     fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
   getRequestsRaw: (clientId?: string) =>
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
+  patchRequest: (id: string, payload: { status?: string }) =>
+    fetchMainAPI<ApiRequestItem>(`/requests/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
   getContentRaw: (clientId?: string) =>
     fetchAPI<ApiContentResponse>(`/content${clientId ? `?clientId=${clientId}` : ''}`),
   /** Returns content items for a client; handles server returning either .content or .items */
@@ -192,6 +198,21 @@ export const api = {
       (data as { content?: ApiContentItem[]; items?: ApiContentItem[] }).items ??
       [];
   },
+  /** Content from main API (includes agent-created items with source/directiveId) */
+  getContentItemsMain: async (clientId: string): Promise<ApiContentItem[]> => {
+    const data = await fetchMainAPI<ApiContentItem[] | { content?: ApiContentItem[]; items?: ApiContentItem[] }>(
+      `/content?clientId=${encodeURIComponent(clientId)}`
+    );
+    if (Array.isArray(data)) return data;
+    return (data as { content?: ApiContentItem[] }).content ?? (data as { items?: ApiContentItem[] }).items ?? [];
+  },
+  /** PATCH content item (main API) — e.g. status: approved | cancelled */
+  patchContent: (id: string, payload: Partial<Pick<ApiContentItem, 'status' | 'title' | 'scheduledDate'>>) =>
+    fetchMainAPI<ApiContentItem>(`/content/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
   getInvoicesRaw: () =>
     fetchAPI<ApiInvoicesResponse>('/invoices'),
   getPayments: () => fetchAPI<ApiPaymentsResponse>('/payments'),

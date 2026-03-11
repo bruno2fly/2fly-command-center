@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api } from "@/lib/api";
-import type { ApiRequestItem, ApiContentItem } from "@/lib/api";
+import type { ApiRequestItem, ApiContentItem, ApiTask, ApiDirective } from "@/lib/api";
 import {
   getClientHealth,
   getInsights,
@@ -28,6 +29,8 @@ import {
   ActivityTimeline,
   QuickActionsCompact,
   IdeasPanel,
+  AgentUpdatesSection,
+  ActionQueueDetailPanel,
 } from "@/components/client-control/overview";
 
 function formatTime(iso: string) {
@@ -77,6 +80,8 @@ type Props = {
 
 export function ClientOverviewTab({ clientId }: Props) {
   const { isDark } = useTheme();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [apiClient, setApiClient] = useState<Awaited<ReturnType<typeof api.getClient>> | null>(null);
   const [apiRequests, setApiRequests] = useState<ApiRequestItem[] | null>(null);
@@ -85,12 +90,18 @@ export function ClientOverviewTab({ clientId }: Props) {
     Array<{ clientId?: string; overall?: string; modules?: Record<string, { bufferDays?: number; status?: string }> }>
   | null>(null);
   const [apiPayments, setApiPayments] = useState<Awaited<ReturnType<typeof api.getPayments>> | null>(null);
+  const [apiTasks, setApiTasks] = useState<ApiTask[]>([]);
+  const [recentDirectives, setRecentDirectives] = useState<ApiDirective[]>([]);
+  const [selectedActionItem, setSelectedActionItem] = useState<ActionQueueItem | null>(null);
+  const agentUpdatesRef = useRef<HTMLDivElement>(null);
 
   const fetchApi = useCallback(() => {
     Promise.all([
       api.getClient(clientId).then(setApiClient).catch(() => {}),
       api.getRequestsRaw(clientId).then((d) => setApiRequests(d.requests ?? [])).catch(() => {}),
-      api.getContentItems(clientId).then(setApiContent).catch(() => {}),
+      api.getContentItemsMain(clientId).then(setApiContent).catch(() => api.getContentItems(clientId).then(setApiContent).catch(() => {})),
+      api.getClientTasks(clientId).then((r) => setApiTasks(r.tasks ?? [])).catch(() => setApiTasks([])),
+      api.getDirectives({ clientId }).then((r) => setRecentDirectives(r.directives ?? [])).catch(() => setRecentDirectives([])),
       api
         .getHealth()
         .then((h) =>
@@ -233,6 +244,7 @@ export function ClientOverviewTab({ clientId }: Props) {
     const blockerIds = new Set((apiBlockers ?? []).map((b) => b.id));
 
     for (const b of apiBlockers ?? []) {
+      const isReq = b.id.startsWith("req-");
       items.push({
         id: b.id,
         title: b.title,
@@ -241,6 +253,8 @@ export function ClientOverviewTab({ clientId }: Props) {
         source: "System",
         status: b.reason,
         priority: b.severity === "critical" ? "urgent" : "warning",
+        entityType: "blocker",
+        entityId: isReq ? b.id.replace("req-", "") : undefined,
       });
     }
 
@@ -254,18 +268,44 @@ export function ClientOverviewTab({ clientId }: Props) {
         source: "2FlyFlow",
         status: "Awaiting approval",
         priority: a.dueAt && new Date(a.dueAt) < now ? "urgent" : "warning",
+        entityType: "approval",
       });
     }
 
-    for (const t of tasksMock.filter((x) => x.status !== "done")) {
+    const tasksToShow = apiTasks.length > 0
+      ? apiTasks.filter((x) => x.status !== "completed" && x.status !== "cancelled")
+      : tasksMock.filter((x) => x.status !== "done").map((t) => ({ id: t.id, title: t.title, dueDate: t.dueAt, status: t.status, priority: t.priority === "high" ? "high" : "normal", source: "manual" }));
+    for (const t of tasksToShow) {
+      const dueAt = "dueDate" in t ? t.dueDate : (t as ApiTask).dueDate;
+      const status = (t as ApiTask).status ?? (t as { status: string }).status;
+      const priority = (t as ApiTask).priority ?? (t as { priority: string }).priority;
       items.push({
         id: `task-${t.id}`,
         title: t.title,
-        dueAt: t.dueAt,
+        dueAt: dueAt ? (typeof dueAt === "string" ? dueAt : (dueAt as Date).toISOString?.()) : null,
         type: "Task",
-        source: "Task",
-        status: t.status === "in_progress" ? "In Progress" : t.status === "review" ? "Review" : "To Do",
-        priority: t.dueAt && new Date(t.dueAt) < now ? "urgent" : t.priority === "high" ? "warning" : "on_track",
+        source: (t as ApiTask).source === "agent" ? "Agent" : "Task",
+        status: status === "in_progress" ? "In Progress" : status === "review" ? "Review" : "To Do",
+        priority: dueAt && new Date(dueAt as string) < now ? "urgent" : priority === "high" || priority === "urgent" ? "warning" : "on_track",
+        entityType: "task",
+        entityId: t.id,
+      });
+    }
+
+    const contentDraftOrReview = (apiContent ?? []).filter(
+      (c) => (c.status === "draft" || c.status === "review") && !items.some((i) => i.entityType === "content" && i.entityId === c.id)
+    );
+    for (const c of contentDraftOrReview.slice(0, 5)) {
+      items.push({
+        id: `content-${c.id}`,
+        title: c.title,
+        dueAt: (c as { scheduledDate?: string }).scheduledDate ?? null,
+        type: "Content",
+        source: (c as { source?: string }).source === "agent" ? "Agent" : "Content",
+        status: c.status,
+        priority: "on_track",
+        entityType: "content",
+        entityId: c.id,
       });
     }
 
@@ -280,6 +320,8 @@ export function ClientOverviewTab({ clientId }: Props) {
         source: r.source,
         status: r.stage === "in_progress" ? "In Progress" : r.stage === "in_review" ? "Review" : r.stage,
         priority: r.dueAt && new Date(r.dueAt) < now ? "urgent" : "on_track",
+        entityType: "request",
+        entityId: r.id,
       });
     }
 
@@ -294,7 +336,7 @@ export function ClientOverviewTab({ clientId }: Props) {
     });
 
     return items;
-  }, [apiBlockers, controlItems, tasksMock, workbenchRequests]);
+  }, [apiBlockers, controlItems, tasksMock, workbenchRequests, apiTasks, apiContent]);
 
   const activityEntries = useMemo((): ActivityTimelineEntry[] => {
     if (apiRequests && apiRequests.length > 0) {
@@ -347,10 +389,92 @@ export function ClientOverviewTab({ clientId }: Props) {
         : "green";
   const healthLabel = healthVariant === "green" ? "Healthy" : healthVariant === "yellow" ? "At risk" : "Critical";
 
+  const last24hDirective = useMemo(() => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return recentDirectives.find(
+      (d) => d.status === "completed" && d.completedAt && new Date(d.completedAt).getTime() >= cutoff
+    );
+  }, [recentDirectives]);
+
+  const selectedContent = selectedActionItem?.entityType === "content" && selectedActionItem.entityId
+    ? (apiContent ?? []).find((c) => c.id === selectedActionItem.entityId)
+    : null;
+  const selectedTask = selectedActionItem?.entityType === "task" && selectedActionItem.entityId
+    ? apiTasks.find((t) => t.id === selectedActionItem.entityId)
+    : null;
+  const selectedRequest = selectedActionItem?.entityType === "request" && selectedActionItem.entityId
+    ? (apiRequests ?? []).find((r) => r.id === selectedActionItem.entityId)
+    : null;
+
+  const handleApproveContent = useCallback(
+    (id: string) => {
+      api.patchContent(id, { status: "approved" }).then(() => fetchApi()).catch(() => {});
+    },
+    [fetchApi]
+  );
+  const handleRejectContent = useCallback(
+    (id: string) => {
+      api.patchContent(id, { status: "cancelled" }).then(() => fetchApi()).catch(() => {});
+    },
+    [fetchApi]
+  );
+  const handleCompleteTask = useCallback(
+    (id: string) => {
+      api.patchClientTask(clientId, id, { status: "completed" }).then(() => fetchApi()).catch(() => {});
+    },
+    [clientId, fetchApi]
+  );
+  const handleAcknowledgeRequest = useCallback(
+    (id: string) => {
+      api.patchRequest(id, { status: "acknowledged" }).then(() => fetchApi()).catch(() => {});
+    },
+    [fetchApi]
+  );
+  const handleResolveRequest = useCallback(
+    (id: string) => {
+      api.patchRequest(id, { status: "completed" }).then(() => fetchApi()).catch(() => {});
+    },
+    [fetchApi]
+  );
+  const handleSwitchToContent = useCallback(
+    (contentId?: string) => {
+      router.replace(`${pathname}?tab=content${contentId ? `&highlight=${contentId}` : ""}`);
+    },
+    [router, pathname]
+  );
+  const handleSwitchToTasks = useCallback(
+    (taskId?: string) => {
+      router.replace(`${pathname}?tab=tasks${taskId ? `&highlight=${taskId}` : ""}`);
+    },
+    [router, pathname]
+  );
+  const handleSwitchToRequests = useCallback(() => {
+    router.replace(`${pathname}?tab=tasksRequests`);
+  }, [router, pathname]);
+  const scrollToAgentUpdates = useCallback(() => {
+    agentUpdatesRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
   const bgCls = isDark ? "bg-zinc-950" : "bg-gray-50";
 
   return (
     <div className={`flex flex-col h-full overflow-auto ${bgCls}`}>
+      {last24hDirective && (
+        <div
+          className={`shrink-0 px-4 py-2 flex items-center justify-between gap-2 ${isDark ? "bg-blue-500/10 border-b border-blue-500/20" : "bg-blue-50 border-b border-blue-100"}`}
+        >
+          <span className="text-sm text-blue-700 dark:text-blue-300">
+            🤖 {last24hDirective.agentName} created {last24hDirective.contentCreated} items + {last24hDirective.tasksCreated} tasks — {formatTime(last24hDirective.completedAt ?? last24hDirective.createdAt)}
+          </span>
+          <button
+            type="button"
+            onClick={scrollToAgentUpdates}
+            className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            View →
+          </button>
+        </div>
+      )}
       <OverviewKPIStrip
         retainer={retainer}
         retainerPaid={retainerPaid}
@@ -367,7 +491,13 @@ export function ClientOverviewTab({ clientId }: Props) {
 
       <div className="flex-1 min-h-0 p-4 grid grid-cols-1 md:grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3 space-y-4">
-          <ActionQueue items={actionQueueItems} />
+          <div ref={agentUpdatesRef}>
+            <AgentUpdatesSection clientId={clientId} />
+          </div>
+          <ActionQueue
+            items={actionQueueItems}
+            onItemClick={setSelectedActionItem}
+          />
           <PipelineBar counts={pipelineCounts} />
         </div>
         <div className="lg:col-span-2 space-y-4">
@@ -384,6 +514,22 @@ export function ClientOverviewTab({ clientId }: Props) {
       <div className="px-4 pb-4">
         <IdeasPanel ideas={ideas} defaultCollapsed />
       </div>
+
+      <ActionQueueDetailPanel
+        item={selectedActionItem}
+        content={selectedContent}
+        task={selectedTask}
+        request={selectedRequest}
+        onClose={() => setSelectedActionItem(null)}
+        onSwitchToContent={handleSwitchToContent}
+        onSwitchToTasks={handleSwitchToTasks}
+        onSwitchToRequests={handleSwitchToRequests}
+        onApproveContent={handleApproveContent}
+        onRejectContent={handleRejectContent}
+        onCompleteTask={handleCompleteTask}
+        onAcknowledgeRequest={handleAcknowledgeRequest}
+        onResolveRequest={handleResolveRequest}
+      />
     </div>
   );
 }

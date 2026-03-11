@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ContentIdea, ContentIdeaType } from "./contentIdeaTypes";
+import type { ApiContentItem } from "@/lib/api";
 
 const TABS: { id: "all" | ContentIdeaType; label: string }[] = [
   { id: "all", label: "ALL" },
@@ -37,7 +38,7 @@ function timeAgo(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
   const diffMins = Math.floor((now.getTime() - d.getTime()) / 60000);
-  if (diffMins < 60) return `${diffMins}h ago`;
+  if (diffMins < 60) return `${diffMins}m ago`;
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
@@ -46,17 +47,61 @@ function timeAgo(iso: string): string {
 
 type Props = {
   ideas: ContentIdea[];
+  agentContent?: ApiContentItem[];
   onIdeasChange: (next: ContentIdea[]) => void;
   onSchedule?: (idea: ContentIdea) => void;
+  onApproveContent?: (id: string) => void;
+  onRejectContent?: (id: string) => void;
+  onRefreshContent?: () => void;
 };
 
-export function AIContentIdeasSection({ ideas, onIdeasChange, onSchedule }: Props) {
+type RowType = "feed" | "reel" | "story" | "carousel";
+function contentTypeToRow(t: string): RowType {
+  const lower = (t || "post").toLowerCase();
+  if (lower === "reel" || lower === "video") return "reel";
+  if (lower === "story") return "story";
+  if (lower === "carousel") return "carousel";
+  return "feed";
+}
+
+export function AIContentIdeasSection({
+  ideas,
+  agentContent = [],
+  onIdeasChange,
+  onSchedule,
+  onApproveContent,
+  onRejectContent,
+}: Props) {
   const { isDark } = useTheme();
   const [filter, setFilter] = useState<"all" | ContentIdeaType>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const agentDrafts = useMemo(
+    () => agentContent.filter((c) => (c.status === "draft" || c.status === "review") && (c as ApiContentItem & { source?: string }).source === "agent"),
+    [agentContent]
+  );
+
+  const unifiedRows = useMemo(() => {
+    const ideaRows = ideas
+      .filter((i) => i.status !== "approved" && i.status !== "scheduled" && i.status !== "published")
+      .map((i) => ({ kind: "idea" as const, id: i.id, title: i.title, type: i.type, createdAt: i.createdAt, data: i }));
+    const agentRows = agentDrafts.map((c) => ({
+      kind: "agent" as const,
+      id: `agent-${c.id}`,
+      title: c.title,
+      type: contentTypeToRow((c as { contentType?: string }).contentType ?? c.type ?? "post"),
+      createdAt: c.createdAt,
+      data: c,
+    }));
+    const merged = [...ideaRows, ...agentRows];
+    merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return merged;
+  }, [ideas, agentDrafts]);
+
   const filtered =
-    filter === "all" ? ideas : ideas.filter((i) => i.type === filter);
+    filter === "all"
+      ? unifiedRows
+      : unifiedRows.filter((r) => r.type === filter);
 
   const cardBg = isDark ? "bg-[rgba(30,41,59,0.5)]" : "bg-white";
   const cardBorder = isDark ? "border-[rgba(51,65,85,0.5)]" : "border-[rgba(226,232,240,1)]";
@@ -64,10 +109,13 @@ export function AIContentIdeasSection({ ideas, onIdeasChange, onSchedule }: Prop
   const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
   const mutedCls = isDark ? "text-[#5a5040]" : "text-gray-500";
 
-  const approve = (id: string) => {
+  const approveIdea = (id: string) => {
     onIdeasChange(
       ideas.map((i) => (i.id === id ? { ...i, status: "approved" as const } : i))
     );
+  };
+  const rejectIdea = (id: string) => {
+    onIdeasChange(ideas.filter((i) => i.id !== id));
   };
 
   return (
@@ -97,75 +145,116 @@ export function AIContentIdeasSection({ ideas, onIdeasChange, onSchedule }: Prop
       </div>
       <div className="p-4 space-y-2 max-h-[480px] overflow-y-auto">
         <AnimatePresence mode="popLayout">
-          {filtered.map((idea, idx) => {
-            const isExpanded = expandedId === idea.id;
+          {filtered.map((row, idx) => {
+            const isExpanded = expandedId === row.id;
+            const isAgent = row.kind === "agent";
+            const idea = !isAgent ? (row.data as ContentIdea) : null;
+            const contentItem = isAgent ? (row.data as ApiContentItem) : null;
             return (
               <motion.div
-                key={idea.id}
+                key={row.id}
                 layout
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ delay: idx * 0.03 }}
                 className={`rounded-xl border ${cardBorder} overflow-hidden transition-all duration-200 cursor-pointer ${
-                  isExpanded ? `border-l-[3px] ${TYPE_BORDER[idea.type]} ${cardBgExpanded}` : cardBg
+                  isExpanded ? `border-l-[3px] ${TYPE_BORDER[row.type]} ${cardBgExpanded}` : cardBg
                 } hover:shadow-md hover:border-blue-500/20`}
-                onClick={() => setExpandedId(isExpanded ? null : idea.id)}
+                onClick={() => setExpandedId(isExpanded ? null : row.id)}
               >
                 {!isExpanded ? (
                   <div className="p-4 flex items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm font-medium truncate ${textCls}`}>
-                        {TYPE_ICON[idea.type]} {idea.type === "feed" ? "Feed" : idea.type === "reel" ? "Reel" : idea.type.charAt(0).toUpperCase() + idea.type.slice(1)}{" "}
-                        &quot;{idea.title}&quot;
+                        {TYPE_ICON[row.type]} {row.type === "feed" ? "Feed" : row.type === "reel" ? "Reel" : row.type.charAt(0).toUpperCase() + row.type.slice(1)}{" "}
+                        &quot;{row.title}&quot;
+                        {isAgent && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400">
+                            🤖 Agent
+                          </span>
+                        )}
                       </p>
                       <p className={`text-xs mt-0.5 ${mutedCls}`}>
-                        {SOURCE_LABEL[idea.source] ?? idea.source} · {timeAgo(idea.createdAt)}
+                        {isAgent ? "Agent created" : (SOURCE_LABEL[(idea as ContentIdea).source] ?? (idea as ContentIdea).source)} · {timeAgo(row.createdAt)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => approve(idea.id)}
-                        className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className={`px-3 py-1.5 rounded-lg text-sm ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700"} hover:opacity-90`}
-                      >
-                        Edit
-                      </button>
+                      {isAgent && contentItem ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onApproveContent?.(contentItem.id)}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600"
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-3 py-1.5 rounded-lg text-sm ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700"} hover:opacity-90`}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onRejectContent?.(contentItem.id)}
+                            className="px-3 py-1.5 rounded-lg text-sm bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                          >
+                            ❌ Reject
+                          </button>
+                        </>
+                      ) : idea ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => approveIdea(idea.id)}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500 text-white hover:bg-emerald-600"
+                          >
+                            ✅ Approve
+                          </button>
+                          <button
+                            type="button"
+                            className={`px-3 py-1.5 rounded-lg text-sm ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700"} hover:opacity-90`}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => rejectIdea(idea.id)}
+                            className="px-3 py-1.5 rounded-lg text-sm bg-red-500/10 text-red-400"
+                          >
+                            ❌ Reject
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                   </div>
-                ) : (
+                ) : isAgent && contentItem ? (
+                  <div className="p-6 space-y-4 text-left">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className={`text-sm font-semibold ${textCls}`}>
+                        {TYPE_ICON[row.type]} {row.type === "feed" ? "Feed Post" : row.type.charAt(0).toUpperCase() + row.type.slice(1)} · <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400">🤖 Agent</span>
+                      </span>
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" onClick={() => onApproveContent?.(contentItem.id)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500 text-white">✅ Approve</button>
+                        <button type="button" className={`px-3 py-1.5 rounded-lg text-sm ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700"}`}>✏️ Edit</button>
+                        <button type="button" onClick={() => onRejectContent?.(contentItem.id)} className="px-3 py-1.5 rounded-lg text-sm bg-red-500/10 text-red-400">❌ Reject</button>
+                      </div>
+                    </div>
+                    <p className={`text-sm font-medium ${textCls}`}>&quot;{contentItem.title}&quot;</p>
+                    <p className={`text-xs ${mutedCls}`}>Status: {contentItem.status}</p>
+                  </div>
+                ) : idea ? (
                   <div className="p-6 space-y-4 text-left">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className={`text-sm font-semibold ${textCls}`}>
                         {TYPE_ICON[idea.type]} {idea.type === "feed" ? "Feed Post" : idea.type.charAt(0).toUpperCase() + idea.type.slice(1)}
                       </span>
                       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => approve(idea.id)}
-                          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500 text-white"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          className={`px-3 py-1.5 rounded-lg text-sm ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700"}`}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onSchedule?.(idea)}
-                          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-500 text-white"
-                        >
-                          Schedule
-                        </button>
+                        <button type="button" onClick={() => approveIdea(idea.id)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500 text-white">✅ Approve</button>
+                        <button type="button" className={`px-3 py-1.5 rounded-lg text-sm ${isDark ? "bg-gray-700 text-gray-200" : "bg-gray-100 text-gray-700"}`}>✏️ Edit</button>
+                        <button type="button" onClick={() => onSchedule?.(idea)} className="px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-500 text-white">Schedule</button>
+                        <button type="button" onClick={() => rejectIdea(idea.id)} className="px-3 py-1.5 rounded-lg text-sm bg-red-500/10 text-red-400">❌ Reject</button>
                       </div>
                     </div>
                     <p className={`text-sm font-medium ${textCls}`}>&quot;{idea.title}&quot;</p>
@@ -176,64 +265,32 @@ export function AIContentIdeasSection({ ideas, onIdeasChange, onSchedule }: Prop
                       </div>
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      {idea.hook && (
-                        <div>
-                          <p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>🎯 Hook</p>
-                          <p className={textCls}>{idea.hook}</p>
-                        </div>
-                      )}
-                      {idea.format && (
-                        <div>
-                          <p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>📐 Format</p>
-                          <p className={textCls}>{idea.format}</p>
-                        </div>
-                      )}
-                      {idea.bestTime && (
-                        <div>
-                          <p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>⏰ Best time</p>
-                          <p className={textCls}>{idea.bestTime}</p>
-                        </div>
-                      )}
-                      {idea.hashtags?.length > 0 && (
-                        <div>
-                          <p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>🏷️ Hashtags</p>
-                          <p className={textCls}>{idea.hashtags.join(" ")}</p>
-                        </div>
-                      )}
+                      {idea.hook && <div><p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>🎯 Hook</p><p className={textCls}>{idea.hook}</p></div>}
+                      {idea.format && <div><p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>📐 Format</p><p className={textCls}>{idea.format}</p></div>}
+                      {idea.bestTime && <div><p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>⏰ Best time</p><p className={textCls}>{idea.bestTime}</p></div>}
+                      {idea.hashtags?.length > 0 && <div><p className={`font-semibold uppercase tracking-wider ${mutedCls}`}>🏷️ Hashtags</p><p className={textCls}>{idea.hashtags.join(" ")}</p></div>}
                     </div>
-                    {idea.whyItWorks && (
-                      <div>
-                        <p className={`text-[10px] font-semibold uppercase tracking-wider ${mutedCls} mb-1`}>💡 Why this works</p>
-                        <p className={`text-xs ${textCls}`}>{idea.whyItWorks}</p>
-                      </div>
-                    )}
+                    {idea.whyItWorks && <div><p className={`text-[10px] font-semibold uppercase tracking-wider ${mutedCls} mb-1`}>💡 Why this works</p><p className={`text-xs ${textCls}`}>{idea.whyItWorks}</p></div>}
                     {idea.references?.length > 0 && (
                       <div>
                         <p className={`text-[10px] font-semibold uppercase tracking-wider ${mutedCls} mb-1`}>📌 Reference</p>
                         <div className="flex flex-wrap gap-2">
                           {idea.references.map((ref, i) => (
-                            <a
-                              key={i}
-                              href={ref.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-xs text-blue-500 hover:underline"
-                            >
-                              {ref.title} →
-                            </a>
+                            <a key={i} href={ref.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-500 hover:underline">{ref.title} →</a>
                           ))}
                         </div>
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
               </motion.div>
             );
           })}
         </AnimatePresence>
         {filtered.length === 0 && (
-          <p className={`py-8 text-center text-sm ${mutedCls}`}>No ideas in this filter. Add ideas or switch tab.</p>
+          <p className={`py-8 text-center text-sm ${mutedCls}`}>
+            No AI content suggestions yet. Use the Agent Chat to generate ideas.
+          </p>
         )}
       </div>
     </div>
