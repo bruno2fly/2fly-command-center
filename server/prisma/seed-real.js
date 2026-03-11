@@ -7,7 +7,12 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 async function main() {
-  // Clear existing demo data
+  // Clear existing data (order matters — dependents first)
+  await prisma.ad.deleteMany({}).catch(() => {});
+  await prisma.adSet.deleteMany({}).catch(() => {});
+  await prisma.adCampaign.deleteMany({}).catch(() => {});
+  await prisma.invoice.deleteMany({}).catch(() => {});
+  await prisma.metaConnection.deleteMany({}).catch(() => {});
   await prisma.adReport.deleteMany({});
   await prisma.clientRequest.deleteMany({});
   await prisma.contentItem.deleteMany({});

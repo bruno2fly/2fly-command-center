@@ -21,7 +21,7 @@ async function main() {
     "Pro Fortuna": { bufferDays: 8, greenRequests: true },
     "Casa Nova": { bufferDays: 6, greenRequests: false }, // needs content
     "Ardan Med Spa": { bufferDays: 10, greenRequests: false }, // payment issues
-    "This is it Brazil": { bufferDays: 5, greenRequests: false }, // at risk
+    "This is it Brazil": { bufferDays: 3, greenRequests: false }, // at risk — low buffer + aging request
     "Super Crisp": { bufferDays: 20, greenRequests: true }, // healthy
     "Hafiza": { bufferDays: 14, greenRequests: true },
     "Cristiane Amorim": { bufferDays: 16, greenRequests: true },
@@ -83,6 +83,62 @@ async function main() {
             data: { status: "completed", resolvedAt: new Date() },
           });
         }
+      }
+    } else {
+      // Create problem requests for red/yellow clients
+      if (client.name === "Ardan Med Spa") {
+        // 10-day old unresolved request → red
+        await prisma.clientRequest.create({
+          data: {
+            clientId: client.id,
+            title: "Website contact form broken",
+            description: "Ana reported clients can't submit booking form — losing leads daily",
+            type: "support",
+            priority: "urgent",
+            status: "pending",
+            createdAt: new Date(Date.now() - 10 * 86400000),
+          },
+        });
+      }
+      if (client.name === "Casa Nova") {
+        // SLA breach + 8-day old request → red
+        await prisma.clientRequest.create({
+          data: {
+            clientId: client.id,
+            title: "Menu photos reshoot needed",
+            description: "New seasonal menu launched but website still shows old photos",
+            type: "content",
+            priority: "high",
+            status: "acknowledged",
+            dueDate: new Date(Date.now() - 3 * 86400000), // SLA breached 3 days ago
+            createdAt: new Date(Date.now() - 8 * 86400000),
+          },
+        });
+        await prisma.clientRequest.create({
+          data: {
+            clientId: client.id,
+            title: "Instagram reels not posting",
+            description: "Scheduled reels failed to publish 3 times this week",
+            type: "support",
+            priority: "urgent",
+            status: "pending",
+            createdAt: new Date(Date.now() - 5 * 86400000),
+          },
+        });
+      }
+      if (client.name === "This is it Brazil") {
+        // 4-day old request → yellow (between 72h and 168h)
+        await prisma.clientRequest.create({
+          data: {
+            clientId: client.id,
+            title: "Google Business Profile needs update",
+            description: "Hours changed for summer, website link pointing to old domain",
+            type: "task",
+            priority: "normal",
+            status: "pending",
+            createdAt: new Date(Date.now() - 4 * 86400000),
+          },
+        });
       }
     }
 
