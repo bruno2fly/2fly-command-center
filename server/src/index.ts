@@ -28,6 +28,7 @@ app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/agents", agentsRoutes);
 app.use("/api/agent-tools", agentToolsRoutes);
 app.use("/api/briefs", require("./routes/briefs"));
+app.use("/api/directives", require("./routes/directives"));
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {

@@ -65,6 +65,7 @@ model Client {
   invoices        Invoice[]
   adCampaigns     AdCampaign[]
   metaConnection  MetaConnection?
+  tasks           Task[]
 }
 
 // ─────────────────────────────────────────────────
@@ -121,8 +122,48 @@ model ContentItem {
   scheduledDate   DateTime?
   publishedDate   DateTime?
   assignedTo      String?  // team member name or ID
+  source          String   @default("manual") // "manual", "agent"
+  directiveId     String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────
+// DIRECTIVES & TASKS (Agent-operated)
+// ─────────────────────────────────────────────────
+// Bruno gives directives via Agent Chat; agents create tasks and content.
+
+model Directive {
+  id              String    @id @default(cuid())
+  message         String    // what Bruno typed
+  agentId         String
+  agentName       String
+  clientId        String?
+  clientName      String?
+  status          String    @default("pending") // "pending", "processing", "completed", "failed"
+  result          String?   // agent summary or JSON
+  tasksCreated    Int       @default(0)
+  contentCreated  Int       @default(0)
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+}
+
+model Task {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  title           String
+  description     String?
+  type            String    @default("task")  // "task", "content", "ads", "support"
+  status          String    @default("pending") // "pending", "in_progress", "completed", "cancelled"
+  priority        String    @default("normal") // "low", "normal", "high", "urgent"
+  assignedTo      String?
+  source          String    @default("manual") // "manual", "agent", "client_request"
+  directiveId     String?
+  dueDate         DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 // ─────────────────────────────────────────────────

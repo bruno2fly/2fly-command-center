@@ -14,6 +14,7 @@ import { MomentumWidget } from "./dashboard/MomentumWidget";
 import { AgentActivityFeed } from "./dashboard/AgentActivityFeed";
 import { AgentStatusGrid } from "./dashboard/AgentStatusGrid";
 import { BriefingCard, BriefFullView } from "./briefs";
+import { RecentDirectives } from "./directives";
 import { api, type ApiBrief } from "@/lib/api";
 
 export function FounderDashboard() {
@@ -163,6 +164,9 @@ export function FounderDashboard() {
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Today's Briefings — top of page */}
           <BriefingCard onOpenBrief={openBrief} pulseOnce={pulseOnce} />
+
+          {/* Recent Agent Activity (directives) */}
+          <RecentDirectives />
 
           {/* Fire Lane */}
           <FireLane items={activePriorities} />

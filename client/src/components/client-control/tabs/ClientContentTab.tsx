@@ -124,30 +124,38 @@ export function ClientContentTab({ clientId }: Props) {
     }
   }, [clientId, references]);
 
-  // Fetch content from API (for KPIs + monthly planner)
+  // Fetch content from API (main API has agent-created items with source/directiveId)
   useEffect(() => {
-    fetch(`${API}/api/agent-tools/content?clientId=${clientId}`)
+    fetch(`${API}/api/content?clientId=${clientId}`)
       .then((r) => r.json())
-      .then((d: { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
-        const list = d.content ?? d.items ?? [];
+      .then((d: ApiContentItem[] | { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
+        const list = Array.isArray(d) ? d : (d as { content?: ApiContentItem[]; items?: ApiContentItem[] }).content ?? (d as { content?: ApiContentItem[]; items?: ApiContentItem[] }).items ?? [];
         setContent(Array.isArray(list) ? list : []);
       })
       .catch(() => {
-        const mock = getContentCalendar(clientId);
-        setContent(
-          mock.map((c) => ({
-            id: c.id,
-            clientId: c.clientId,
-            title: c.title,
-            platform: "instagram",
-            status: c.status,
-            scheduledDate: c.date,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            type: c.type,
-            contentType: c.type,
-          }))
-        );
+        fetch(`${API}/api/agent-tools/content?clientId=${clientId}`)
+          .then((r) => r.json())
+          .then((d: { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
+            const list = d.content ?? d.items ?? [];
+            setContent(Array.isArray(list) ? list : []);
+          })
+          .catch(() => {
+            const mock = getContentCalendar(clientId);
+            setContent(
+              mock.map((c) => ({
+                id: c.id,
+                clientId: c.clientId,
+                title: c.title,
+                platform: "instagram",
+                status: c.status,
+                scheduledDate: c.date,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                type: c.type,
+                contentType: c.type,
+              }))
+            );
+          });
       });
   }, [clientId]);
 
@@ -219,6 +227,11 @@ export function ClientContentTab({ clientId }: Props) {
   const allScheduledItems = useMemo(
     () => [...scheduledForPlanner, ...scheduledIdeasForPlanner],
     [scheduledForPlanner, scheduledIdeasForPlanner]
+  );
+
+  const agentCreatedContent = useMemo(
+    () => content.filter((c) => (c as ApiContentItem & { source?: string }).source === "agent"),
+    [content]
   );
 
   const handleSchedule = useCallback(
@@ -301,6 +314,27 @@ export function ClientContentTab({ clientId }: Props) {
           onItemsChange={setReferences}
           onAdd={addReference}
         />
+
+        {/* From Agent Directives */}
+        {agentCreatedContent.length > 0 && (
+          <div className={`rounded-2xl border overflow-hidden ${isDark ? "border-[#1a1810] bg-[#0a0a0e]" : "border-gray-200 bg-white"}`}>
+            <div className={`px-4 py-3 border-b ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
+              <h2 className={`text-xs font-semibold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                🤖 From Agent Directives
+              </h2>
+            </div>
+            <ul className={`divide-y ${isDark ? "divide-[#1a1810]" : "divide-gray-100"}`}>
+              {agentCreatedContent.map((item) => (
+                <li key={item.id} className={`px-4 py-2.5 flex items-center justify-between gap-2 ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>
+                  <span className="text-sm truncate">{item.title}</span>
+                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400">
+                    🤖 Agent Created
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Monthly Planner — compact */}
         <MonthlyPlannerCompact items={allScheduledItems} />

@@ -5,7 +5,9 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAgentChat, AGENTS, type AgentId } from "@/contexts/AgentChatContext";
-import { toast } from "sonner";
+import { useClients } from "@/contexts/ClientsContext";
+import { api, type ApiDirective } from "@/lib/api";
+import { DirectiveResult } from "@/components/directives/DirectiveResult";
 
 const CHAT_STATE_KEY = "2fly-chat-state";
 const CHAT_AGENT_KEY = "2fly-chat-agent";
@@ -27,57 +29,17 @@ function saveChatState(state: ChatState) {
   } catch {}
 }
 
-/** Pre-seeded mock conversations per agent */
-const MOCK_CONVERSATIONS: Record<string, Array<{ role: "agent" | "user"; text: string; time: string }>> = {
-  "founder-boss": [
-    { role: "agent", text: "Morning brief: 🟢7 🟡1 🔴2 clients. Casa Nova needs attention — SLA breach on weekend specials. $4,400 in overdue invoices.", time: "9:00 AM" },
-    { role: "user", text: "Show me Casa Nova status", time: "9:02 AM" },
-    { role: "agent", text: "Casa Nova is red: SLA breach on weekend specials banner. Invoice 5d overdue. Top priority: chase payment and update creative.", time: "9:02 AM" },
-  ],
-  "content-system": [
-    { role: "agent", text: "Content scan: 3 items due today (Shape SPA, Ardan, Super Crisp). 2 clients have no content scheduled this week: Hafiza, Pro Fortuna.", time: "10:00 AM" },
-  ],
-  "meta-traffic": [
-    { role: "agent", text: "Ad performance: Shape SPA Miami ROAS 3.8x (+8% WoW) — strong. Super Crisp ROAS 1.9x declining — recommend creative refresh.", time: "11:00 AM" },
-  ],
-  "research-intel": [
-    { role: "agent", text: "Weekly research: 3 new competitor campaigns in Miami med spa. Ardan's competitor running 40% off promo.", time: "Sun 8:00 PM" },
-  ],
-  "inbox-triage": [
-    { role: "agent", text: "Inbox triage ready. Route and categorize on demand.", time: "—" },
-  ],
-  "project-manager": [
-    { role: "agent", text: "SLA check runs hourly. No breaches right now.", time: "—" },
-  ],
-  "approval-feedback": [
-    { role: "agent", text: "Review gate active. Send content for approval on demand.", time: "—" },
-  ],
-  "client-memory": [
-    { role: "agent", text: "Client memory always listening. Ask me anything about clients.", time: "—" },
-  ],
-};
-
-function getMessagesForAgent(agentId: string) {
-  return MOCK_CONVERSATIONS[agentId] ?? [{ role: "agent" as const, text: "No messages yet.", time: "—" }];
-}
-
 export function FloatingChatWidget() {
   const { isDark } = useTheme();
-  const {
-    panelOpen,
-    openPanel,
-    closePanel,
-    activeAgent,
-    setActiveAgent,
-  } = useAgentChat();
+  const { panelOpen, openPanel, closePanel, activeAgent, setActiveAgent } = useAgentChat();
+  const { clients } = useClients();
 
   const [minimized, setMinimized] = useState(false);
   const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isOpen = panelOpen && !minimized;
-
-  const messages = getMessagesForAgent(activeAgent);
-  const agent = AGENTS.find((a) => a.id === activeAgent);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [lastResult, setLastResult] = useState<ApiDirective | null>(null);
+  const [recentDirectives, setRecentDirectives] = useState<ApiDirective[]>([]);
 
   // Persist and restore chat state
   useEffect(() => {
@@ -96,17 +58,42 @@ export function FloatingChatWidget() {
   }, [panelOpen, activeAgent]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeAgent, messages]);
+    api.getDirectives().then((r) => setRecentDirectives((r.directives ?? []).slice(0, 5))).catch(() => {});
+  }, [lastResult]);
 
-  function handleSend() {
+  async function handleSend() {
     const text = input.trim();
-    if (!text) return;
+    if (!text || processing) return;
     setInput("");
-    toast("Agent chat coming soon — use Discord #boss for now", {
-      duration: 4000,
-      position: "bottom-right",
-    });
+    setLastResult(null);
+    setProcessing(true);
+    try {
+      const created = await api.createDirective({
+        message: text,
+        agentId: activeAgent,
+        clientId: selectedClientId ?? undefined,
+      });
+      const updated = await api.processDirective(created.id);
+      setLastResult(updated);
+      setRecentDirectives((prev) => [updated, ...prev.filter((d) => d.id !== updated.id)].slice(0, 5));
+    } catch (err) {
+      setLastResult({
+        id: "",
+        message: text,
+        agentId: activeAgent,
+        agentName: AGENTS.find((a) => a.id === activeAgent)?.name ?? "Agent",
+        clientId: null,
+        clientName: null,
+        status: "failed",
+        result: err instanceof Error ? err.message : "Failed",
+        tasksCreated: 0,
+        contentCreated: 0,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      });
+    } finally {
+      setProcessing(false);
+    }
   }
 
   function handleMinimize() {
@@ -197,7 +184,7 @@ export function FloatingChatWidget() {
               </div>
             </div>
 
-            {/* Agent tabs */}
+            {/* Agent selector */}
             <div className="shrink-0 px-3 py-2 border-b overflow-x-auto flex gap-2">
               {AGENTS.map((a) => (
                 <button
@@ -215,34 +202,65 @@ export function FloatingChatWidget() {
               ))}
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((msg, i) => (
-                <motion.div
-                  key={`${activeAgent}-${i}`}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.02 }}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                      msg.role === "agent"
-                        ? isDark ? "bg-gray-800 rounded-bl-sm" : "bg-gray-100 rounded-bl-sm"
-                        : "bg-[#013E99] text-white rounded-br-sm"
-                    }`}
-                  >
-                    <p className="text-xs whitespace-pre-wrap">{msg.text}</p>
-                    <p className={`text-[10px] mt-1 ${msg.role === "user" ? "text-blue-200" : isDark ? "text-gray-500" : "text-gray-400"}`}>
-                      {msg.time}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-              <div ref={messagesEndRef} />
+            {/* Client context (optional) */}
+            <div className="shrink-0 px-3 py-1.5 border-b flex items-center gap-2 flex-wrap">
+              <select
+                value={selectedClientId ?? ""}
+                onChange={(e) => setSelectedClientId(e.target.value || null)}
+                className={`text-xs rounded-lg px-2 py-1 ${isDark ? "bg-gray-800 text-gray-200" : "bg-gray-100 text-gray-800"}`}
+              >
+                <option value="">All clients / auto-detect</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {selectedClientId && (
+                <span className="text-[10px] text-gray-500">
+                  {clients.find((c) => c.id === selectedClientId)?.name}
+                </span>
+              )}
             </div>
 
-            {/* Input */}
+            {/* Result card or processing */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {processing && (
+                <div className={`rounded-xl border p-4 ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-100 border-gray-200"}`}>
+                  <p className="text-sm">⏳ Processing...</p>
+                </div>
+              )}
+              {lastResult && !processing && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <DirectiveResult directive={lastResult} />
+                </motion.div>
+              )}
+
+              {/* Recent directives */}
+              {recentDirectives.length > 0 && (
+                <div className="pt-2">
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                    Recent
+                  </p>
+                  <div className="space-y-1">
+                    {recentDirectives.slice(0, 5).map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setLastResult(d)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs ${isDark ? "hover:bg-gray-800" : "hover:bg-gray-100"}`}
+                      >
+                        <span>{d.status === "completed" ? "✅" : d.status === "failed" ? "❌" : "⏳"}</span>{" "}
+                        {d.message.slice(0, 30)}…
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Directive input */}
             <div className="shrink-0 p-3 border-t border-gray-200 dark:border-gray-700">
               <div className={`flex gap-2 rounded-xl border ${isDark ? "bg-gray-800 border-gray-700" : "bg-gray-50 border-gray-200"}`}>
                 <input
@@ -250,13 +268,15 @@ export function FloatingChatWidget() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleSend())}
-                  placeholder="Type a message..."
+                  placeholder="Give a directive... e.g. 'Create Easter content for Casa Nova'"
                   className={`flex-1 bg-transparent px-4 py-3 text-sm outline-none rounded-xl ${isDark ? "text-gray-200 placeholder:text-gray-500" : "text-gray-900 placeholder:text-gray-400"}`}
+                  disabled={processing}
                 />
                 <button
                   type="button"
-                  onClick={handleSend}
-                  className="self-center p-2 rounded-lg bg-[#013E99] text-white hover:opacity-90 shrink-0"
+                  onClick={() => handleSend()}
+                  disabled={processing || !input.trim()}
+                  className="self-center p-2 rounded-lg bg-[#013E99] text-white hover:opacity-90 shrink-0 disabled:opacity-50"
                 >
                   →
                 </button>

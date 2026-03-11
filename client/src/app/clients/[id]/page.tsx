@@ -12,6 +12,7 @@ import { buildClientLanes } from "@/lib/clientLanes";
 import { getClientControlMeta } from "@/lib/client/mockClientControlData";
 import { ClientTabBar, CLIENT_TABS, type ClientTabId } from "@/components/client-control/ClientTabBar";
 import { ClientOverviewTab } from "@/components/client-control/tabs/ClientOverviewTab";
+import { ClientTasksTab } from "@/components/client-control/tabs/ClientTasksTab";
 import { ClientTasksRequestsTab } from "@/components/client-control/tabs/ClientTasksRequestsTab";
 import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
 import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
@@ -75,6 +76,7 @@ export default function ClientControlRoomPage() {
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
         {activeTab === "overview" && <ClientOverviewTab clientId={id} />}
+        {activeTab === "tasks" && <ClientTasksTab clientId={id} />}
         {activeTab === "tasksRequests" && <ClientTasksRequestsTab clientId={id} />}
         {activeTab === "clientPlan" && <ClientPlanTab clientId={id} />}
         {activeTab === "ads" && <ClientAdsTab clientId={id} />}

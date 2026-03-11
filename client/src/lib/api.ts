@@ -15,6 +15,54 @@ export async function fetchBriefsAPI<T = unknown>(path: string, init?: RequestIn
   return res.json() as Promise<T>;
 }
 
+/** Directives API — /api/directives */
+export async function fetchDirectivesAPI<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}/api/directives${path}`, init);
+  if (!res.ok) throw new Error(`Directives API error: ${res.status}`);
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+/** Main API (clients, tasks) — /api */
+export async function fetchMainAPI<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}/api${path}`, init);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+export type ApiDirective = {
+  id: string;
+  message: string;
+  agentId: string;
+  agentName: string;
+  clientId: string | null;
+  clientName: string | null;
+  status: string;
+  result: string | null;
+  tasksCreated: number;
+  contentCreated: number;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type ApiTask = {
+  id: string;
+  clientId: string;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  priority: string;
+  assignedTo: string | null;
+  source: string;
+  directiveId: string | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ApiBrief = {
   id: string;
   type: string;
@@ -88,6 +136,49 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
+  // Directives (Bruno → Agent)
+  createDirective: (payload: { message: string; agentId: string; clientId?: string }) =>
+    fetchDirectivesAPI<ApiDirective>('', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  getDirectives: (params?: { status?: string; agentId?: string; clientId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.agentId) q.set('agentId', params.agentId);
+    if (params?.clientId) q.set('clientId', params.clientId);
+    const query = q.toString();
+    return fetchDirectivesAPI<{ directives: ApiDirective[]; total: number }>(query ? `?${query}` : '');
+  },
+  getDirectiveById: (id: string) => fetchDirectivesAPI<ApiDirective>(`/${id}`),
+  processDirective: (id: string) =>
+    fetchDirectivesAPI<ApiDirective>(`/${id}/process`, { method: 'POST' }),
+  // Client tasks — main API /api/clients/:id/tasks
+  getClientTasks: (clientId: string, params?: { status?: string; type?: string; source?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.type) q.set('type', params.type);
+    if (params?.source) q.set('source', params.source);
+    const query = q.toString();
+    return fetchMainAPI<{ tasks: ApiTask[]; total: number }>(
+      `/clients/${clientId}/tasks${query ? `?${query}` : ''}`
+    );
+  },
+  postClientTask: (clientId: string, payload: Partial<ApiTask> & { title: string }) =>
+    fetchMainAPI<ApiTask>(`/clients/${clientId}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  patchClientTask: (clientId: string, taskId: string, payload: Partial<ApiTask>) =>
+    fetchMainAPI<ApiTask>(`/clients/${clientId}/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  deleteClientTask: (clientId: string, taskId: string) =>
+    fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
   getRequestsRaw: (clientId?: string) =>
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
   getContentRaw: (clientId?: string) =>
@@ -399,6 +490,8 @@ export type ApiContentItem = {
   updatedAt: string;
   type?: string;
   contentType?: string;
+  source?: string;
+  directiveId?: string | null;
 };
 
 export type ApiContentResponse = {
