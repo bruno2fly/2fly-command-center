@@ -289,6 +289,44 @@ async function executePlan(plan, clientName) {
   return { results, errors, totalSteps: plan.length, succeeded: results.length, failed: errors.length };
 }
 
+// ─── SAFETY CHECKS ───────────────────────────────────────
+
+/**
+ * Risk Control Layer — prevents dangerous operations
+ */
+function validateSafety(operation, params) {
+  const errors = [];
+  
+  // Never change budget more than 30%
+  if (operation === 'update_budget' || operation === 'update_adset_budget') {
+    if (params.oldBudget && params.newBudget) {
+      const change = Math.abs(params.newBudget - params.oldBudget) / params.oldBudget;
+      if (change > 0.30) {
+        errors.push(`Budget change of ${(change * 100).toFixed(0)}% exceeds 30% safety limit. Reduce the change.`);
+      }
+    }
+  }
+  
+  return errors;
+}
+
+/**
+ * Verify client still has active campaigns after execution
+ */
+async function verifyActiveAds(clientName) {
+  try {
+    const campaigns = await getCampaigns(clientName);
+    const active = campaigns.filter(c => c.status === 'ACTIVE');
+    return {
+      totalCampaigns: campaigns.length,
+      activeCampaigns: active.length,
+      warning: active.length === 0 ? '⚠️ WARNING: No active campaigns! Client has zero ads running.' : null,
+    };
+  } catch (e) {
+    return { warning: `Could not verify: ${e.message}` };
+  }
+}
+
 // ─── SMART EXECUTOR ──────────────────────────────────────
 
 /**
@@ -420,6 +458,30 @@ async function smartExecute(action) {
     errors.push({ step: 'execution', error: err.message });
   }
   
+  // Post-execution safety check — verify ads are still running
+  if (action.clientName && action.category === 'ads') {
+    const verification = await verifyActiveAds(action.clientName);
+    if (verification.warning) {
+      results.push({
+        step: results.length,
+        action: 'safety_check',
+        detail: verification.warning,
+        activeCampaigns: verification.activeCampaigns,
+        totalCampaigns: verification.totalCampaigns,
+      });
+      // If no active campaigns, this is an error
+      if (verification.activeCampaigns === 0) {
+        errors.push({ step: 'safety', op: 'verify_active_ads', error: verification.warning });
+      }
+    } else {
+      results.push({
+        step: results.length,
+        action: 'safety_check',
+        detail: `✅ Verified: ${verification.activeCampaigns} active campaign(s) still running for ${action.clientName}`,
+      });
+    }
+  }
+
   return { results, errors, totalSteps: results.length + errors.length, succeeded: results.length, failed: errors.length };
 }
 

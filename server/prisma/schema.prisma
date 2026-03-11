@@ -374,3 +374,23 @@ model WhatsappMessage {
   createdAt       DateTime @default(now())
 }
 
+
+// ─────────────────────────────────────────────────
+// META ADS LEARNING MEMORY
+// Tracks action outcomes for agent learning
+model AdActionLog {
+  id              String   @id @default(cuid())
+  clientId        String?
+  clientName      String
+  actionType      String   // "scale_budget", "pause_campaign", "create_campaign", "refresh_creative"
+  actionDetail    String   // what was done
+  campaignId      String?  // Meta campaign ID
+  metricsBefore   String?  // JSON: {cpl, ctr, spend, frequency} at time of action
+  metricsAfter3d  String?  // JSON: same metrics 3 days later
+  metricsAfter7d  String?  // JSON: same metrics 7 days later
+  outcome         String?  // "improved", "stable", "worsened", "pending"
+  notes           String?
+  createdAt       DateTime @default(now())
+  checkedAt3d     DateTime?
+  checkedAt7d     DateTime?
+}
