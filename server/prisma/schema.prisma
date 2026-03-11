@@ -260,6 +260,30 @@ model Ad {
 // WHATSAPP CHAT DASHBOARD
 // ─────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────
+// DAILY BRIEFINGS (Agent reports)
+// ─────────────────────────────────────────────────
+// Agents POST briefs from cron jobs; dashboard shows them front-and-center.
+
+model Brief {
+  id              String    @id @default(cuid())
+  type            String    // "morning", "content", "ads", "custom"
+  title           String    // "Morning Command Brief", "Content Pipeline Scan", etc.
+  agentId         String    // which agent generated it
+  agentName       String    // "Founder Boss", "Content System", "Meta Traffic"
+  summary         String    // full markdown report (SQLite stores as TEXT)
+  highlights      String?   // JSON array of key items for quick scan
+  status          String    @default("unread") // "unread", "read", "archived"
+  priority        String    @default("normal") // "urgent", "normal", "low"
+  healthSnapshot  String?   // JSON: {green: 7, yellow: 1, red: 2}
+  createdAt       DateTime  @default(now())
+  readAt          DateTime?
+}
+
+// ─────────────────────────────────────────────────
+// WHATSAPP CHAT DASHBOARD
+// ─────────────────────────────────────────────────
+
 model WhatsappConversation {
   id             String   @id @default(cuid())
   contactNumber  String   // whatsapp:+1...

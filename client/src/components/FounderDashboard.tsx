@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useActions } from "@/contexts/ActionsContext";
+import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { MOCK_ACTIVITY, type ActivityEvent } from "@/lib/founder/mockFounderData";
 import { FireLane } from "./dashboard/FireLane";
 import { WaitingRadar } from "./dashboard/WaitingRadar";
@@ -11,13 +13,22 @@ import { TodaySequence } from "./dashboard/TodaySequence";
 import { MomentumWidget } from "./dashboard/MomentumWidget";
 import { AgentActivityFeed } from "./dashboard/AgentActivityFeed";
 import { AgentStatusGrid } from "./dashboard/AgentStatusGrid";
-import { api } from "@/lib/api";
+import { BriefingCard, BriefFullView } from "./briefs";
+import { api, type ApiBrief } from "@/lib/api";
 
 export function FounderDashboard() {
   const { isDark } = useTheme();
   const { activePriorities, executionItems, momentum } = useActions();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const briefIdFromUrl = searchParams?.get("briefId") ?? null;
+
   /* Fetch real activity from pulse + brief endpoints, fall back to mock */
   const [activity, setActivity] = useState<ActivityEvent[]>(MOCK_ACTIVITY);
+  const [todayBriefs, setTodayBriefs] = useState<ApiBrief[]>([]);
+  const [selectedBrief, setSelectedBrief] = useState<ApiBrief | null>(null);
+  const [pulseOnce, setPulseOnce] = useState(false);
+  const hasToasted = useRef(false);
 
   useEffect(() => {
     async function loadActivity() {
@@ -95,10 +106,64 @@ export function FounderDashboard() {
     loadActivity();
   }, []);
 
+  // Today's briefs + toast when unread (once per load)
+  useEffect(() => {
+    api
+      .getBriefsToday()
+      .then((r) => {
+        const list = r.briefs ?? [];
+        setTodayBriefs(list);
+        const unread = list.filter((b) => b.status === "unread").length;
+        if (unread > 0 && !hasToasted.current) {
+          hasToasted.current = true;
+          toast(`You have ${unread} new briefing${unread === 1 ? "" : "s"} from your agents`);
+          setPulseOnce(true);
+          setTimeout(() => setPulseOnce(false), 500);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Open full view when URL has briefId
+  useEffect(() => {
+    if (!briefIdFromUrl) {
+      setSelectedBrief(null);
+      return;
+    }
+    api
+      .getBriefById(briefIdFromUrl)
+      .then((b) => setSelectedBrief(b))
+      .catch(() => setSelectedBrief(null));
+  }, [briefIdFromUrl]);
+
+  const closeBriefView = () => {
+    setSelectedBrief(null);
+    router.replace("/");
+  };
+
+  const openBrief = (brief: ApiBrief) => {
+    router.push(`/?briefId=${brief.id}`);
+  };
+
+  const currentIndex = selectedBrief ? todayBriefs.findIndex((b) => b.id === selectedBrief.id) : -1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < todayBriefs.length - 1;
+  const onPrev = () => {
+    if (hasPrev && todayBriefs[currentIndex - 1])
+      router.push(`/?briefId=${todayBriefs[currentIndex - 1].id}`);
+  };
+  const onNext = () => {
+    if (hasNext && todayBriefs[currentIndex + 1])
+      router.push(`/?briefId=${todayBriefs[currentIndex + 1].id}`);
+  };
+
   return (
     <div className={`flex flex-col min-h-full ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         <div className="max-w-6xl mx-auto space-y-6">
+          {/* Today's Briefings — top of page */}
+          <BriefingCard onOpenBrief={openBrief} pulseOnce={pulseOnce} />
+
           {/* Fire Lane */}
           <FireLane items={activePriorities} />
 
@@ -123,6 +188,18 @@ export function FounderDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Full brief modal */}
+      {selectedBrief && (
+        <BriefFullView
+          brief={selectedBrief}
+          onClose={closeBriefView}
+          onPrev={onPrev}
+          onNext={onNext}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+        />
+      )}
     </div>
   );
 }

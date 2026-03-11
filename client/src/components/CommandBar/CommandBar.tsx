@@ -11,6 +11,7 @@ import { getGlobalAlerts, getGlobalApprovals } from "@/lib/client/mockClientCont
 import { CommandSearchModal } from "./CommandSearchModal";
 import { AlertsApprovalsDrawer } from "./AlertsApprovalsDrawer";
 import { CriticalAlertChip } from "./CriticalAlertChip";
+import { BriefNotificationBell } from "@/components/briefs";
 
 export function CommandBar() {
   const pathname = usePathname() ?? "";
@@ -128,8 +129,9 @@ export function CommandBar() {
           {navLink("/whatsapp", "WhatsApp")}
         </nav>
 
-        {/* RIGHT ZONE: Counters + Agents + User */}
+        {/* RIGHT ZONE: Briefings + Counters + Agents + User */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          <BriefNotificationBell />
           <button
             onClick={() => setDrawerOpen(true)}
             className={`relative p-2.5 rounded-lg ${

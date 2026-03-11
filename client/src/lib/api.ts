@@ -7,6 +7,29 @@ export async function fetchAPI<T = unknown>(path: string, init?: RequestInit): P
   return res.json() as Promise<T>;
 }
 
+/** Briefs API — base path /api/briefs (not agent-tools) */
+export async function fetchBriefsAPI<T = unknown>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}/api/briefs${path}`, init);
+  if (!res.ok) throw new Error(`Briefs API error: ${res.status}`);
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+export type ApiBrief = {
+  id: string;
+  type: string;
+  title: string;
+  agentId: string;
+  agentName: string;
+  summary: string;
+  highlights: string | null;
+  status: 'unread' | 'read' | 'archived';
+  priority: string;
+  healthSnapshot: string | null;
+  createdAt: string;
+  readAt: string | null;
+};
+
 export type ClientPayload = {
   name: string;
   contactName?: string | null;
@@ -47,6 +70,24 @@ export const api = {
   getPulse: () => fetchAPI<ApiPulseResponse>('/pulse'),
   getBrief: () => fetchAPI<ApiBriefResponse>('/brief'),
   getRevenue: () => fetchAPI<ApiRevenueResponse>('/revenue'),
+  // Daily briefings (agent reports) — /api/briefs
+  getBriefs: (params?: { status?: string; date?: string; type?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.date) q.set('date', params.date);
+    if (params?.type) q.set('type', params.type);
+    const query = q.toString();
+    return fetchBriefsAPI<{ briefs: ApiBrief[]; total: number }>(query ? `?${query}` : '');
+  },
+  getBriefsToday: () =>
+    fetchBriefsAPI<{ briefs: ApiBrief[]; total: number }>('/today'),
+  getBriefById: (id: string) => fetchBriefsAPI<ApiBrief>(`/${id}`),
+  patchBrief: (id: string, payload: { status?: 'read' | 'archived' }) =>
+    fetchBriefsAPI<ApiBrief>(`/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
   getRequestsRaw: (clientId?: string) =>
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
   getContentRaw: (clientId?: string) =>
