@@ -167,7 +167,9 @@ async function createCampaign(clientName, { name, objective, dailyBudget, status
     name,
     objective: objective.toUpperCase(),
     status,
-    special_ad_categories: JSON.stringify(specialAdCategories),
+    special_ad_categories: JSON.stringify(specialAdCategories.length ? specialAdCategories : []),
+    is_adset_budget_sharing_enabled: 'false',
+    buying_type: 'AUCTION',
   };
   
   // Note: daily_budget is set at ad set level for most objectives
