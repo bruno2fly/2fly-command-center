@@ -77,6 +77,16 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
     api.patchRequest(current.entityId, { status: "completed" }).then(removeCurrentAndNext).catch(() => {});
   }, [current]);
 
+  const handleExecute = useCallback(() => {
+    if (!current || current.entityType !== "agent_action") return;
+    api.executeAgentAction(current.entityId).then(removeCurrentAndNext).catch(() => {});
+  }, [current]);
+
+  const handleRejectAgentAction = useCallback(() => {
+    if (!current || current.entityType !== "agent_action") return;
+    api.patchAgentAction(current.entityId, { status: "rejected" }).then(removeCurrentAndNext).catch(() => {});
+  }, [current]);
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 text-sm">
@@ -103,10 +113,11 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
           position={position}
           total={total}
           onApprove={current?.entityType === "content" ? handleApprove : undefined}
-          onReject={current?.entityType === "content" ? handleReject : undefined}
+          onReject={current?.entityType === "content" ? handleReject : current?.entityType === "agent_action" ? handleRejectAgentAction : undefined}
           onComplete={current?.entityType === "task" ? handleComplete : undefined}
           onAcknowledge={current?.entityType === "request" ? handleAcknowledge : undefined}
           onResolve={current?.entityType === "request" ? handleResolve : undefined}
+          onExecute={current?.entityType === "agent_action" ? handleExecute : undefined}
           onSkip={skipCurrent}
         />
       </motion.div>

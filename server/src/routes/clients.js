@@ -113,7 +113,7 @@ router.get("/:clientId/actions", async (req, res) => {
     const now = new Date();
     const actions = [];
 
-    const [tasks, contentItems, requests] = await Promise.all([
+    const [tasks, contentItems, requests, agentActions] = await Promise.all([
       prisma.task.findMany({
         where: { clientId, status: { in: ["pending", "in_progress"] } },
         orderBy: { createdAt: "desc" },
@@ -124,6 +124,10 @@ router.get("/:clientId/actions", async (req, res) => {
       }),
       prisma.clientRequest.findMany({
         where: { clientId, status: { in: ["new", "acknowledged", "in_progress", "waiting_client", "review"] } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.agentAction.findMany({
+        where: { clientId, status: "pending" },
         orderBy: { createdAt: "desc" },
       }),
     ]);
@@ -182,6 +186,22 @@ router.get("/:clientId/actions", async (req, res) => {
         availableActions: ["acknowledge", "resolve", "skip"],
       });
     }
+    for (const a of agentActions) {
+      actions.push({
+        id: `agent_action-${a.id}`,
+        entityType: "agent_action",
+        entityId: a.id,
+        title: a.title,
+        description: a.reasoning || null,
+        priority: a.priority || "normal",
+        source: "agent",
+        sourceName: a.agentName || "Agent",
+        dueDate: null,
+        isOverdue: false,
+        createdAt: a.createdAt.toISOString(),
+        availableActions: ["execute", "reject", "skip"],
+      });
+    }
 
     const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
     actions.sort((a, b) => {
@@ -214,8 +234,11 @@ router.get("/:id", async (req, res) => {
     });
     if (!client) return res.status(404).json({ error: "Client not found" });
 
-    const health = await computeClientHealth(client.id);
-    res.json({ ...client, health });
+    const [health, pendingAgentActionsCount] = await Promise.all([
+      computeClientHealth(client.id),
+      prisma.agentAction.count({ where: { clientId: client.id, status: "pending" } }),
+    ]);
+    res.json({ ...client, health, pendingAgentActionsCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

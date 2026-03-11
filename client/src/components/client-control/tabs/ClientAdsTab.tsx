@@ -8,7 +8,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { api } from "@/lib/api";
 import {
   getAdsKPIData,
-  getAgentActions,
   getAdsAlertsEnhanced,
   getAdsCampaignsEnhanced,
   getSpendOverTime,
@@ -18,11 +17,11 @@ import {
 import type { AdsKPIData } from "@/lib/client/mockAdsData";
 import {
   AdsKPIBar,
-  AgentActionsPanel,
   AlertsInsights,
   CampaignsTable,
   AdsChartsRow,
 } from "@/components/client-control/ads";
+import { AgentActionsPanel } from "@/components/agent-actions";
 
 type Props = {
   clientId: string;
@@ -274,7 +273,6 @@ export function ClientAdsTab({ clientId }: Props) {
   }>({});
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string; status: number }>>([]);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
-  const [agentActions, setAgentActions] = useState(() => getAgentActions(clientId) ?? []);
 
   const rawKpiData = getAdsKPIData(clientId);
   const hasMockData = rawKpiData != null;
@@ -368,22 +366,6 @@ export function ClientAdsTab({ clientId }: Props) {
     }
   };
 
-  const handleApprove = useCallback((id: string) => {
-    setAgentActions((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, status: "approved" as const, reviewedAt: new Date().toISOString(), reviewedBy: "me" } : a
-      )
-    );
-  }, []);
-
-  const handleReject = useCallback((id: string) => {
-    setAgentActions((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, status: "rejected" as const, reviewedAt: new Date().toISOString(), reviewedBy: "me" } : a
-      )
-    );
-  }, []);
-
   const bgCls = isDark ? "bg-zinc-950" : "bg-gray-50";
 
   // Mock data takes priority: show dashboard for clients with mock ads data
@@ -411,11 +393,7 @@ export function ClientAdsTab({ clientId }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 px-4">
           <div className="lg:col-span-7">
             <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={2}>
-              <AgentActionsPanel
-                actions={agentActions}
-                onApprove={handleApprove}
-                onReject={handleReject}
-              />
+              <AgentActionsPanel clientId={clientId} />
             </motion.div>
           </div>
           <div className="lg:col-span-5">
@@ -517,11 +495,7 @@ export function ClientAdsTab({ clientId }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 px-4">
         <div className="lg:col-span-7">
           <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={2}>
-            <AgentActionsPanel
-              actions={agentActions}
-              onApprove={handleApprove}
-              onReject={handleReject}
-            />
+            <AgentActionsPanel clientId={clientId} />
           </motion.div>
         </div>
         <div className="lg:col-span-5">

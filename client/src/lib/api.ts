@@ -65,7 +65,7 @@ export type ApiTask = {
 
 export type ApiAction = {
   id: string;
-  entityType: 'content' | 'task' | 'request';
+  entityType: 'content' | 'task' | 'request' | 'agent_action';
   entityId: string;
   title: string;
   description: string | null;
@@ -76,6 +76,27 @@ export type ApiAction = {
   isOverdue: boolean;
   createdAt: string;
   availableActions: string[];
+};
+
+export type ApiAgentAction = {
+  id: string;
+  clientId: string | null;
+  clientName: string | null;
+  agentId: string;
+  agentName: string;
+  category: string;
+  title: string;
+  reasoning: string;
+  proposedAction: string;
+  executionPlan: string | null;
+  status: 'pending' | 'approved' | 'executing' | 'completed' | 'failed' | 'rejected';
+  priority: string;
+  result: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  approvedAt: string | null;
+  executedAt: string | null;
+  completedAt: string | null;
 };
 
 export type ApiBrief = {
@@ -205,6 +226,38 @@ export const api = {
     fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
   getClientActions: (clientId: string) =>
     fetchMainAPI<{ actions: ApiAction[]; total: number }>(`/clients/${clientId}/actions`),
+  // Agent Actions (propose → approve → execute)
+  getAgentActions: (params?: { status?: string; clientId?: string; agentId?: string; category?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.clientId) q.set('clientId', params.clientId);
+    if (params?.agentId) q.set('agentId', params.agentId);
+    if (params?.category) q.set('category', params.category);
+    const query = q.toString();
+    return fetchMainAPI<{ actions: ApiAgentAction[]; total: number }>(
+      `/agent-actions${query ? `?${query}` : ''}`
+    );
+  },
+  getAgentAction: (id: string) =>
+    fetchMainAPI<ApiAgentAction>(`/agent-actions/${id}`),
+  createAgentAction: (data: Partial<ApiAgentAction> & { title: string; reasoning: string; proposedAction: string; agentId: string; agentName: string; category: string }) =>
+    fetchMainAPI<ApiAgentAction>('/agent-actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  executeAgentAction: (id: string) =>
+    fetchMainAPI<ApiAgentAction>(`/agent-actions/${id}/execute`, { method: 'POST' }),
+  patchAgentAction: (id: string, payload: { status?: string; result?: string; errorMessage?: string }) =>
+    fetchMainAPI<ApiAgentAction>(`/agent-actions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  deleteAgentAction: (id: string) =>
+    fetchMainAPI<{ deleted: boolean }>(`/agent-actions/${id}`, { method: 'DELETE' }),
+  clearCompletedActions: () =>
+    fetchMainAPI<{ deleted: number }>('/agent-actions/completed', { method: 'DELETE' }),
   getRequestsRaw: (clientId?: string) =>
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
   patchRequest: (id: string, payload: { status?: string }) =>

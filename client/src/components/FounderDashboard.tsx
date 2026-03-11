@@ -29,7 +29,12 @@ export function FounderDashboard() {
   const [todayBriefs, setTodayBriefs] = useState<ApiBrief[]>([]);
   const [selectedBrief, setSelectedBrief] = useState<ApiBrief | null>(null);
   const [pulseOnce, setPulseOnce] = useState(false);
+  const [pendingAgentActionsCount, setPendingAgentActionsCount] = useState(0);
   const hasToasted = useRef(false);
+
+  useEffect(() => {
+    api.getAgentActions({ status: "pending" }).then((r) => setPendingAgentActionsCount(r.total ?? 0)).catch(() => setPendingAgentActionsCount(0));
+  }, []);
 
   useEffect(() => {
     async function loadActivity() {
@@ -162,8 +167,15 @@ export function FounderDashboard() {
     <div className={`flex flex-col min-h-full ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Today's Briefings — top of page */}
-          <BriefingCard onOpenBrief={openBrief} pulseOnce={pulseOnce} />
+          {/* Today's Briefings + Pending Agent Actions */}
+          <div className="space-y-2">
+            <BriefingCard onOpenBrief={openBrief} pulseOnce={pulseOnce} />
+            {pendingAgentActionsCount > 0 && (
+              <p className={`text-sm px-1 ${isDark ? "text-amber-400/90" : "text-amber-700"}`}>
+                ⚠️ {pendingAgentActionsCount} agent action{pendingAgentActionsCount === 1 ? "" : "s"} pending approval
+              </p>
+            )}
+          </div>
 
           {/* Recent Agent Activity (directives) */}
           <RecentDirectives />

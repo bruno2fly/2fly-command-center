@@ -15,6 +15,7 @@
     "tunnel:localtunnel": "echo TUNNEL_FORWARD_PORT=4000 && sleep 2 && npx --yes localtunnel --port 4000",
     "db:push": "cd server && npx prisma db push",
     "db:seed": "cd server && node prisma/seed.js",
+    "db:seed:agent-actions": "cd server && node prisma/seed-agent-actions.js",
     "setup": "npm install && npm run db:push && npm run db:seed",
     "clean:client": "rm -rf client/.next"
   },

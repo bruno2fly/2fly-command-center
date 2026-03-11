@@ -12,6 +12,7 @@ type Props = {
   onComplete?: () => void;
   onAcknowledge?: () => void;
   onResolve?: () => void;
+  onExecute?: () => void;
   onSkip?: () => void;
 };
 
@@ -49,6 +50,7 @@ export function ActionCard({
   onComplete,
   onAcknowledge,
   onResolve,
+  onExecute,
   onSkip,
 }: Props) {
   const { isDark } = useTheme();
@@ -126,6 +128,28 @@ export function ActionCard({
                 className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors"
               >
                 ✔️ Resolve
+              </button>
+            )}
+          </>
+        )}
+        {action.entityType === "agent_action" && (
+          <>
+            {onExecute && (
+              <button
+                type="button"
+                onClick={onExecute}
+                className="flex-1 min-w-[120px] py-3 px-4 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors"
+              >
+                Execute ✅
+              </button>
+            )}
+            {onReject && (
+              <button
+                type="button"
+                onClick={onReject}
+                className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors"
+              >
+                ❌ Reject
               </button>
             )}
           </>

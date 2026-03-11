@@ -12,14 +12,18 @@ function computeMetaAds(client: ClientDetail | null): { status: HealthStatus; su
   const reports = (client as ClientDetail & { adReports?: Array<{ roas?: number; spend?: number }> }).adReports ?? [];
   const target = (client as ClientDetail & { roasTarget?: number }).roasTarget ?? 3;
   const adBudget = (client as ClientDetail & { adBudget?: number }).adBudget ?? 0;
+  const pendingActions = (client as ClientDetail & { pendingAgentActionsCount?: number }).pendingAgentActionsCount ?? 0;
+  const actionSuffix = pendingActions > 0 ? ` · ⚠️ ${pendingActions} action${pendingActions === 1 ? "" : "s"} pending approval` : "";
   const latest = reports[0];
   if (!latest || latest.roas == null) {
-    return { status: adBudget > 0 ? "attention" : "good", summary: "No campaigns active" };
+    const base = "No campaigns active";
+    return { status: adBudget > 0 ? "attention" : "good", summary: base + actionSuffix };
   }
   const pct = target > 0 ? (latest.roas / target) * 100 : 100;
-  if (pct >= 100) return { status: "good", summary: `ROAS ${latest.roas.toFixed(1)}x · $${((latest.spend as number) ?? adBudget).toLocaleString()}/mo spend` };
-  if (pct >= 80) return { status: "attention", summary: `ROAS ${latest.roas.toFixed(1)}x · $${((latest.spend as number) ?? adBudget).toLocaleString()}/mo spend` };
-  return { status: "critical", summary: `ROAS ${latest.roas.toFixed(1)}x below target · $${((latest.spend as number) ?? adBudget).toLocaleString()}/mo` };
+  const spendStr = `$${((latest.spend as number) ?? adBudget).toLocaleString()}/mo spend`;
+  if (pct >= 100) return { status: "good", summary: `ROAS ${latest.roas.toFixed(1)}x · ${spendStr}${actionSuffix}` };
+  if (pct >= 80) return { status: "attention", summary: `ROAS ${latest.roas.toFixed(1)}x · ${spendStr}${actionSuffix}` };
+  return { status: "critical", summary: `ROAS ${latest.roas.toFixed(1)}x below target · ${spendStr}${actionSuffix}` };
 }
 
 function computeContent(client: ClientDetail | null): { status: HealthStatus; summary: string } {

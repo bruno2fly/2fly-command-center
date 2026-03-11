@@ -148,6 +148,28 @@ model Directive {
   completedAt     DateTime?
 }
 
+// Agent-proposed actions: detect issue → propose → Bruno approves → execute
+model AgentAction {
+  id              String    @id @default(cuid())
+  clientId        String?
+  clientName      String?
+  agentId         String
+  agentName       String
+  category        String    // ads | content | seo | website | billing
+  title           String
+  reasoning       String    // full explanation
+  proposedAction  String    // what the agent will do (human readable)
+  executionPlan   String?   // JSON: API calls/steps
+  status          String    @default("pending") // pending | approved | executing | completed | failed | rejected
+  priority        String    @default("normal")  // low | normal | high | urgent
+  result          String?   // what actually happened
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  approvedAt      DateTime?
+  executedAt      DateTime?
+  completedAt     DateTime?
+}
+
 model Task {
   id              String    @id @default(cuid())
   clientId        String
