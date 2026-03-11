@@ -63,6 +63,21 @@ export type ApiTask = {
   updatedAt: string;
 };
 
+export type ApiAction = {
+  id: string;
+  entityType: 'content' | 'task' | 'request';
+  entityId: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  source: string;
+  sourceName: string;
+  dueDate: string | null;
+  isOverdue: boolean;
+  createdAt: string;
+  availableActions: string[];
+};
+
 export type ApiBrief = {
   id: string;
   type: string;
@@ -94,6 +109,15 @@ export type ClientPayload = {
 export const api = {
   getClients: () => fetchAPI<{ clients: ApiClient[]; total: number }>('/clients'),
   getClient: (id: string) => fetchAPI<ApiClient>(`/clients/${id}`),
+  /** Client detail from main API (includes adReports, contentItems, tasks, requests, invoices) */
+  getClientMain: (id: string) =>
+    fetchMainAPI<ApiClient & {
+      adReports?: Array<{ roas?: number; spend?: number; weekStart?: string }>;
+      contentItems?: ApiContentItem[];
+      tasks?: ApiTask[];
+      requests?: ApiRequestItem[];
+      invoices?: Array<{ status: string; dueDate: string; paidDate?: string | null; amount: number }>;
+    }>(`/clients/${id}`),
   postClient: (payload: ClientPayload) =>
     fetchAPI<ApiClient>('/clients', {
       method: 'POST',
@@ -179,6 +203,8 @@ export const api = {
     }),
   deleteClientTask: (clientId: string, taskId: string) =>
     fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
+  getClientActions: (clientId: string) =>
+    fetchMainAPI<{ actions: ApiAction[]; total: number }>(`/clients/${clientId}/actions`),
   getRequestsRaw: (clientId?: string) =>
     fetchAPI<ApiRequestsResponse>(`/requests${clientId ? `?clientId=${clientId}` : ''}`),
   patchRequest: (id: string, payload: { status?: string }) =>

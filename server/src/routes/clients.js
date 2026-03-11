@@ -106,17 +106,110 @@ router.delete("/:clientId/tasks/:taskId", async (req, res) => {
   }
 });
 
+// GET /api/clients/:clientId/actions — unified actionable items (tasks, content, requests) sorted by priority
+router.get("/:clientId/actions", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const now = new Date();
+    const actions = [];
+
+    const [tasks, contentItems, requests] = await Promise.all([
+      prisma.task.findMany({
+        where: { clientId, status: { in: ["pending", "in_progress"] } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.contentItem.findMany({
+        where: { clientId, status: { in: ["draft", "review"] } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.clientRequest.findMany({
+        where: { clientId, status: { in: ["new", "acknowledged", "in_progress", "waiting_client", "review"] } },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    for (const t of tasks) {
+      const dueDate = t.dueDate ? t.dueDate.toISOString() : null;
+      const isOverdue = dueDate && new Date(dueDate) < now;
+      actions.push({
+        id: `task-${t.id}`,
+        entityType: "task",
+        entityId: t.id,
+        title: t.title,
+        description: t.description || null,
+        priority: t.priority || "normal",
+        source: t.source === "agent" ? "agent" : "manual",
+        sourceName: t.source === "agent" ? "Agent" : "Manual",
+        dueDate,
+        isOverdue: !!isOverdue,
+        createdAt: t.createdAt.toISOString(),
+        availableActions: ["complete", "skip"],
+      });
+    }
+    for (const c of contentItems) {
+      const dueDate = c.scheduledDate ? c.scheduledDate.toISOString() : null;
+      const isOverdue = dueDate && new Date(dueDate) < now;
+      actions.push({
+        id: `content-${c.id}`,
+        entityType: "content",
+        entityId: c.id,
+        title: c.title,
+        description: c.caption || null,
+        priority: "normal",
+        source: c.source === "agent" ? "agent" : "manual",
+        sourceName: c.source === "agent" ? "Content System" : "Manual",
+        dueDate,
+        isOverdue: !!isOverdue,
+        createdAt: c.createdAt.toISOString(),
+        availableActions: ["approve", "reject", "skip"],
+      });
+    }
+    for (const r of requests) {
+      const dueDate = r.dueDate ? r.dueDate.toISOString() : null;
+      const isOverdue = (dueDate && new Date(dueDate) < now) || r.slaBreach;
+      actions.push({
+        id: `request-${r.id}`,
+        entityType: "request",
+        entityId: r.id,
+        title: r.title,
+        description: r.description || null,
+        priority: r.priority || "normal",
+        source: "client_request",
+        sourceName: "Client request",
+        dueDate,
+        isOverdue: !!isOverdue,
+        createdAt: r.createdAt.toISOString(),
+        availableActions: ["acknowledge", "resolve", "skip"],
+      });
+    }
+
+    const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+    actions.sort((a, b) => {
+      if (a.isOverdue && !b.isOverdue) return -1;
+      if (!a.isOverdue && b.isOverdue) return 1;
+      const pa = priorityOrder[a.priority] ?? 2;
+      const pb = priorityOrder[b.priority] ?? 2;
+      return pa - pb;
+    });
+
+    res.json({ actions, total: actions.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/clients/:id — single client detail
 router.get("/:id", async (req, res) => {
   try {
     const client = await prisma.client.findUnique({
       where: { id: req.params.id },
       include: {
-        contentItems: { orderBy: { scheduledDate: "asc" }, take: 30 },
-        requests: { orderBy: { createdAt: "desc" }, take: 20 },
+        contentItems: { orderBy: { scheduledDate: "asc" }, take: 50 },
+        requests: { orderBy: { createdAt: "desc" }, take: 30 },
         adReports: { orderBy: { weekStart: "desc" }, take: 8 },
         healthLogs: { orderBy: { createdAt: "desc" }, take: 12 },
         tasks: { orderBy: { createdAt: "desc" } },
+        invoices: { orderBy: { dueDate: "desc" }, take: 12 },
       },
     });
     if (!client) return res.status(404).json({ error: "Client not found" });

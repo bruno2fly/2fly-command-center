@@ -75,7 +75,7 @@ export default function ClientControlRoomPage() {
 
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
-        {activeTab === "overview" && <ClientOverviewTab clientId={id} />}
+        {activeTab === "overview" && <ClientOverviewTab clientId={id} clientName={client.name} />}
         {activeTab === "tasks" && <ClientTasksTab clientId={id} />}
         {activeTab === "tasksRequests" && <ClientTasksRequestsTab clientId={id} />}
         {activeTab === "clientPlan" && <ClientPlanTab clientId={id} />}
