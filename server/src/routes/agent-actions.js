@@ -108,8 +108,10 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// POST /api/agent-actions/:id/execute — approve and run
+// POST /api/agent-actions/:id/execute — approve and run via Meta Ads Engine
 router.post("/:id/execute", async (req, res) => {
+  const metaEngine = require("../lib/metaAdsEngine");
+  
   try {
     const action = await prisma.agentAction.findUnique({
       where: { id: req.params.id },
@@ -119,30 +121,61 @@ router.post("/:id/execute", async (req, res) => {
       return res.json(action);
     }
 
+    // Mark as approved
     await prisma.agentAction.update({
       where: { id: req.params.id },
       data: { status: "approved", approvedAt: new Date() },
     });
 
+    // Mark as executing
     await prisma.agentAction.update({
       where: { id: req.params.id },
       data: { status: "executing", executedAt: new Date() },
     });
 
-    // Placeholder: simulate execution 2–3 seconds
-    await new Promise((r) => setTimeout(r, 2000 + Math.random() * 1000));
-
-    const resultSummary = `Executed: ${action.title}. (Placeholder — real Meta API integration coming soon.)`;
+    // Execute via Meta Ads Engine
+    console.log(`🔧 Executing agent action: ${action.title}`);
+    const execution = await metaEngine.smartExecute(action);
+    
+    // Build result summary
+    const resultLines = [];
+    resultLines.push(`## Execution Report`);
+    resultLines.push(`**${action.title}**\n`);
+    
+    if (execution.results.length > 0) {
+      resultLines.push(`### ✅ Completed Steps (${execution.succeeded}/${execution.totalSteps})`);
+      for (const r of execution.results) {
+        resultLines.push(`- **${r.action || r.op}**: ${r.detail}`);
+        if (r.note) resultLines.push(`  > 📝 ${r.note}`);
+        if (r.oldBudget && r.newBudget) resultLines.push(`  > Budget: ${r.oldBudget} → ${r.newBudget}`);
+        if (r.campaignId && r.action !== 'audit') resultLines.push(`  > Campaign ID: ${r.campaignId}`);
+      }
+    }
+    
+    if (execution.errors.length > 0) {
+      resultLines.push(`\n### ❌ Failed Steps (${execution.failed})`);
+      for (const e of execution.errors) {
+        resultLines.push(`- Step ${e.step} (${e.op}): ${e.error}`);
+      }
+    }
+    
+    const finalStatus = execution.errors.length > 0 && execution.results.length === 0 ? 'failed' : 'completed';
+    const resultSummary = resultLines.join('\n');
+    
     const updated = await prisma.agentAction.update({
       where: { id: req.params.id },
       data: {
-        status: "completed",
+        status: finalStatus,
         result: resultSummary,
+        errorMessage: execution.errors.length > 0 ? execution.errors.map(e => e.error).join('; ') : null,
         completedAt: new Date(),
       },
     });
+    
+    console.log(`✅ Action ${finalStatus}: ${execution.succeeded} succeeded, ${execution.failed} failed`);
     res.json(updated);
   } catch (err) {
+    console.error(`❌ Action execution error: ${err.message}`);
     await prisma.agentAction.update({
       where: { id: req.params.id },
       data: {
