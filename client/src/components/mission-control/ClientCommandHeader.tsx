@@ -76,9 +76,9 @@ export function ClientCommandHeader({
                     ? "$0/mo"
                     : "Not set"}
               </span>
-              <span>Last delivery {formatDate(lastDelivery)}</span>
-              <span className={isDark ? "text-[#4a4030]" : "text-gray-300"}>·</span>
-              <span>Next promise {formatDate(nextPromise)}</span>
+              {lastDelivery && <><span>Last delivery {formatDate(lastDelivery)}</span>
+              <span className={isDark ? "text-[#4a4030]" : "text-gray-300"}>·</span></>}
+              {nextPromise && <span>Next promise {formatDate(nextPromise)}</span>}
             </div>
           </div>
 
@@ -91,9 +91,6 @@ export function ClientCommandHeader({
             </button>
             <button onClick={onNewRequest} className={`${btnBase} ${btnSecondary}`}>
               New Request
-            </button>
-            <button onClick={onOpenWhatsApp} className={`${btnBase} ${btnSecondary}`}>
-              Open WhatsApp
             </button>
             <button onClick={onCreateTask} className={`${btnBase} ${btnPrimary}`}>
               Create Task

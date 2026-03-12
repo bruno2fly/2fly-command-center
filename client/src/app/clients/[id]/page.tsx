@@ -2,10 +2,10 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useClients } from "@/contexts/ClientsContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { api, type ApiClient } from "@/lib/api";
+import { api, type ApiClient, type ApiTask } from "@/lib/api";
 import { ClientFormModal } from "@/components/ClientFormModal";
 import { ClientCommandHeader } from "@/components/mission-control";
 import { buildClientLanes } from "@/lib/clientLanes";
@@ -19,6 +19,7 @@ import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
 import { ClientReportsTab } from "@/components/client-control/tabs/ClientReportsTab";
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
+import { TaskDetailModal, CreateTaskModal, type TaskDetailTask } from "@/components/tasks";
 
 function parseTabFromUrl(searchParams: ReturnType<typeof useSearchParams> | null): ClientTabId {
   const tab = searchParams?.get("tab") ?? "overview";
@@ -33,13 +34,30 @@ export default function ClientControlRoomPage() {
   const { isDark } = useTheme();
   const [editClient, setEditClient] = useState<ApiClient | null>(null);
   const [mainApiClient, setMainApiClient] = useState<{ monthlyRetainer?: number | null; name?: string } | null>(null);
+  const [selectedTask, setSelectedTask] = useState<ApiTask | null>(null);
+  const [taskUpdatedAt, setTaskUpdatedAt] = useState(0);
+  const [showCreateTask, setShowCreateTask] = useState(false);
 
   const activeTab = useMemo(() => parseTabFromUrl(searchParams), [searchParams]);
-
   const client = clients.find((c) => c.id === id);
   const lanes = buildClientLanes(clients);
   const lane = lanes.find((l) => l.clientId === id);
   const meta = getClientControlMeta(id);
+  const clientDisplayName = mainApiClient?.name ?? client?.name ?? "—";
+
+  const handleOpenTaskFromOverview = useCallback(
+    (taskId: string) => {
+      if (!id) return;
+      api
+        .getClientTasks(id, {})
+        .then((r) => {
+          const t = r.tasks?.find((x) => x.id === taskId);
+          if (t) setSelectedTask(t);
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -71,19 +89,118 @@ export default function ClientControlRoomPage() {
   const healthVariant =
     lane.health === "green" ? "healthy" : lane.health === "yellow" ? "at_risk" : "critical";
 
+  const taskToDetail = (t: ApiTask): TaskDetailTask => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    status: t.status,
+    priority: t.priority,
+    type: t.type,
+    source: t.source,
+    assignedTo: t.assignedTo,
+    dueDate: t.dueDate,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    completedAt: t.completedAt,
+  });
+
+  const handleTaskStatusChange = useCallback(
+    (taskId: string, status: string) => {
+      if (!id) return;
+      api
+        .patchClientTask(id, taskId, { status })
+        .then((updated) => {
+          setSelectedTask((prev) => (prev?.id === taskId ? updated : prev));
+          setTaskUpdatedAt(Date.now());
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
+
+  const handleTaskDueDateChange = useCallback(
+    (taskId: string, date: string | null) => {
+      if (!id) return;
+      api
+        .patchClientTask(id, taskId, { dueDate: date })
+        .then((updated) => {
+          setSelectedTask((prev) => (prev?.id === taskId ? updated : prev));
+          setTaskUpdatedAt(Date.now());
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
+
+  const handleTaskAssignChange = useCallback(
+    (taskId: string, assignee: string) => {
+      if (!id) return;
+      api
+        .patchClientTask(id, taskId, { assignedTo: assignee || null })
+        .then((updated) => {
+          setSelectedTask((prev) => (prev?.id === taskId ? updated : prev));
+          setTaskUpdatedAt(Date.now());
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
+
+  const handleTaskTitleChange = useCallback(
+    (taskId: string, title: string) => {
+      if (!id) return;
+      api
+        .patchClientTask(id, taskId, { title })
+        .then((updated) => {
+          setSelectedTask((prev) => (prev?.id === taskId ? updated : prev));
+          setTaskUpdatedAt(Date.now());
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
+
+  const handleTaskDescriptionChange = useCallback(
+    (taskId: string, description: string) => {
+      if (!id) return;
+      api
+        .patchClientTask(id, taskId, { description })
+        .then((updated) => {
+          setSelectedTask((prev) => (prev?.id === taskId ? updated : prev));
+          setTaskUpdatedAt(Date.now());
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
+
+  const handleTaskDelete = useCallback(
+    (taskId: string) => {
+      if (!id) return;
+      api
+        .deleteClientTask(id, taskId)
+        .then(() => {
+          setSelectedTask(null);
+          setTaskUpdatedAt(Date.now());
+        })
+        .catch(() => {});
+    },
+    [id]
+  );
+
   return (
     <div className="flex flex-col h-full">
       <ClientCommandHeader
         clientName={mainApiClient?.name ?? client.name}
         healthVariant={healthVariant}
         monthlyRetainer={mainApiClient?.monthlyRetainer ?? client.monthlyRetainer ?? null}
-        lastDelivery={meta?.lastDelivery ?? null}
-        nextPromise={meta?.nextPromiseDate ?? null}
+        lastDelivery={null}
+        nextPromise={null}
         onEdit={() => api.getClient(id).then(setEditClient).catch(() => {})}
         onQuickNote={() => {}}
         onNewRequest={() => {}}
         onOpenWhatsApp={() => {}}
-        onCreateTask={() => {}}
+        onCreateTask={() => setShowCreateTask(true)}
       />
 
       {/* Tab bar */}
@@ -91,8 +208,22 @@ export default function ClientControlRoomPage() {
 
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
-        {activeTab === "overview" && <ClientOverviewTab clientId={id} clientName={client.name} />}
-        {activeTab === "tasks" && <ClientTasksTab clientId={id} />}
+        {activeTab === "overview" && (
+          <ClientOverviewTab
+            clientId={id}
+            clientName={clientDisplayName}
+            onOpenTaskDetail={handleOpenTaskFromOverview}
+          />
+        )}
+        {activeTab === "tasks" && (
+          <ClientTasksTab
+            clientId={id}
+            clientName={clientDisplayName}
+            onSelectTask={setSelectedTask}
+            onOpenCreateTask={() => setShowCreateTask(true)}
+            refreshTrigger={taskUpdatedAt}
+          />
+        )}
         {activeTab === "tasksRequests" && <ClientTasksRequestsTab clientId={id} />}
         {activeTab === "clientPlan" && <ClientPlanTab clientId={id} />}
         {activeTab === "ads" && <ClientAdsTab clientId={id} clientName={mainApiClient?.name ?? client.name} />}
@@ -106,6 +237,27 @@ export default function ClientControlRoomPage() {
         mode="edit"
         client={editClient ?? undefined}
       />
+      {selectedTask && (
+        <TaskDetailModal
+          task={taskToDetail(selectedTask)}
+          clientName={clientDisplayName}
+          clientId={id}
+          onClose={() => setSelectedTask(null)}
+          onStatusChange={handleTaskStatusChange}
+          onDueDateChange={handleTaskDueDateChange}
+          onAssignChange={handleTaskAssignChange}
+          onTitleChange={handleTaskTitleChange}
+          onDescriptionChange={handleTaskDescriptionChange}
+          onDelete={handleTaskDelete}
+        />
+      )}
+      {showCreateTask && (
+        <CreateTaskModal
+          clientId={id}
+          onClose={() => setShowCreateTask(false)}
+          onSuccess={() => setTaskUpdatedAt(Date.now())}
+        />
+      )}
     </div>
   );
 }

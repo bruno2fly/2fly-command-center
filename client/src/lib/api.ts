@@ -337,6 +337,21 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
+  createClientTask: (clientId: string, data: { title: string; description?: string; type?: string; priority?: string; assignedTo?: string | null; dueDate?: string | null }) =>
+    fetchMainAPI<ApiTask>(`/clients/${clientId}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: data.title,
+        description: data.description ?? null,
+        type: data.type ?? 'task',
+        priority: data.priority ?? 'normal',
+        assignedTo: data.assignedTo ?? null,
+        dueDate: data.dueDate ?? null,
+        source: 'manual',
+        status: 'pending',
+      }),
+    }),
   patchClientTask: (clientId: string, taskId: string, payload: Partial<ApiTask>) =>
     fetchMainAPI<ApiTask>(`/clients/${clientId}/tasks/${taskId}`, {
       method: 'PATCH',

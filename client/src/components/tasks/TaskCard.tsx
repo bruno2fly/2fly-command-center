@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { motion } from "framer-motion";
 import type { ApiTask } from "@/lib/api";
+import { getSourceBadge } from "./sourceBadges";
 
 const PRIORITY_STYLE: Record<string, string> = {
   urgent: "border-l-red-500 bg-red-500/5",
@@ -48,15 +49,16 @@ type Props = {
   task: ApiTask;
   onStatusChange?: (status: string) => void;
   onDueDateChange?: (taskId: string, dueDate: string | null) => void;
+  onTaskClick?: (task: ApiTask) => void;
 };
 
-export function TaskCard({ task, onStatusChange, onDueDateChange }: Props) {
+export function TaskCard({ task, onStatusChange, onDueDateChange, onTaskClick }: Props) {
   const { isDark } = useTheme();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isCompleted = task.status === "completed";
   const priorityStyle = isCompleted ? "border-l-gray-400 bg-gray-500/5" : (PRIORITY_STYLE[task.priority] ?? PRIORITY_STYLE.normal);
   const priorityIcon = isCompleted ? "✓" : (PRIORITY_ICON[task.priority] ?? "⚪");
-  const isAgent = task.source === "agent";
+  const sourceBadge = getSourceBadge(task.source);
   const dueLabel = getDueLabel(task.dueDate ?? null, isCompleted);
 
   const cardBg = isDark ? "bg-[rgba(30,41,59,0.6)] border-[rgba(51,65,85,0.5)]" : "bg-white border-gray-200";
@@ -67,12 +69,17 @@ export function TaskCard({ task, onStatusChange, onDueDateChange }: Props) {
     ? "bg-[#1a1818] border-[#2a2520] text-[#e8e4dc] rounded px-2 py-1 text-[10px]"
     : "bg-gray-100 border-gray-300 text-gray-900 rounded px-2 py-1 text-[10px]";
 
+  const handleCardClick = () => {
+    if (onTaskClick) onTaskClick(task);
+  };
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-xl border border-l-4 p-3 transition-shadow ${cardBg} ${priorityStyle} ${completedCls}`}
+      className={`rounded-xl border border-l-4 p-3 transition-shadow ${cardBg} ${priorityStyle} ${completedCls} ${onTaskClick ? "cursor-pointer hover:border-opacity-80 hover:scale-[1.01]" : ""}`}
+      onClick={onTaskClick ? handleCardClick : undefined}
     >
       <div className="flex items-start gap-2">
         <span className={`text-xs shrink-0 ${isCompleted ? "text-gray-500" : ""}`}>
@@ -96,9 +103,9 @@ export function TaskCard({ task, onStatusChange, onDueDateChange }: Props) {
             </p>
           )}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {isAgent && !isCompleted && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400">
-                🤖 Agent
+            {!isCompleted && (
+              <span className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-medium border ${sourceBadge.className}`}>
+                {sourceBadge.icon} {sourceBadge.label}
               </span>
             )}
             {task.assignedTo && (
@@ -107,7 +114,7 @@ export function TaskCard({ task, onStatusChange, onDueDateChange }: Props) {
               </span>
             )}
             {!isCompleted && onDueDateChange && (
-              <span className="flex items-center gap-1 flex-wrap">
+              <span className="flex items-center gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                 {showDatePicker ? (
                   <input
                     type="date"
@@ -145,7 +152,7 @@ export function TaskCard({ task, onStatusChange, onDueDateChange }: Props) {
       {onStatusChange && task.status === "pending" && (
         <button
           type="button"
-          onClick={() => onStatusChange("in_progress")}
+          onClick={(e) => { e.stopPropagation(); onStatusChange("in_progress"); }}
           className="mt-2 text-[10px] text-blue-500 hover:underline"
         >
           Start →
@@ -154,7 +161,7 @@ export function TaskCard({ task, onStatusChange, onDueDateChange }: Props) {
       {onStatusChange && task.status === "in_progress" && (
         <button
           type="button"
-          onClick={() => onStatusChange("completed")}
+          onClick={(e) => { e.stopPropagation(); onStatusChange("completed"); }}
           className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
         >
           Complete ✅

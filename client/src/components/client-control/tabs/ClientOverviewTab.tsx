@@ -6,9 +6,10 @@ import { HealthDashboard, FocusedActionFlow } from "@/components/overview";
 type Props = {
   clientId: string;
   clientName?: string;
+  onOpenTaskDetail?: (taskId: string) => void;
 };
 
-export function ClientOverviewTab({ clientId, clientName }: Props) {
+export function ClientOverviewTab({ clientId, clientName, onOpenTaskDetail }: Props) {
   const { isDark } = useTheme();
   const bgCls = isDark ? "bg-[#06060a]" : "bg-gray-50";
 
@@ -25,7 +26,11 @@ export function ClientOverviewTab({ clientId, clientName }: Props) {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
             Focused Action Flow
           </h2>
-          <FocusedActionFlow clientId={clientId} clientName={clientName} />
+          <FocusedActionFlow
+            clientId={clientId}
+            clientName={clientName}
+            onOpenTaskDetail={onOpenTaskDetail}
+          />
         </section>
       </div>
     </div>

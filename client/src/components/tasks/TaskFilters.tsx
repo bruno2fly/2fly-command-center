@@ -60,7 +60,7 @@ export function TaskFilters({
       <span className={`text-[10px] font-semibold uppercase tracking-wider ml-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
         Source
       </span>
-      {["", "agent", "manual"].map((src) => (
+      {["", "manual", "agent", "onboarding"].map((src) => (
         <button
           key={src || "all"}
           type="button"

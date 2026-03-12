@@ -9,9 +9,10 @@ import { EmptyActions } from "./EmptyActions";
 type Props = {
   clientId: string;
   clientName?: string;
+  onOpenTaskDetail?: (taskId: string) => void;
 };
 
-export function FocusedActionFlow({ clientId, clientName }: Props) {
+export function FocusedActionFlow({ clientId, clientName, onOpenTaskDetail }: Props) {
   const [queue, setQueue] = useState<ApiAction[]>([]);
   const [clientNameState, setClientNameState] = useState(clientName ?? "");
   const [loading, setLoading] = useState(true);
@@ -145,6 +146,7 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
           onExecute={current?.entityType === "agent_action" ? handleExecute : undefined}
           onDueDateChange={current?.entityType === "task" ? handleDueDateChange : undefined}
           onSkip={skipCurrent}
+          onOpenTaskDetail={current?.entityType === "task" ? onOpenTaskDetail : undefined}
         />
       </motion.div>
     </AnimatePresence>

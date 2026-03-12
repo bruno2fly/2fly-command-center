@@ -85,6 +85,7 @@ router.patch("/:clientId/tasks/:taskId", async (req, res) => {
       if (body.status === "completed") data.completedAt = new Date();
     }
     if (body.title != null) data.title = body.title;
+    if (body.description != null) data.description = body.description;
     if (body.priority != null) data.priority = body.priority;
     if (body.assignedTo != null) data.assignedTo = body.assignedTo;
     if (body.dueDate != null) data.dueDate = body.dueDate ? new Date(body.dueDate) : null;

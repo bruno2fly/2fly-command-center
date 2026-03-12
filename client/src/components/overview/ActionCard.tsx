@@ -17,6 +17,7 @@ type Props = {
   onExecute?: () => void;
   onSkip?: () => void;
   onDueDateChange?: (taskId: string, dueDate: string | null) => void;
+  onOpenTaskDetail?: (taskId: string) => void;
 };
 
 function getDueLabel(dueDate: string | null, isOverdue: boolean): { text: string; className: string } | null {
@@ -67,6 +68,7 @@ export function ActionCard({
   onExecute,
   onSkip,
   onDueDateChange,
+  onOpenTaskDetail,
 }: Props) {
   const { isDark } = useTheme();
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -78,9 +80,14 @@ export function ActionCard({
   const dateInputClass = isDark
     ? "bg-[#1a1818] border border-[#2a2520] text-[#e8e4dc] rounded px-2 py-1.5 text-xs"
     : "bg-gray-100 border border-gray-300 text-gray-900 rounded px-2 py-1.5 text-xs";
+  const isTaskClickable = action.entityType === "task" && !!onOpenTaskDetail;
 
   return (
-    <div className={`rounded-2xl border ${cardBg} p-6 shadow-lg`}>
+    <div
+      className={`rounded-2xl border ${cardBg} p-6 shadow-lg ${isTaskClickable ? "cursor-pointer hover:border-blue-500/50 transition-colors" : ""}`}
+      onClick={isTaskClickable ? () => onOpenTaskDetail(action.entityId) : undefined}
+      role={isTaskClickable ? "button" : undefined}
+    >
       <div className="flex items-center justify-between gap-2 mb-4">
         <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.normal}`}>
           {action.isOverdue ? "OVERDUE" : action.priority.toUpperCase()}
@@ -93,7 +100,7 @@ export function ActionCard({
         Created by {action.sourceName} · {timeAgo(action.createdAt)}
       </p>
       {action.entityType === "task" && (onDueDateChange || dueLabel) && (
-        <div className="text-xs mb-4 flex items-center gap-2 flex-wrap">
+        <div className="text-xs mb-4 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
           {showDatePicker && onDueDateChange ? (
             <input
               type="date"
@@ -120,7 +127,7 @@ export function ActionCard({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
         {action.entityType === "content" && (
           <>
             {onApprove && (
@@ -220,7 +227,7 @@ export function ActionCard({
         )}
       </div>
 
-      <div className="flex justify-center gap-1.5 mt-6">
+      <div className="flex justify-center gap-1.5 mt-6" onClick={(e) => e.stopPropagation()}>
         {Array.from({ length: total }).map((_, i) => (
           <span
             key={i}
