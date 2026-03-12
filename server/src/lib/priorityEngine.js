@@ -270,7 +270,10 @@ async function getTodayView(prisma) {
       mrr: Math.round(mrr),
       needsAttention: critical.length,
     },
-    critical: critical.slice(0, 5),
+    critical: [
+      ...critical.filter(c => c.actionType === 'agent_action'),
+      ...critical.filter(c => c.actionType !== 'agent_action'),
+    ].slice(0, 10),
     attention: attention.slice(0, 8),
     agentsHandling: agentsHandling.slice(0, 10),
     yourTasks: yourTasks.slice(0, 10),
