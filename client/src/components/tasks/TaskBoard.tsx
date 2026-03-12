@@ -35,7 +35,17 @@ export function TaskBoard({ clientId }: Props) {
       .catch(() => setTasks([]));
   }, [clientId, statusFilter, typeFilter, sourceFilter]);
 
-  const byStatus = (status: string) => tasks.filter((t) => t.status === status);
+  const byStatus = (status: string) => {
+    const list = tasks.filter((t) => t.status === status);
+    if (status === "completed") {
+      return [...list].sort((a, b) => {
+        const aAt = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const bAt = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return bAt - aAt;
+      });
+    }
+    return list;
+  };
 
   const handleStatusChange = (taskId: string, newStatus: string) => {
     api

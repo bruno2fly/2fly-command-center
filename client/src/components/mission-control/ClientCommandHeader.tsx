@@ -69,11 +69,13 @@ export function ClientCommandHeader({
                 isDark ? "text-[#8a7e6d]" : "text-gray-500"
               }`}
             >
-              {monthlyRetainer != null && monthlyRetainer > 0 && (
-                <span className="font-medium">
-                  ${monthlyRetainer.toLocaleString()}/mo
-                </span>
-              )}
+              <span className="font-medium">
+                {monthlyRetainer != null && monthlyRetainer > 0
+                  ? `$${monthlyRetainer.toLocaleString()}/mo`
+                  : monthlyRetainer === 0
+                    ? "$0/mo"
+                    : "Not set"}
+              </span>
               <span>Last delivery {formatDate(lastDelivery)}</span>
               <span className={isDark ? "text-[#4a4030]" : "text-gray-300"}>·</span>
               <span>Next promise {formatDate(nextPromise)}</span>

@@ -10,6 +10,7 @@ type Props = {
   onApprove?: () => void;
   onReject?: () => void;
   onComplete?: () => void;
+  onStart?: () => void;
   onAcknowledge?: () => void;
   onResolve?: () => void;
   onExecute?: () => void;
@@ -48,6 +49,7 @@ export function ActionCard({
   onApprove,
   onReject,
   onComplete,
+  onStart,
   onAcknowledge,
   onResolve,
   onExecute,
@@ -101,14 +103,27 @@ export function ActionCard({
             )}
           </>
         )}
-        {action.entityType === "task" && onComplete && (
-          <button
-            type="button"
-            onClick={onComplete}
-            className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors"
-          >
-            ✅ Complete
-          </button>
+        {action.entityType === "task" && (
+          <>
+            {action.taskStatus === "in_progress" && onComplete && (
+              <button
+                type="button"
+                onClick={onComplete}
+                className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors"
+              >
+                Complete ✅
+              </button>
+            )}
+            {action.taskStatus === "pending" && onStart && (
+              <button
+                type="button"
+                onClick={onStart}
+                className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 transition-colors"
+              >
+                Start →
+              </button>
+            )}
+          </>
         )}
         {action.entityType === "request" && (
           <>

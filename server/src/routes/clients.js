@@ -80,7 +80,10 @@ router.patch("/:clientId/tasks/:taskId", async (req, res) => {
     const { taskId } = req.params;
     const body = req.body || {};
     const data = {};
-    if (body.status != null) data.status = body.status;
+    if (body.status != null) {
+      data.status = body.status;
+      if (body.status === "completed") data.completedAt = new Date();
+    }
     if (body.title != null) data.title = body.title;
     if (body.priority != null) data.priority = body.priority;
     if (body.assignedTo != null) data.assignedTo = body.assignedTo;
@@ -106,28 +109,32 @@ router.delete("/:clientId/tasks/:taskId", async (req, res) => {
   }
 });
 
-// GET /api/clients/:clientId/actions — unified actionable items (tasks, content, requests) sorted by priority
+// GET /api/clients/:clientId/actions — unified actionable items for this client only (no limit)
 router.get("/:clientId/actions", async (req, res) => {
   try {
-    const { clientId } = req.params;
+    const clientId = String(req.params.clientId || "").trim();
+    if (!clientId) {
+      return res.status(400).json({ error: "clientId required" });
+    }
     const now = new Date();
     const actions = [];
+    const whereClient = { clientId };
 
     const [tasks, contentItems, requests, agentActions] = await Promise.all([
       prisma.task.findMany({
-        where: { clientId, status: { in: ["pending", "in_progress"] } },
+        where: { ...whereClient, status: { in: ["pending", "in_progress"] } },
         orderBy: { createdAt: "desc" },
       }),
       prisma.contentItem.findMany({
-        where: { clientId, status: { in: ["draft", "review"] } },
+        where: { ...whereClient, status: { in: ["draft", "review"] } },
         orderBy: { createdAt: "desc" },
       }),
       prisma.clientRequest.findMany({
-        where: { clientId, status: { in: ["new", "acknowledged", "in_progress", "waiting_client", "review"] } },
+        where: { ...whereClient, status: { in: ["new", "acknowledged", "in_progress", "waiting_client", "review"] } },
         orderBy: { createdAt: "desc" },
       }),
       prisma.agentAction.findMany({
-        where: { clientId, status: "pending" },
+        where: { ...whereClient, status: "pending" },
         orderBy: { createdAt: "desc" },
       }),
     ]);
@@ -135,6 +142,7 @@ router.get("/:clientId/actions", async (req, res) => {
     for (const t of tasks) {
       const dueDate = t.dueDate ? t.dueDate.toISOString() : null;
       const isOverdue = dueDate && new Date(dueDate) < now;
+      const isInProgress = t.status === "in_progress";
       actions.push({
         id: `task-${t.id}`,
         entityType: "task",
@@ -147,7 +155,8 @@ router.get("/:clientId/actions", async (req, res) => {
         dueDate,
         isOverdue: !!isOverdue,
         createdAt: t.createdAt.toISOString(),
-        availableActions: ["complete", "skip"],
+        availableActions: isInProgress ? ["complete", "skip"] : ["start", "skip"],
+        taskStatus: t.status === "in_progress" ? "in_progress" : "pending",
       });
     }
     for (const c of contentItems) {

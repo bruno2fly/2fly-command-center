@@ -76,6 +76,8 @@ export type ApiAction = {
   isOverdue: boolean;
   createdAt: string;
   availableActions: string[];
+  /** For tasks: "pending" | "in_progress" — used to show Start vs Complete in Focused Action Flow */
+  taskStatus?: 'pending' | 'in_progress';
 };
 
 export type ApiAgentAction = {

@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useClients } from "@/contexts/ClientsContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api, type ApiClient } from "@/lib/api";
@@ -31,6 +31,7 @@ export default function ClientControlRoomPage() {
   const { clients } = useClients();
   const { isDark } = useTheme();
   const [editClient, setEditClient] = useState<ApiClient | null>(null);
+  const [mainApiClient, setMainApiClient] = useState<{ monthlyRetainer?: number | null; name?: string } | null>(null);
 
   const activeTab = useMemo(() => parseTabFromUrl(searchParams), [searchParams]);
 
@@ -38,6 +39,14 @@ export default function ClientControlRoomPage() {
   const lanes = buildClientLanes(clients);
   const lane = lanes.find((l) => l.clientId === id);
   const meta = getClientControlMeta(id);
+
+  useEffect(() => {
+    if (!id) return;
+    api
+      .getClientMain(id)
+      .then((c) => setMainApiClient({ monthlyRetainer: (c as { monthlyRetainer?: number }).monthlyRetainer ?? null, name: (c as { name?: string }).name }))
+      .catch(() => setMainApiClient(null));
+  }, [id]);
 
   if (!client || !lane) {
     return (
@@ -58,9 +67,9 @@ export default function ClientControlRoomPage() {
   return (
     <div className="flex flex-col h-full">
       <ClientCommandHeader
-        clientName={client.name}
+        clientName={mainApiClient?.name ?? client.name}
         healthVariant={healthVariant}
-        monthlyRetainer={client.monthlyRetainer ?? meta?.monthlyRetainer ?? null}
+        monthlyRetainer={mainApiClient?.monthlyRetainer ?? client.monthlyRetainer ?? null}
         lastDelivery={meta?.lastDelivery ?? null}
         nextPromise={meta?.nextPromiseDate ?? null}
         onEdit={() => api.getClient(id).then(setEditClient).catch(() => {})}

@@ -17,6 +17,7 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
   const [loading, setLoading] = useState(true);
 
   const fetchActions = useCallback(() => {
+    if (!clientId) return;
     setLoading(true);
     api
       .getClientActions(clientId)
@@ -35,6 +36,11 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
   useEffect(() => {
     fetchActions();
   }, [fetchActions]);
+
+  // Refetch when clientId changes (e.g. navigation) so we never show another client's actions
+  useEffect(() => {
+    setQueue([]);
+  }, [clientId]);
 
   const current = queue[0];
   const total = queue.length;
@@ -61,6 +67,14 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
     if (!current || current.entityType !== "content") return;
     api.patchContent(current.entityId, { status: "cancelled" }).then(removeCurrentAndNext).catch(() => {});
   }, [current]);
+
+  const handleStart = useCallback(() => {
+    if (!current || current.entityType !== "task") return;
+    api
+      .patchClientTask(clientId, current.entityId, { status: "in_progress" })
+      .then(() => fetchActions())
+      .catch(() => {});
+  }, [clientId, current, fetchActions]);
 
   const handleComplete = useCallback(() => {
     if (!current || current.entityType !== "task") return;
@@ -114,7 +128,8 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
           total={total}
           onApprove={current?.entityType === "content" ? handleApprove : undefined}
           onReject={current?.entityType === "content" ? handleReject : current?.entityType === "agent_action" ? handleRejectAgentAction : undefined}
-          onComplete={current?.entityType === "task" ? handleComplete : undefined}
+          onComplete={current?.entityType === "task" && current?.taskStatus === "in_progress" ? handleComplete : undefined}
+          onStart={current?.entityType === "task" && current?.taskStatus === "pending" ? handleStart : undefined}
           onAcknowledge={current?.entityType === "request" ? handleAcknowledge : undefined}
           onResolve={current?.entityType === "request" ? handleResolve : undefined}
           onExecute={current?.entityType === "agent_action" ? handleExecute : undefined}
