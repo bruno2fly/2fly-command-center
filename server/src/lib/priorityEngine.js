@@ -47,7 +47,7 @@ async function getTodayView(prisma) {
   const agentActions = await prisma.agentAction.findMany({
     where: {
       clientId: { in: clientIds },
-      status: { in: ["approved", "executing", "completed"] },
+      status: { in: ["pending", "proposed", "approved", "executing", "completed"] },
     },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -209,8 +209,23 @@ async function getTodayView(prisma) {
       }
     }
 
-    // ─── AGENTS HANDLING ───
-    for (const a of clientActions.slice(0, 3)) {
+    // ─── PENDING AGENT ACTIONS (need Bruno's approval) ───
+    const pendingActions = clientActions.filter(a => a.status === 'pending' || a.status === 'proposed');
+    for (const a of pendingActions) {
+      critical.push({
+        clientId: client.id,
+        clientName: client.name,
+        reason: `🤖 Agent action needs approval: ${a.title}`,
+        action: 'Review and approve/reject',
+        actionType: 'agent_action',
+        actionId: a.id,
+        priority: a.priority,
+      });
+    }
+
+    // ─── AGENTS HANDLING (approved/executing/completed) ───
+    const activeActions = clientActions.filter(a => ['approved', 'executing', 'completed'].includes(a.status));
+    for (const a of activeActions.slice(0, 3)) {
       agentsHandling.push({
         clientId: client.id,
         clientName: client.name,
