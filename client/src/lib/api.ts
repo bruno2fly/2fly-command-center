@@ -103,6 +103,32 @@ export type ClientWeeklyReport = {
   summary: string;
 };
 
+/** Daily/weekly report from cron (DailyReport table) */
+export type DailyReport = {
+  id: string;
+  clientId: string;
+  date: string;
+  type: "daily" | "weekly";
+  weekStart: string | null;
+  weekEnd: string | null;
+  contentCreated: number;
+  contentPublished: number;
+  tasksStarted: number;
+  tasksCompleted: number;
+  requestsHandled: number;
+  agentActionsProposed: number;
+  agentActionsExecuted: number;
+  adSpend: number | null;
+  adLeads: number | null;
+  adCPL: number | null;
+  adCTR: number | null;
+  adImpressions: number | null;
+  adClicks: number | null;
+  summary: string;
+  highlights: string | null;
+  createdAt: string;
+};
+
 export type ApiAgentAction = {
   id: string;
   clientId: string | null;
@@ -137,6 +163,48 @@ export type ApiBrief = {
   healthSnapshot: string | null;
   createdAt: string;
   readAt: string | null;
+};
+
+/** Today Dashboard — priority engine response */
+export type DashboardTodayCritical = {
+  clientId: string;
+  clientName: string;
+  reason: string;
+  action: string;
+  actionType: 'task' | 'health' | 'ads';
+  actionId?: string;
+};
+export type DashboardTodayAttention = { clientId: string; clientName: string; reason: string };
+export type DashboardTodayAgent = {
+  clientId: string;
+  clientName: string;
+  agentName: string;
+  title: string;
+  status: string;
+};
+export type DashboardTodayTask = {
+  clientId: string;
+  clientName: string;
+  taskId: string;
+  title: string;
+  priority: string;
+  status: string;
+};
+export type DashboardTodayActivity = {
+  time: string;
+  text: string;
+  clientName?: string;
+  status?: string;
+};
+export type DashboardTodayResponse = {
+  greeting: string;
+  date: string;
+  stats: { activeClients: number; mrr: number; needsAttention: number };
+  critical: DashboardTodayCritical[];
+  attention: DashboardTodayAttention[];
+  agentsHandling: DashboardTodayAgent[];
+  yourTasks: DashboardTodayTask[];
+  recentActivity: DashboardTodayActivity[];
 };
 
 export type ClientPayload = {
@@ -200,6 +268,9 @@ export const api = {
   getBriefsToday: () =>
     fetchBriefsAPI<{ briefs: ApiBrief[]; total: number }>('/today'),
   getBriefById: (id: string) => fetchBriefsAPI<ApiBrief>(`/${id}`),
+  /** Today Dashboard — GET /api/dashboard/today */
+  getDashboardToday: () =>
+    fetchMainAPI<DashboardTodayResponse>('/dashboard/today'),
   patchBrief: (id: string, payload: { status?: 'read' | 'archived' }) =>
     fetchBriefsAPI<ApiBrief>(`/${id}`, {
       method: 'PATCH',
@@ -251,10 +322,19 @@ export const api = {
     fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
   getClientActions: (clientId: string) =>
     fetchMainAPI<{ actions: ApiAction[]; total: number }>(`/clients/${clientId}/actions`),
-  getClientReports: (clientId: string) =>
-    fetchMainAPI<{ reports: ClientWeeklyReport[] }>(`/clients/${clientId}/reports`),
+  getClientReports: (clientId: string, params?: { type?: "daily" | "weekly"; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.set("type", params.type);
+    if (params?.limit != null) q.set("limit", String(params.limit));
+    const query = q.toString();
+    return fetchMainAPI<{ reports: DailyReport[]; total: number }>(
+      `/clients/${clientId}/reports${query ? `?${query}` : ""}`
+    );
+  },
   getClientLatestReport: (clientId: string) =>
-    fetchMainAPI<ClientWeeklyReport | null>(`/clients/${clientId}/reports/latest`),
+    fetchMainAPI<{ daily: DailyReport | null; weekly: DailyReport | null }>(
+      `/clients/${clientId}/reports/latest`
+    ),
   // Agent Actions (propose → approve → execute)
   getAgentActions: (params?: { status?: string; clientId?: string; agentId?: string; category?: string }) => {
     const q = new URLSearchParams();

@@ -51,7 +51,7 @@ export function TrendChart({ reports }: Props) {
               borderRadius: "8px",
             }}
             labelStyle={{ color: stroke }}
-            formatter={(value: number, name: string) => [name === "cpl" ? `$${value.toFixed(2)}` : value, name === "cpl" ? "CPL" : "Leads"]}
+            formatter={(value, name) => [name === "cpl" ? `$${Number(value ?? 0).toFixed(2)}` : value ?? 0, name === "cpl" ? "CPL" : "Leads"]}
             labelFormatter={(label) => `Week: ${label}`}
           />
           <Legend

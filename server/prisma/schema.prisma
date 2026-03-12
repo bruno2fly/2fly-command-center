@@ -66,6 +66,36 @@ model Client {
   adCampaigns     AdCampaign[]
   metaConnection  MetaConnection?
   tasks           Task[]
+  dailyReports    DailyReport[]
+}
+
+// Auto-generated daily/weekly reports (cron at 10 PM)
+model DailyReport {
+  id                    String   @id @default(cuid())
+  clientId              String
+  client                Client   @relation(fields: [clientId], references: [id])
+  date                  String   // "2026-03-11"
+  type                  String   // "daily" or "weekly"
+  weekStart             String?  // For weekly: "2026-03-10"
+  weekEnd               String?  // For weekly: "2026-03-14"
+  contentCreated        Int      @default(0)
+  contentPublished      Int      @default(0)
+  tasksStarted          Int      @default(0)
+  tasksCompleted        Int      @default(0)
+  requestsHandled       Int      @default(0)
+  agentActionsProposed  Int      @default(0)
+  agentActionsExecuted  Int      @default(0)
+  adSpend               Float?
+  adLeads               Int?
+  adCPL                 Float?
+  adCTR                 Float?
+  adImpressions         Int?
+  adClicks              Int?
+  summary               String
+  highlights            String?
+  createdAt             DateTime @default(now())
+
+  @@unique([clientId, date, type])
 }
 
 // ─────────────────────────────────────────────────

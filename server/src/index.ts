@@ -30,6 +30,7 @@ app.use("/api/agent-tools", agentToolsRoutes);
 app.use("/api/briefs", require("./routes/briefs"));
 app.use("/api/directives", require("./routes/directives"));
 app.use("/api/agent-actions", require("./routes/agent-actions"));
+app.use("/api/dashboard", require("./routes/dashboard"));
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {

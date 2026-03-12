@@ -32,7 +32,7 @@ export default function ClientControlRoomPage() {
   const { clients } = useClients();
   const { isDark } = useTheme();
   const [editClient, setEditClient] = useState<ApiClient | null>(null);
-  const [mainApiClient, setMainApiClient] = useState<{ monthlyRetainer?: number | null; name?: string; hasAdReports?: boolean } | null>(null);
+  const [mainApiClient, setMainApiClient] = useState<{ monthlyRetainer?: number | null; name?: string } | null>(null);
 
   const activeTab = useMemo(() => parseTabFromUrl(searchParams), [searchParams]);
 
@@ -46,11 +46,10 @@ export default function ClientControlRoomPage() {
     api
       .getClientMain(id)
       .then((c) => {
-        const data = c as { monthlyRetainer?: number; name?: string; adReports?: unknown[] };
+        const data = c as { monthlyRetainer?: number; name?: string };
         setMainApiClient({
           monthlyRetainer: data.monthlyRetainer ?? null,
           name: data.name,
-          hasAdReports: (data.adReports?.length ?? 0) > 0,
         });
       })
       .catch(() => setMainApiClient(null));
@@ -88,7 +87,7 @@ export default function ClientControlRoomPage() {
       />
 
       {/* Tab bar */}
-      <ClientTabBar activeTab={activeTab} hasAdReports={mainApiClient?.hasAdReports} />
+      <ClientTabBar activeTab={activeTab} />
 
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>

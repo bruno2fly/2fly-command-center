@@ -20,17 +20,13 @@ const TAB_LABELS: Record<ClientTabId, string> = {
 
 type Props = {
   activeTab: ClientTabId;
-  /** When false, hide the Reports tab. When undefined, show it. */
-  hasAdReports?: boolean;
 };
 
-export function ClientTabBar({ activeTab, hasAdReports }: Props) {
+export function ClientTabBar({ activeTab }: Props) {
   const { isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
-
-  const tabsToShow = hasAdReports === false ? CLIENT_TABS.filter((t) => t !== "reports") : CLIENT_TABS;
 
   const setTab = useCallback(
     (tab: ClientTabId) => {
@@ -44,7 +40,7 @@ export function ClientTabBar({ activeTab, hasAdReports }: Props) {
 
   return (
     <nav className={`flex gap-1 border-b px-1 ${isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-200 bg-white"}`}>
-      {tabsToShow.map((tab) => (
+      {CLIENT_TABS.map((tab) => (
         <button
           key={tab}
           onClick={() => setTab(tab)}
