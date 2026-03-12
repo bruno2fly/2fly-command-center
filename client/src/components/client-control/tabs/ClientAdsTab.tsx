@@ -14,7 +14,7 @@ import {
   getRoasByCampaign,
   getConversionsOverTime,
 } from "@/lib/client/mockAdsData";
-import type { AdsKPIData } from "@/lib/client/mockAdsData";
+import type { AdsKPIData, AdsCampaignEnhanced } from "@/lib/client/mockAdsData";
 import {
   AdsKPIBar,
   AlertsInsights,
@@ -262,6 +262,46 @@ function AccountPickerModal({
   );
 }
 
+type RealAdData = Awaited<ReturnType<typeof api.getClientMain>>;
+
+function buildKpiFromReport(report: RealAdData["adReports"] extends (infer R)[] ? R : never): AdsKPIData {
+  const r = report as { spend?: number; roas?: number; ctr?: number; cpa?: number; conversions?: number };
+  return {
+    spend: r.spend ?? 0,
+    spendBudget: 0,
+    spendPacedPct: 0,
+    spendTrend: [r.spend ?? 0],
+    roas: r.roas ?? 0,
+    roasTrend: "—",
+    roasTrendDir: "flat",
+    cpa: r.cpa ?? 0,
+    cpaTrend: "—",
+    ctr: r.ctr ?? 0,
+    ctrTrend: "—",
+    conversions: r.conversions ?? 0,
+    conversionsTrend: "—",
+  };
+}
+
+function buildCampaignsFromReal(
+  clientId: string,
+  adCampaigns: NonNullable<RealAdData["adCampaigns"]>
+): AdsCampaignEnhanced[] {
+  return adCampaigns.map((c) => ({
+    id: c.id,
+    clientId,
+    name: c.name,
+    dailyBudget: c.dailyBudget ?? 0,
+    spend: 0,
+    roas: 0,
+    cpa: 0,
+    ctr: 0,
+    conversions: 0,
+    status: (c.status?.toLowerCase() ?? "draft") as "active" | "paused" | "completed" | "learning",
+    trendData: [],
+  }));
+}
+
 export function ClientAdsTab({ clientId, clientName }: Props) {
   const { isDark } = useTheme();
   const searchParams = useSearchParams();
@@ -274,15 +314,28 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
   }>({});
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string; status: number }>>([]);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [realAdData, setRealAdData] = useState<RealAdData | null>(null);
 
   const rawKpiData = getAdsKPIData(clientId);
-  const hasMockData = rawKpiData != null;
-  const kpiData = rawKpiData ?? FALLBACK_KPI;
+  const hasRealMetaData = realAdData?.metaConnection != null;
+  const hasRealReports = (realAdData?.adReports?.length ?? 0) > 0;
+  const useRealData = hasRealMetaData;
+  const hasMockData = !useRealData && rawKpiData != null;
+
+  const kpiData = useRealData && realAdData?.adReports?.[0]
+    ? buildKpiFromReport(realAdData.adReports[0])
+    : useRealData
+      ? { ...FALLBACK_KPI, spend: 0, roas: 0, cpa: 0, ctr: 0, conversions: 0 }
+      : (rawKpiData ?? FALLBACK_KPI);
   const alerts = getAdsAlertsEnhanced(clientId) ?? [];
-  const campaigns = getAdsCampaignsEnhanced(clientId) ?? [];
-  const spendData = getSpendOverTime(clientId) ?? [];
-  const roasData = getRoasByCampaign(clientId) ?? [];
-  const conversionsData = getConversionsOverTime(clientId) ?? [];
+  const campaigns = useRealData && realAdData?.adCampaigns?.length
+    ? buildCampaignsFromReal(clientId, realAdData.adCampaigns)
+    : (getAdsCampaignsEnhanced(clientId) ?? []);
+  const spendData = useRealData ? (realAdData?.adReports?.map((r, i) => ({ date: `Week ${i + 1}`, spend: (r as { spend?: number }).spend ?? 0 })) ?? []) : (getSpendOverTime(clientId) ?? []);
+  const roasData = useRealData ? (realAdData?.adReports?.length ? [{ name: "Meta", roas: (realAdData.adReports[0] as { roas?: number }).roas ?? 0 }] : []) : (getRoasByCampaign(clientId) ?? []);
+  const conversionsData = useRealData ? (realAdData?.adReports?.map((r, i) => ({ date: `Week ${i + 1}`, conversions: (r as { conversions?: number }).conversions ?? 0 })) ?? []) : (getConversionsOverTime(clientId) ?? []);
+
+  const realSpendZero = useRealData && (kpiData.spend ?? 0) === 0 && (realAdData?.adCampaigns?.length ?? 0) > 0;
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -332,6 +385,20 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
   }, [fetchStatus]);
 
   useEffect(() => {
+    if (!clientId) return;
+    api
+      .getClientMain(clientId)
+      .then((client) => {
+        if (client.metaConnection != null || (client.adReports?.length ?? 0) > 0) {
+          setRealAdData(client);
+        } else {
+          setRealAdData(null);
+        }
+      })
+      .catch(() => setRealAdData(null));
+  }, [clientId]);
+
+  useEffect(() => {
     const connected = searchParams?.get("connected");
     const error = searchParams?.get("error");
     if (connected === "true") {
@@ -353,6 +420,7 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
       toast.success("Meta Ads disconnected");
       setConnectionStatus("not_connected");
       setConnectionData({});
+      setRealAdData(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to disconnect");
     }
@@ -369,8 +437,8 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
 
   const bgCls = isDark ? "bg-zinc-950" : "bg-gray-50";
 
-  // Mock data takes priority: show dashboard for clients with mock ads data
-  if (hasMockData) {
+  // Real API data > mock: show dashboard when we have real Meta connection or mock data
+  if (useRealData || hasMockData) {
     return (
       <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
         {connectionStatus === "connected" && connectionData.adAccountName && (
@@ -380,6 +448,11 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
             isDark={isDark}
             onDisconnect={handleDisconnect}
           />
+        )}
+        {realSpendZero && (
+          <div className={`mx-4 mt-2 px-4 py-2 rounded-lg border text-sm ${isDark ? "bg-amber-500/10 border-amber-500/30 text-amber-200" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+            No spend data yet. Campaign synced from Meta.
+          </div>
         )}
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={0}>
           <AdsKPIBar data={kpiData} />

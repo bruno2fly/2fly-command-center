@@ -225,10 +225,31 @@ export type ClientPayload = {
 export const api = {
   getClients: () => fetchAPI<{ clients: ApiClient[]; total: number }>('/clients'),
   getClient: (id: string) => fetchAPI<ApiClient>(`/clients/${id}`),
-  /** Client detail from main API (includes adReports, contentItems, tasks, requests, invoices) */
+  /** Client detail from main API (includes adReports, adCampaigns, metaConnection, contentItems, tasks, requests, invoices) */
   getClientMain: (id: string) =>
     fetchMainAPI<ApiClient & {
-      adReports?: Array<{ roas?: number; spend?: number; weekStart?: string }>;
+      adReports?: Array<{
+        id?: string;
+        spend?: number;
+        impressions?: number;
+        clicks?: number;
+        conversions?: number;
+        revenue?: number;
+        roas?: number;
+        cpa?: number;
+        ctr?: number;
+        weekStart?: string;
+      }>;
+      adCampaigns?: Array<{
+        id: string;
+        clientId: string;
+        name: string;
+        objective?: string;
+        status: string;
+        dailyBudget?: number | null;
+        lifetimeBudget?: number | null;
+      }>;
+      metaConnection?: { id: string; adAccountId?: string | null; adAccountName?: string | null } | null;
       contentItems?: ApiContentItem[];
       tasks?: ApiTask[];
       requests?: ApiRequestItem[];

@@ -277,6 +277,8 @@ router.get("/:id", async (req, res) => {
         contentItems: { orderBy: { scheduledDate: "asc" }, take: 50 },
         requests: { orderBy: { createdAt: "desc" }, take: 30 },
         adReports: { orderBy: { weekStart: "desc" }, take: 8 },
+        adCampaigns: { orderBy: { createdAt: "desc" } },
+        metaConnection: true,
         healthLogs: { orderBy: { createdAt: "desc" }, take: 12 },
         tasks: { orderBy: { createdAt: "desc" } },
         invoices: { orderBy: { dueDate: "desc" }, take: 12 },
