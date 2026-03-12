@@ -56,6 +56,15 @@ export function TaskBoard({ clientId }: Props) {
       .catch(() => {});
   };
 
+  const handleDueDateChange = (taskId: string, dueDate: string | null) => {
+    api
+      .patchClientTask(clientId, taskId, { dueDate })
+      .then((updated) => {
+        setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      })
+      .catch(() => {});
+  };
+
   const colBg = isDark ? "bg-[rgba(30,41,59,0.3)] border-[rgba(51,65,85,0.5)]" : "bg-gray-50/80 border-gray-200";
 
   return (
@@ -97,6 +106,7 @@ export function TaskBoard({ clientId }: Props) {
                       key={task.id}
                       task={task}
                       onStatusChange={(status) => handleStatusChange(task.id, status)}
+                      onDueDateChange={handleDueDateChange}
                     />
                   ))
                 )}

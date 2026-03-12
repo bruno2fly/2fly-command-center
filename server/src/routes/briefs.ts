@@ -28,7 +28,7 @@ function endOfDay(d: Date): Date {
 // GET /api/briefs — list with optional ?status=unread&date=today&type=morning
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { status, date, type } = req.query;
+    const { status, date, type, limit } = req.query;
     const where: Record<string, unknown> = {};
 
     if (status && typeof status === "string") {
@@ -53,10 +53,11 @@ router.get("/", async (req: Request, res: Response) => {
       }
     }
 
+    const take = limit != null ? Math.min(Number(limit) || 50, 50) : 50;
     const briefs = await prisma.brief.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take,
     });
     res.json({ briefs, total: briefs.length });
   } catch (err: unknown) {

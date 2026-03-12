@@ -95,7 +95,7 @@ export default function ClientControlRoomPage() {
         {activeTab === "tasks" && <ClientTasksTab clientId={id} />}
         {activeTab === "tasksRequests" && <ClientTasksRequestsTab clientId={id} />}
         {activeTab === "clientPlan" && <ClientPlanTab clientId={id} />}
-        {activeTab === "ads" && <ClientAdsTab clientId={id} />}
+        {activeTab === "ads" && <ClientAdsTab clientId={id} clientName={mainApiClient?.name ?? client.name} />}
         {activeTab === "reports" && <ClientReportsTab clientId={id} />}
         {activeTab === "content" && <ClientContentTab clientId={id} />}
         {activeTab === "socialMedia" && <ClientSocialMediaTab clientId={id} />}

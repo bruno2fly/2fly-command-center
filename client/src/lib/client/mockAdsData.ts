@@ -48,6 +48,8 @@ export type AdsCampaignEnhanced = {
   status: "active" | "paused" | "completed" | "learning";
   trendData: number[];
   adSets?: AdsAdSet[];
+  /** Meta Ads Manager campaign ID (for View in Meta, Edit Budget, Pause) */
+  metaCampaignId?: string | null;
 };
 
 export type AdsAdSet = {

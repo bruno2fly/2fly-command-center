@@ -64,6 +64,11 @@ export function YourTasksSection({ items, onComplete }: Props) {
             >
               <span className={text}>{task.title}</span>
               <span className={`block text-xs ${muted} mt-0.5`}>{task.clientName}</span>
+              {task.dueDate && (
+                <span className={`block text-[10px] mt-0.5 ${task.isOverdue ? "text-red-500 dark:text-red-400" : muted}`}>
+                  {task.isOverdue ? `Overdue · ${new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : `Due ${new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+                </span>
+              )}
             </button>
           </motion.li>
         ))}

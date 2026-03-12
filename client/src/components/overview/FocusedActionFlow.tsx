@@ -101,6 +101,16 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
     api.patchAgentAction(current.entityId, { status: "rejected" }).then(removeCurrentAndNext).catch(() => {});
   }, [current]);
 
+  const handleDueDateChange = useCallback(
+    (taskId: string, dueDate: string | null) => {
+      api
+        .patchClientTask(clientId, taskId, { dueDate })
+        .then(() => fetchActions())
+        .catch(() => {});
+    },
+    [clientId, fetchActions]
+  );
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center text-gray-500 text-sm">
@@ -133,6 +143,7 @@ export function FocusedActionFlow({ clientId, clientName }: Props) {
           onAcknowledge={current?.entityType === "request" ? handleAcknowledge : undefined}
           onResolve={current?.entityType === "request" ? handleResolve : undefined}
           onExecute={current?.entityType === "agent_action" ? handleExecute : undefined}
+          onDueDateChange={current?.entityType === "task" ? handleDueDateChange : undefined}
           onSkip={skipCurrent}
         />
       </motion.div>

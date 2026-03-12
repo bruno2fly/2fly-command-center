@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import type { ApiAction } from "@/lib/api";
 
@@ -15,13 +16,24 @@ type Props = {
   onResolve?: () => void;
   onExecute?: () => void;
   onSkip?: () => void;
+  onDueDateChange?: (taskId: string, dueDate: string | null) => void;
 };
 
-function formatDue(dueDate: string | null, isOverdue: boolean): string | null {
+function getDueLabel(dueDate: string | null, isOverdue: boolean): { text: string; className: string } | null {
   if (!dueDate) return null;
-  const d = new Date(dueDate);
-  const formatted = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return isOverdue ? `${formatted} — overdue` : `Due: ${formatted}`;
+  const due = new Date(dueDate);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((due.getTime() - now.getTime()) / 86400000);
+  const shortDate = due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (isOverdue || diffDays < 0) {
+    const days = Math.abs(diffDays);
+    return { text: `Overdue ${days} day${days !== 1 ? "s" : ""}`, className: "text-red-500 dark:text-red-400" };
+  }
+  if (diffDays === 0) return { text: "Due today", className: "text-amber-600 dark:text-amber-400" };
+  if (diffDays <= 3) return { text: `Due in ${diffDays} day${diffDays !== 1 ? "s" : ""}`, className: "text-amber-500 dark:text-amber-400/90" };
+  return { text: `Due ${shortDate}`, className: "text-gray-500 dark:text-gray-500" };
 }
 
 function timeAgo(iso: string): string {
@@ -54,14 +66,18 @@ export function ActionCard({
   onResolve,
   onExecute,
   onSkip,
+  onDueDateChange,
 }: Props) {
   const { isDark } = useTheme();
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const priority = (action.priority as keyof typeof PRIORITY_STYLE) || "normal";
   const cardBg = isDark ? "bg-[rgba(30,41,59,0.8)] border-[rgba(51,65,85,0.5)]" : "bg-white border-gray-200";
   const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
   const mutedCls = isDark ? "text-gray-500" : "text-gray-500";
-
-  const dueStr = formatDue(action.dueDate, action.isOverdue);
+  const dueLabel = getDueLabel(action.dueDate, action.isOverdue);
+  const dateInputClass = isDark
+    ? "bg-[#1a1818] border border-[#2a2520] text-[#e8e4dc] rounded px-2 py-1.5 text-xs"
+    : "bg-gray-100 border border-gray-300 text-gray-900 rounded px-2 py-1.5 text-xs";
 
   return (
     <div className={`rounded-2xl border ${cardBg} p-6 shadow-lg`}>
@@ -76,8 +92,32 @@ export function ActionCard({
       <p className={`text-xs ${mutedCls} mb-3`}>
         Created by {action.sourceName} · {timeAgo(action.createdAt)}
       </p>
-      {dueStr && (
-        <p className={`text-xs mb-4 ${action.isOverdue ? "text-red-400" : mutedCls}`}>{dueStr}</p>
+      {action.entityType === "task" && (onDueDateChange || dueLabel) && (
+        <div className="text-xs mb-4 flex items-center gap-2 flex-wrap">
+          {showDatePicker && onDueDateChange ? (
+            <input
+              type="date"
+              className={dateInputClass}
+              defaultValue={action.dueDate ? action.dueDate.slice(0, 10) : ""}
+              onBlur={() => setShowDatePicker(false)}
+              onKeyDown={(e) => e.key === "Enter" && setShowDatePicker(false)}
+              onChange={(e) => {
+                const v = e.target.value;
+                onDueDateChange(action.entityId, v ? `${v}T00:00:00.000Z` : null);
+              }}
+            />
+          ) : onDueDateChange ? (
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(true)}
+              className={`hover:underline ${dueLabel ? dueLabel.className : mutedCls}`}
+            >
+              {dueLabel ? dueLabel.text : "Set due date"}
+            </button>
+          ) : dueLabel ? (
+            <span className={dueLabel.className}>{dueLabel.text}</span>
+          ) : null}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-3">

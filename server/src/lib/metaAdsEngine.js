@@ -335,14 +335,32 @@ async function verifyActiveAds(clientName) {
  */
 async function smartExecute(action) {
   const { title, proposedAction, clientName, category } = action;
+  const client = clientName || action.clientName;
   const titleLower = title.toLowerCase();
-  
+
+  // If proposedAction is JSON with type update_budget or pause_campaign, build and run a plan
+  if (proposedAction && typeof proposedAction === 'string') {
+    try {
+      const payload = JSON.parse(proposedAction);
+      if (payload.type === 'update_budget' && payload.campaignId != null && payload.newBudget != null) {
+        const plan = [{ op: 'update_budget', campaignId: payload.campaignId, dailyBudget: Number(payload.newBudget) }];
+        return await executePlan(plan, client);
+      }
+      if (payload.type === 'pause_campaign' && payload.campaignId != null) {
+        const plan = [{ op: 'pause_campaign', campaignId: payload.campaignId }];
+        return await executePlan(plan, client);
+      }
+    } catch (e) {
+      // Not valid JSON or unknown type, fall through
+    }
+  }
+
   // If there's a structured execution plan, use it
   if (action.executionPlan) {
     try {
       const plan = JSON.parse(action.executionPlan);
       if (Array.isArray(plan)) {
-        return await executePlan(plan, clientName);
+        return await executePlan(plan, client);
       }
     } catch (e) {
       // Not valid JSON, fall through to smart execution
@@ -356,8 +374,8 @@ async function smartExecute(action) {
   try {
     if (category === 'ads') {
       // Get current campaigns for context
-      const campaigns = await getCampaigns(clientName);
-      results.push({ step: 0, action: 'audit', detail: `Found ${campaigns.length} campaigns for ${clientName}`, campaigns: campaigns.map(c => ({ id: c.id, name: c.name, status: c.status })) });
+      const campaigns = await getCampaigns(client || clientName);
+      results.push({ step: 0, action: 'audit', detail: `Found ${campaigns.length} campaigns for ${client || clientName}`, campaigns: campaigns.map(c => ({ id: c.id, name: c.name, status: c.status })) });
       
       // Switch objective (pause old, note for new)
       if (titleLower.includes('switch') && titleLower.includes('traffic')) {

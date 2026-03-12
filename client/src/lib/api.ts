@@ -189,6 +189,8 @@ export type DashboardTodayTask = {
   title: string;
   priority: string;
   status: string;
+  dueDate?: string | null;
+  isOverdue?: boolean;
 };
 export type DashboardTodayActivity = {
   time: string;
@@ -257,11 +259,12 @@ export const api = {
   getBrief: () => fetchAPI<ApiBriefResponse>('/brief'),
   getRevenue: () => fetchAPI<ApiRevenueResponse>('/revenue'),
   // Daily briefings (agent reports) — /api/briefs
-  getBriefs: (params?: { status?: string; date?: string; type?: string }) => {
+  getBriefs: (params?: { status?: string; date?: string; type?: string; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
     if (params?.date) q.set('date', params.date);
     if (params?.type) q.set('type', params.type);
+    if (params?.limit != null) q.set('limit', String(params.limit));
     const query = q.toString();
     return fetchBriefsAPI<{ briefs: ApiBrief[]; total: number }>(query ? `?${query}` : '');
   },

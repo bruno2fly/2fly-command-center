@@ -15,6 +15,7 @@ const AD_ACCOUNTS = [
   { accountId: 'act_1595667451424210', clientId: 'cmml1eoiv000112dhgab4sa2f', label: 'Shape SPA Miami' },
   { accountId: 'act_862498366234569', clientId: 'cmml1eoiw000212dh9pbvfqig', label: 'Shape Spa FLL' },
   { accountId: 'act_2118394678903177', clientId: 'cmml1eoj0000812dhaqydcbuw', label: 'Super Crisp' },
+  { accountId: 'act_694395333492835', clientId: 'cmml1eoiz000612dhumvxv3e4', label: 'Ardan Med Spa' },
 ];
 
 async function fetchJSON(url) {

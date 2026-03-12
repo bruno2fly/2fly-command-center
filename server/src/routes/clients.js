@@ -294,10 +294,33 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/clients — create new client
+const ONBOARDING_TASKS = [
+  { title: "Set up Meta Ads account", type: "ads", priority: "high" },
+  { title: "Audit Google Business Profile", type: "task", priority: "high" },
+  { title: "Create content calendar", type: "content", priority: "high" },
+  { title: "Set up analytics tracking", type: "task", priority: "normal" },
+  { title: "Competitor analysis", type: "task", priority: "normal", assignedTo: "research-intel" },
+  { title: "Define target audience", type: "ads", priority: "high" },
+  { title: "Collect brand assets", type: "content", priority: "normal" },
+  { title: "Initial content batch (5 posts)", type: "content", priority: "high" },
+];
+
+// POST /api/clients — create new client + onboarding tasks
 router.post("/", async (req, res) => {
   try {
     const client = await prisma.client.create({ data: req.body });
+    for (const t of ONBOARDING_TASKS) {
+      await prisma.task.create({
+        data: {
+          clientId: client.id,
+          title: t.title,
+          type: t.type,
+          priority: t.priority,
+          assignedTo: t.assignedTo ?? null,
+          source: "onboarding",
+        },
+      });
+    }
     res.status(201).json(client);
   } catch (err) {
     res.status(400).json({ error: err.message });

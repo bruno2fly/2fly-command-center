@@ -25,6 +25,7 @@ import { AgentActionsPanel } from "@/components/agent-actions";
 
 type Props = {
   clientId: string;
+  clientName?: string;
 };
 
 type ConnectionStatus = "loading" | "not_connected" | "connected" | "expired" | "needs_account_selection";
@@ -261,7 +262,7 @@ function AccountPickerModal({
   );
 }
 
-export function ClientAdsTab({ clientId }: Props) {
+export function ClientAdsTab({ clientId, clientName }: Props) {
   const { isDark } = useTheme();
   const searchParams = useSearchParams();
 
@@ -404,7 +405,13 @@ export function ClientAdsTab({ clientId }: Props) {
         </div>
         <div className="flex-1 min-h-0 p-4">
           <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={4} className="h-full">
-            <CampaignsTable campaigns={campaigns} />
+            <CampaignsTable
+              campaigns={campaigns}
+              clientId={clientId}
+              clientName={clientName}
+              adAccountId={connectionData.adAccountId}
+              onRefresh={fetchStatus}
+            />
           </motion.div>
         </div>
       </div>
@@ -508,7 +515,13 @@ export function ClientAdsTab({ clientId }: Props) {
       {/* Section 3: Campaigns Table */}
       <div className="flex-1 min-h-0 p-4">
         <motion.div variants={cardVariants} initial="hidden" animate="visible" custom={4} className="h-full">
-          <CampaignsTable campaigns={campaigns} />
+          <CampaignsTable
+            campaigns={campaigns}
+            clientId={clientId}
+            clientName={clientName}
+            adAccountId={connectionData.adAccountId}
+            onRefresh={fetchStatus}
+          />
         </motion.div>
       </div>
     </div>

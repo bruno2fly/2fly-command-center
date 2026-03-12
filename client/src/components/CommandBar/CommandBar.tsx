@@ -122,7 +122,7 @@ export function CommandBar() {
 
         {/* CENTER ZONE: Main nav */}
         <nav className="flex items-center gap-1 flex-shrink-0">
-          {navLink("/", "Dashboard")}
+          {navLink("/dashboard", "Dashboard")}
           {navLink("/clients", "Clients")}
           {navLink("/payments", "Payments")}
           {navLink("/content", "Content Calendar")}

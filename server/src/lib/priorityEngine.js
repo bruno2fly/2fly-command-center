@@ -70,6 +70,22 @@ async function getTodayView(prisma) {
     const platforms = parsePlatforms(client);
 
     // ─── CRITICAL ───
+    const nowMs = Date.now();
+    const overdueTasks = client.tasks.filter(
+      (t) => t.dueDate && new Date(t.dueDate).getTime() < nowMs && t.status !== "completed"
+    );
+    if (overdueTasks.length > 0 && !seenCritical.has(client.id)) {
+      seenCritical.add(client.id);
+      critical.push({
+        clientId: client.id,
+        clientName: client.name,
+        reason: `${overdueTasks.length} overdue task(s)`,
+        action: overdueTasks[0].title,
+        actionType: "task",
+        actionId: overdueTasks[0].id,
+      });
+    }
+
     const urgentTasks = client.tasks.filter((t) => t.priority === "urgent");
     if (urgentTasks.length > 0 && !seenCritical.has(client.id)) {
       seenCritical.add(client.id);
@@ -154,9 +170,22 @@ async function getTodayView(prisma) {
       });
     }
 
-    const now = Date.now();
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    const dueSoonTasks = client.tasks.filter((t) => {
+      if (!t.dueDate || t.status === "completed") return false;
+      const dueMs = new Date(t.dueDate).getTime();
+      return dueMs > nowMs && dueMs - nowMs <= twoDaysMs;
+    });
+    if (dueSoonTasks.length > 0) {
+      attention.push({
+        clientId: client.id,
+        clientName: client.name,
+        reason: `${dueSoonTasks.length} task(s) due within 2 days`,
+      });
+    }
+
     const staleTasks = client.tasks.filter((t) => {
-      const age = (now - new Date(t.createdAt).getTime()) / 86400000;
+      const age = (nowMs - new Date(t.createdAt).getTime()) / 86400000;
       return t.priority === "high" && t.status === "pending" && age >= 3;
     });
     if (staleTasks.length > 0) {
@@ -196,6 +225,8 @@ async function getTodayView(prisma) {
       (t) => !t.assignedTo || /bruno|founder/i.test(String(t.assignedTo))
     );
     for (const task of brunoTasks.slice(0, 3)) {
+      const dueDate = task.dueDate ? task.dueDate.toISOString() : null;
+      const isOverdue = dueDate && new Date(dueDate).getTime() < nowMs && task.status !== "completed";
       yourTasks.push({
         clientId: client.id,
         clientName: client.name,
@@ -203,6 +234,8 @@ async function getTodayView(prisma) {
         title: task.title,
         priority: task.priority,
         status: task.status,
+        dueDate,
+        isOverdue: !!isOverdue,
       });
     }
   }

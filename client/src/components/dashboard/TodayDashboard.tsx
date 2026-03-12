@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api, type DashboardTodayResponse } from "@/lib/api";
 import { DashboardHeader } from "./DashboardHeader";
+import { DailyBriefCard } from "./DailyBriefCard";
 import { CriticalSection } from "./CriticalSection";
 import { AttentionSection } from "./AttentionSection";
 import { AgentsHandlingSection } from "./AgentsHandlingSection";
@@ -87,6 +88,10 @@ export function TodayDashboard() {
       >
         <motion.div variants={item}>
           <DashboardHeader data={data} />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <DailyBriefCard dateLabel={data.date} />
         </motion.div>
 
         <motion.div variants={item}>

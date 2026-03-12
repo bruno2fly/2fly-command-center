@@ -52,24 +52,26 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/agent-actions — create (called by agents)
+// POST /api/agent-actions — create (called by agents or manual from Ads tab)
 router.post("/", async (req, res) => {
   try {
     const body = req.body || {};
-    const action = await prisma.agentAction.create({
-      data: {
-        clientId: body.clientId ?? null,
-        clientName: body.clientName ?? null,
-        agentId: body.agentId ?? "meta-traffic",
-        agentName: body.agentName ?? "Meta Traffic",
-        category: body.category ?? "ads",
-        title: body.title ?? "Action",
-        reasoning: body.reasoning ?? "",
-        proposedAction: body.proposedAction ?? "",
-        executionPlan: body.executionPlan ?? null,
-        priority: body.priority ?? "normal",
-      },
-    });
+    const status = ["pending", "approved"].includes(body.status) ? body.status : "pending";
+    const data = {
+      clientId: body.clientId ?? null,
+      clientName: body.clientName ?? null,
+      agentId: body.agentId ?? "meta-traffic",
+      agentName: body.agentName ?? "Meta Traffic",
+      category: body.category ?? "ads",
+      title: body.title ?? "Action",
+      reasoning: body.reasoning ?? "",
+      proposedAction: body.proposedAction ?? "",
+      executionPlan: body.executionPlan ?? null,
+      priority: body.priority ?? "normal",
+      status,
+    };
+    if (status === "approved") data.approvedAt = new Date();
+    const action = await prisma.agentAction.create({ data });
     res.status(201).json(action);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -117,15 +119,16 @@ router.post("/:id/execute", async (req, res) => {
       where: { id: req.params.id },
     });
     if (!action) return res.status(404).json({ error: "Agent action not found" });
-    if (action.status !== "pending") {
+    if (action.status !== "pending" && action.status !== "approved") {
       return res.json(action);
     }
 
-    // Mark as approved
-    await prisma.agentAction.update({
-      where: { id: req.params.id },
-      data: { status: "approved", approvedAt: new Date() },
-    });
+    if (action.status === "pending") {
+      await prisma.agentAction.update({
+        where: { id: req.params.id },
+        data: { status: "approved", approvedAt: new Date() },
+      });
+    }
 
     // Mark as executing
     await prisma.agentAction.update({
