@@ -309,7 +309,7 @@ function CampaignRow({
             </button>
             {menuOpen && (
               <div
-                className={`absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-10 min-w-[200px] ${
+                className={`absolute right-0 top-full mt-1 py-1 rounded-lg shadow-lg z-50 min-w-[200px] ${
                   isDark ? "bg-[#0a0a0e] border border-[#1a1810]" : "bg-white border border-gray-200"
                 }`}
               >
@@ -424,11 +424,11 @@ export function CampaignsTable({ campaigns, clientId, clientName, adAccountId, o
   const headerCls = isDark ? "bg-[#08080c] text-[#8a7e6d]" : "bg-gray-50 text-gray-600";
 
   return (
-    <section className={`rounded-xl border overflow-hidden ${panelCls}`}>
+    <section className={`rounded-xl border overflow-visible ${panelCls}`}>
       <div className={`px-4 py-3 border-b ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
         <h2 className={`text-xs font-semibold uppercase tracking-wider ${headerCls}`}>Campaigns</h2>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto overflow-y-visible">
         <table className="w-full text-sm">
           <thead>
             <tr className={headerCls}>
