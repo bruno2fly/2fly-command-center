@@ -16,6 +16,7 @@ import { ClientTasksTab } from "@/components/client-control/tabs/ClientTasksTab"
 import { ClientTasksRequestsTab } from "@/components/client-control/tabs/ClientTasksRequestsTab";
 import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
 import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
+import { ClientReportsTab } from "@/components/client-control/tabs/ClientReportsTab";
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
 
@@ -31,7 +32,7 @@ export default function ClientControlRoomPage() {
   const { clients } = useClients();
   const { isDark } = useTheme();
   const [editClient, setEditClient] = useState<ApiClient | null>(null);
-  const [mainApiClient, setMainApiClient] = useState<{ monthlyRetainer?: number | null; name?: string } | null>(null);
+  const [mainApiClient, setMainApiClient] = useState<{ monthlyRetainer?: number | null; name?: string; hasAdReports?: boolean } | null>(null);
 
   const activeTab = useMemo(() => parseTabFromUrl(searchParams), [searchParams]);
 
@@ -44,7 +45,14 @@ export default function ClientControlRoomPage() {
     if (!id) return;
     api
       .getClientMain(id)
-      .then((c) => setMainApiClient({ monthlyRetainer: (c as { monthlyRetainer?: number }).monthlyRetainer ?? null, name: (c as { name?: string }).name }))
+      .then((c) => {
+        const data = c as { monthlyRetainer?: number; name?: string; adReports?: unknown[] };
+        setMainApiClient({
+          monthlyRetainer: data.monthlyRetainer ?? null,
+          name: data.name,
+          hasAdReports: (data.adReports?.length ?? 0) > 0,
+        });
+      })
       .catch(() => setMainApiClient(null));
   }, [id]);
 
@@ -80,7 +88,7 @@ export default function ClientControlRoomPage() {
       />
 
       {/* Tab bar */}
-      <ClientTabBar activeTab={activeTab} />
+      <ClientTabBar activeTab={activeTab} hasAdReports={mainApiClient?.hasAdReports} />
 
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
@@ -89,6 +97,7 @@ export default function ClientControlRoomPage() {
         {activeTab === "tasksRequests" && <ClientTasksRequestsTab clientId={id} />}
         {activeTab === "clientPlan" && <ClientPlanTab clientId={id} />}
         {activeTab === "ads" && <ClientAdsTab clientId={id} />}
+        {activeTab === "reports" && <ClientReportsTab clientId={id} />}
         {activeTab === "content" && <ClientContentTab clientId={id} />}
         {activeTab === "socialMedia" && <ClientSocialMediaTab clientId={id} />}
       </div>

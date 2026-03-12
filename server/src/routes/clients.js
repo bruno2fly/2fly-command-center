@@ -9,6 +9,157 @@ const { computeClientHealth, recomputeAllClients } = require("../lib/statusEngin
 const router = express.Router();
 const prisma = new PrismaClient();
 
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(date.setDate(diff));
+}
+
+function formatWeekStart(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(d, n) {
+  const out = new Date(d);
+  out.setDate(out.getDate() + n);
+  return out;
+}
+
+async function buildWeeklyReports(prisma, clientId, weeksBack) {
+  const now = new Date();
+  const reports = [];
+  let prevAds = null;
+
+  for (let i = 0; i < weeksBack; i++) {
+    const baseMonday = getMonday(now);
+    const weekStartDate = addDays(baseMonday, -7 * i);
+    const weekEndDate = addDays(weekStartDate, 6);
+    const weekStart = formatWeekStart(weekStartDate);
+    const weekEnd = formatWeekStart(weekEndDate);
+    const weekStartUtc = new Date(weekStartDate);
+    weekStartUtc.setUTCHours(0, 0, 0, 0);
+    const weekEndUtc = new Date(weekEndDate);
+    weekEndUtc.setUTCHours(23, 59, 59, 999);
+
+    const [adRows, agentActions, actionLogs] = await Promise.all([
+      prisma.adReport.findMany({
+        where: { clientId, weekStart: { gte: weekStartUtc, lte: weekEndUtc } },
+      }),
+      prisma.agentAction.findMany({
+        where: {
+          clientId,
+          status: "completed",
+          completedAt: { gte: weekStartUtc, lte: weekEndUtc },
+        },
+      }),
+      prisma.adActionLog.findMany({
+        where: {
+          clientId,
+          createdAt: { gte: weekStartUtc, lte: weekEndUtc },
+        },
+      }),
+    ]);
+
+    let spend = 0,
+      impressions = 0,
+      clicks = 0,
+      leads = 0,
+      topCampaign = null;
+    for (const r of adRows) {
+      spend += r.spend ?? 0;
+      impressions += r.impressions ?? 0;
+      clicks += r.clicks ?? 0;
+      leads += r.conversions ?? 0;
+      if (r.topCampaign && !topCampaign) topCampaign = r.topCampaign;
+    }
+    const cpl = leads > 0 ? spend / leads : 0;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+
+    const ads = {
+      spend: Math.round(spend * 100) / 100,
+      impressions,
+      clicks,
+      leads,
+      cpl: Math.round(cpl * 100) / 100,
+      ctr: Math.round(ctr * 100) / 100,
+      topCampaign: topCampaign || null,
+    };
+
+    const agentActionsList = agentActions.map((a) => ({
+      title: a.title,
+      status: a.status,
+      result: a.result || null,
+    }));
+
+    const actionOutcomes = actionLogs.map((l) => ({
+      actionType: l.actionType,
+      outcome: l.outcome || "pending",
+      detail: l.actionDetail || l.notes || "",
+    }));
+
+    let spendChange = null,
+      cplChange = null,
+      leadsChange = null,
+      ctrChange = null;
+    if (prevAds) {
+      if (prevAds.spend > 0) spendChange = ((ads.spend - prevAds.spend) / prevAds.spend) * 100;
+      if (prevAds.cpl > 0) cplChange = ((prevAds.cpl - ads.cpl) / prevAds.cpl) * 100;
+      if (prevAds.leads > 0) leadsChange = ((ads.leads - prevAds.leads) / prevAds.leads) * 100;
+      if (prevAds.ctr > 0) ctrChange = ((ads.ctr - prevAds.ctr) / prevAds.ctr) * 100;
+    }
+    prevAds = { ...ads };
+
+    const trends = {
+      spendChange: spendChange != null ? (spendChange >= 0 ? "+" : "") + spendChange.toFixed(1) + "%" : null,
+      cplChange: cplChange != null ? (cplChange >= 0 ? "+" : "") + cplChange.toFixed(1) + "%" : null,
+      leadsChange: leadsChange != null ? (leadsChange >= 0 ? "+" : "") + leadsChange.toFixed(1) + "%" : null,
+      ctrChange: ctrChange != null ? (ctrChange >= 0 ? "+" : "") + ctrChange.toFixed(1) + "%" : null,
+    };
+
+    const summary = buildWeeklySummary(ads, trends, agentActionsList, actionOutcomes);
+
+    reports.push({
+      weekStart,
+      weekEnd,
+      ads,
+      agentActions: agentActionsList,
+      actionOutcomes,
+      trends,
+      summary,
+    });
+  }
+
+  return reports;
+}
+
+function buildWeeklySummary(ads, trends, agentActions, actionOutcomes) {
+  const parts = [];
+  if (trends.cplChange) {
+    const cplNum = parseFloat(trends.cplChange);
+    if (cplNum < 0) parts.push(`CPL decreased ${Math.abs(cplNum).toFixed(1)}%`);
+    else if (cplNum > 0) parts.push(`CPL increased ${cplNum.toFixed(1)}%`);
+  }
+  if (trends.leadsChange) {
+    const leadNum = parseFloat(trends.leadsChange);
+    if (leadNum > 0) parts.push(`lead volume up ${leadNum.toFixed(0)}%`);
+    else if (leadNum < 0) parts.push(`lead volume down ${Math.abs(leadNum).toFixed(0)}%`);
+  }
+  if (parts.length > 0) parts[0] = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  if (agentActions.length > 0) {
+    const completed = agentActions.filter((a) => a.status === "completed").length;
+    if (completed > 0) parts.push(`${completed} agent action(s) completed this week`);
+  }
+  if (actionOutcomes.length > 0) {
+    const improved = actionOutcomes.filter((o) => o.outcome === "improved").length;
+    if (improved > 0) parts.push(`${improved} action(s) showed improvement`);
+  }
+  if (parts.length === 0) return "No significant change this week.";
+  let text = parts.join(". ");
+  if (ads.spend > 0) text += " Recommend reviewing top campaign performance.";
+  return text;
+}
+
 // GET /api/clients — all clients with current health
 router.get("/", async (req, res) => {
   try {
@@ -222,6 +373,31 @@ router.get("/:clientId/actions", async (req, res) => {
     });
 
     res.json({ actions, total: actions.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/clients/:clientId/reports/latest — most recent week only
+router.get("/:clientId/reports/latest", async (req, res) => {
+  try {
+    const clientId = String(req.params.clientId || "").trim();
+    if (!clientId) return res.status(400).json({ error: "clientId required" });
+    const reports = await buildWeeklyReports(prisma, clientId, 1);
+    const report = reports[0] || null;
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/clients/:clientId/reports — last 8 weeks
+router.get("/:clientId/reports", async (req, res) => {
+  try {
+    const clientId = String(req.params.clientId || "").trim();
+    if (!clientId) return res.status(400).json({ error: "clientId required" });
+    const reports = await buildWeeklyReports(prisma, clientId, 8);
+    res.json({ reports });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

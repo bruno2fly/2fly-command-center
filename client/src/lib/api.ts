@@ -80,6 +80,29 @@ export type ApiAction = {
   taskStatus?: 'pending' | 'in_progress';
 };
 
+export type ClientWeeklyReport = {
+  weekStart: string;
+  weekEnd: string;
+  ads: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+    leads: number;
+    cpl: number;
+    ctr: number;
+    topCampaign: string | null;
+  };
+  agentActions: Array<{ title: string; status: string; result: string | null }>;
+  actionOutcomes: Array<{ actionType: string; outcome: string; detail: string }>;
+  trends: {
+    spendChange: string | null;
+    cplChange: string | null;
+    leadsChange: string | null;
+    ctrChange: string | null;
+  };
+  summary: string;
+};
+
 export type ApiAgentAction = {
   id: string;
   clientId: string | null;
@@ -228,6 +251,10 @@ export const api = {
     fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
   getClientActions: (clientId: string) =>
     fetchMainAPI<{ actions: ApiAction[]; total: number }>(`/clients/${clientId}/actions`),
+  getClientReports: (clientId: string) =>
+    fetchMainAPI<{ reports: ClientWeeklyReport[] }>(`/clients/${clientId}/reports`),
+  getClientLatestReport: (clientId: string) =>
+    fetchMainAPI<ClientWeeklyReport | null>(`/clients/${clientId}/reports/latest`),
   // Agent Actions (propose → approve → execute)
   getAgentActions: (params?: { status?: string; clientId?: string; agentId?: string; category?: string }) => {
     const q = new URLSearchParams();

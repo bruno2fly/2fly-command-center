@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-export const CLIENT_TABS = ["overview", "tasks", "tasksRequests", "clientPlan", "ads", "content", "socialMedia"] as const;
+export const CLIENT_TABS = ["overview", "tasks", "tasksRequests", "clientPlan", "ads", "reports", "content", "socialMedia"] as const;
 export type ClientTabId = (typeof CLIENT_TABS)[number];
 
 const TAB_LABELS: Record<ClientTabId, string> = {
@@ -13,19 +13,24 @@ const TAB_LABELS: Record<ClientTabId, string> = {
   tasksRequests: "Tasks & Requests",
   clientPlan: "Client Plan",
   ads: "Ads",
+  reports: "Reports",
   content: "Content",
   socialMedia: "Social Media",
 };
 
 type Props = {
   activeTab: ClientTabId;
+  /** When false, hide the Reports tab. When undefined, show it. */
+  hasAdReports?: boolean;
 };
 
-export function ClientTabBar({ activeTab }: Props) {
+export function ClientTabBar({ activeTab, hasAdReports }: Props) {
   const { isDark } = useTheme();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
+
+  const tabsToShow = hasAdReports === false ? CLIENT_TABS.filter((t) => t !== "reports") : CLIENT_TABS;
 
   const setTab = useCallback(
     (tab: ClientTabId) => {
@@ -39,7 +44,7 @@ export function ClientTabBar({ activeTab }: Props) {
 
   return (
     <nav className={`flex gap-1 border-b px-1 ${isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-200 bg-white"}`}>
-      {CLIENT_TABS.map((tab) => (
+      {tabsToShow.map((tab) => (
         <button
           key={tab}
           onClick={() => setTab(tab)}
@@ -53,7 +58,7 @@ export function ClientTabBar({ activeTab }: Props) {
                 : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
           }`}
         >
-          {TAB_LABELS[tab]}
+          {tab === "reports" ? "📊 " : ""}{TAB_LABELS[tab]}
         </button>
       ))}
     </nav>
