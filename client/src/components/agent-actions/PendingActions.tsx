@@ -8,9 +8,12 @@ type Props = {
   actions: ApiAgentAction[];
   onExecute: (id: string) => void;
   onReject: (id: string) => void;
+  onConvertToTasks?: (id: string) => void;
+  onMarkDone?: (id: string) => void;
+  clientId?: string | null;
 };
 
-export function PendingActions({ actions, onExecute, onReject }: Props) {
+export function PendingActions({ actions, onExecute, onReject, onConvertToTasks, onMarkDone, clientId }: Props) {
   const { isDark } = useTheme();
   const pending = actions.filter((a) => a.status === "pending");
   const rejected = actions.filter((a) => a.status === "rejected");
@@ -32,6 +35,9 @@ export function PendingActions({ actions, onExecute, onReject }: Props) {
           variant="pending"
           onExecute={onExecute}
           onReject={onReject}
+          onConvertToTasks={onConvertToTasks}
+          onMarkDone={onMarkDone}
+          clientId={clientId}
         />
       ))}
       {rejected.length > 0 && (

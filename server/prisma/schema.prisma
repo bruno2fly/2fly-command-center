@@ -190,6 +190,7 @@ model AgentAction {
   reasoning       String    // full explanation
   proposedAction  String    // what the agent will do (human readable)
   executionPlan   String?   // JSON: API calls/steps
+  executionType   String    @default("manual") // "auto" (Meta API) or "manual" (recommendation)
   status          String    @default("pending") // pending | approved | executing | completed | failed | rejected
   priority        String    @default("normal")  // low | normal | high | urgent
   result          String?   // what actually happened

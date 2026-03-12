@@ -8,6 +8,25 @@ const { PrismaClient } = require("@prisma/client");
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const AUTO_KEYWORDS = [
+  "pause campaign",
+  "resume campaign",
+  "unpause",
+  "update budget",
+  "scale budget",
+  "increase budget",
+  "decrease budget",
+  "change budget",
+  "adjust budget",
+  "duplicate ad set",
+  "duplicate adset",
+];
+
+function detectExecutionType(title, proposedAction) {
+  const text = `${title || ""} ${proposedAction || ""}`.toLowerCase();
+  return AUTO_KEYWORDS.some((kw) => text.includes(kw)) ? "auto" : "manual";
+}
+
 // GET /api/agent-actions — list with filters
 router.get("/", async (req, res) => {
   try {
@@ -56,17 +75,23 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const body = req.body || {};
+    const title = body.title ?? "Action";
+    const proposedAction = body.proposedAction ?? "";
     const status = ["pending", "approved"].includes(body.status) ? body.status : "pending";
+    const executionType = ["auto", "manual"].includes(body.executionType)
+      ? body.executionType
+      : detectExecutionType(title, proposedAction);
     const data = {
       clientId: body.clientId ?? null,
       clientName: body.clientName ?? null,
       agentId: body.agentId ?? "meta-traffic",
       agentName: body.agentName ?? "Meta Traffic",
       category: body.category ?? "ads",
-      title: body.title ?? "Action",
+      title,
       reasoning: body.reasoning ?? "",
-      proposedAction: body.proposedAction ?? "",
+      proposedAction,
       executionPlan: body.executionPlan ?? null,
+      executionType,
       priority: body.priority ?? "normal",
       status,
     };
@@ -110,7 +135,64 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// POST /api/agent-actions/:id/execute — approve and run via Meta Ads Engine
+// POST /api/agent-actions/:id/convert-to-tasks — parse steps from proposedAction, create tasks, mark action completed
+router.post("/:id/convert-to-tasks", async (req, res) => {
+  try {
+    const action = await prisma.agentAction.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!action) return res.status(404).json({ error: "Agent action not found" });
+    if (action.status === "completed" || action.status === "rejected")
+      return res.status(400).json({ error: "Action already closed" });
+
+    let clientId = req.body?.clientId ?? action.clientId;
+    if (!clientId && action.clientName) {
+      const clients = await prisma.client.findMany({ select: { id: true, name: true } });
+      const nameLower = action.clientName.toLowerCase();
+      const client = clients.find((c) => c.name && c.name.toLowerCase().includes(nameLower) || nameLower.includes(c.name.toLowerCase()));
+      if (client) clientId = client.id;
+    }
+    if (!clientId)
+      return res.status(400).json({ error: "Could not resolve client. Provide clientId or ensure clientName matches a client." });
+
+    const text = action.proposedAction || "";
+    const steps = [];
+    const numbered = text.split(/\n/).filter(Boolean);
+    for (const line of numbered) {
+      const match = line.match(/^\s*(?:\d+[.)]\s*)?(.+)$/);
+      const title = match ? match[1].trim() : line.trim();
+      if (title.length > 0) steps.push(title);
+    }
+    if (steps.length === 0) steps.push(action.title);
+
+    for (const stepTitle of steps) {
+      await prisma.task.create({
+        data: {
+          clientId,
+          title: stepTitle,
+          description: action.reasoning || undefined,
+          type: action.category === "ads" ? "ads" : action.category === "content" ? "content" : "task",
+          priority: action.priority || "normal",
+          assignedTo: null,
+          source: "agent",
+          directiveId: null,
+        },
+      });
+    }
+
+    const result = `Converted to ${steps.length} task(s)`;
+    await prisma.agentAction.update({
+      where: { id: req.params.id },
+      data: { status: "completed", result, completedAt: new Date() },
+    });
+    const updated = await prisma.agentAction.findUnique({ where: { id: req.params.id } });
+    res.json({ action: updated, tasksCreated: steps.length });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/agent-actions/:id/execute — approve and run via Meta Ads Engine (auto only)
 router.post("/:id/execute", async (req, res) => {
   const metaEngine = require("../lib/metaAdsEngine");
   
@@ -119,6 +201,11 @@ router.post("/:id/execute", async (req, res) => {
       where: { id: req.params.id },
     });
     if (!action) return res.status(404).json({ error: "Agent action not found" });
+    if (action.executionType === "manual") {
+      return res.status(400).json({
+        error: "This is a manual recommendation. Use 'Create Tasks' or 'Mark Done' instead.",
+      });
+    }
     if (action.status !== "pending" && action.status !== "approved") {
       return res.json(action);
     }

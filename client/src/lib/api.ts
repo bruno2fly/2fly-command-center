@@ -140,6 +140,7 @@ export type ApiAgentAction = {
   reasoning: string;
   proposedAction: string;
   executionPlan: string | null;
+  executionType?: 'auto' | 'manual';
   status: 'pending' | 'approved' | 'executing' | 'completed' | 'failed' | 'rejected';
   priority: string;
   result: string | null;
@@ -381,6 +382,12 @@ export const api = {
     }),
   executeAgentAction: (id: string) =>
     fetchMainAPI<ApiAgentAction>(`/agent-actions/${id}/execute`, { method: 'POST' }),
+  convertAgentActionToTasks: (id: string, clientId?: string) =>
+    fetchMainAPI<{ action: ApiAgentAction; tasksCreated: number }>(`/agent-actions/${id}/convert-to-tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(clientId != null ? { clientId } : {}),
+    }),
   patchAgentAction: (id: string, payload: { status?: string; result?: string; errorMessage?: string }) =>
     fetchMainAPI<ApiAgentAction>(`/agent-actions/${id}`, {
       method: 'PATCH',

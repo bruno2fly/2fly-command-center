@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
 import { api, type ApiAgentAction } from "@/lib/api";
 import { PendingActions } from "./PendingActions";
@@ -57,6 +58,35 @@ export function AgentActionsPanel({ clientId }: Props) {
     [fetchActions]
   );
 
+  const handleConvertToTasks = useCallback(
+    (id: string) => {
+      api
+        .convertAgentActionToTasks(id, clientId ?? undefined)
+        .then((r) => {
+          toast.success(`✅ Created ${r.tasksCreated} task(s) from this recommendation`);
+          fetchActions();
+        })
+        .catch((e) => {
+          toast.error(e instanceof Error ? e.message : "Failed to create tasks");
+          fetchActions();
+        });
+    },
+    [clientId, fetchActions]
+  );
+
+  const handleMarkDone = useCallback(
+    (id: string) => {
+      api
+        .patchAgentAction(id, { status: "completed", result: "Manually completed by Bruno" })
+        .then(() => {
+          toast.success("✅ Marked as done");
+          fetchActions();
+        })
+        .catch(() => fetchActions());
+    },
+    [fetchActions]
+  );
+
   const handleClear = useCallback(
     (id: string) => {
       api.deleteAgentAction(id).then(() => fetchActions()).catch(() => fetchActions());
@@ -106,7 +136,14 @@ export function AgentActionsPanel({ clientId }: Props) {
         {loading ? (
           <div className="py-8 text-center text-gray-500 text-sm">Loading…</div>
         ) : tab === "pending" ? (
-          <PendingActions actions={actions} onExecute={handleExecute} onReject={handleReject} />
+          <PendingActions
+            actions={actions}
+            onExecute={handleExecute}
+            onReject={handleReject}
+            onConvertToTasks={handleConvertToTasks}
+            onMarkDone={handleMarkDone}
+            clientId={clientId}
+          />
         ) : tab === "approved" ? (
           approvedOrExecuting.length === 0 ? (
             <div className={`py-12 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>

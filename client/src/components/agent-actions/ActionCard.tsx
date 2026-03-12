@@ -8,9 +8,23 @@ type Props = {
   action: ApiAgentAction;
   onExecute?: (id: string) => void;
   onReject?: (id: string) => void;
+  onConvertToTasks?: (id: string) => void;
+  onMarkDone?: (id: string) => void;
   onClear?: (id: string) => void;
+  clientId?: string | null;
   variant: "pending" | "executing" | "completed" | "rejected";
 };
+
+function parseSteps(proposedAction: string): string[] {
+  const lines = (proposedAction || "").split(/\n/).filter(Boolean);
+  const steps: string[] = [];
+  for (const line of lines) {
+    const match = line.match(/^\s*(?:\d+[.)]\s*)?(.+)$/);
+    const title = match ? match[1].trim() : line.trim();
+    if (title.length > 0) steps.push(title);
+  }
+  return steps.length > 0 ? steps : [proposedAction || "Follow up"];
+}
 
 function timeAgo(iso: string): string {
   const d = new Date(iso);
@@ -39,13 +53,21 @@ const PRIORITY_STYLE: Record<string, string> = {
   low: "bg-gray-500/10 text-gray-500 border-gray-500/20",
 };
 
-export function AgentActionCard({ action, onExecute, onReject, onClear, variant }: Props) {
+export function AgentActionCard({ action, onExecute, onReject, onConvertToTasks, onMarkDone, onClear, clientId, variant }: Props) {
   const { isDark } = useTheme();
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const priority = (action.priority as string) || "normal";
   const priorityCls = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.normal;
+  const isAuto = (action.executionType ?? "manual") === "auto";
+  const isManual = !isAuto;
 
   const isFailed = variant === "completed" && action.status === "failed";
+  const pendingBorderCls =
+    variant === "pending" && isAuto
+      ? "border-l-4 border-l-emerald-500/80"
+      : variant === "pending" && isManual
+        ? "border-l-4 border-l-blue-500/80"
+        : "";
   const cardBg =
     variant === "rejected"
       ? isDark
@@ -66,7 +88,7 @@ export function AgentActionCard({ action, onExecute, onReject, onClear, variant 
   const titleCls = variant === "rejected" ? "line-through opacity-80" : "";
 
   return (
-    <div className={`rounded-xl border p-5 ${cardBg}`}>
+    <div className={`rounded-xl border p-5 ${cardBg} ${pendingBorderCls}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -95,7 +117,11 @@ export function AgentActionCard({ action, onExecute, onReject, onClear, variant 
             {action.title}
           </h3>
           <p className={`text-xs mt-0.5 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-            📊 {action.agentName} · Proposed {timeAgo(action.createdAt)}
+            {variant === "pending"
+              ? isAuto
+                ? `⚡ ${action.agentName} · Auto-executable`
+                : `📋 ${action.agentName} · Manual recommendation`
+              : `📊 ${action.agentName} · Proposed ${timeAgo(action.createdAt)}`}
           </p>
         </div>
       </div>
@@ -114,9 +140,17 @@ export function AgentActionCard({ action, onExecute, onReject, onClear, variant 
               {action.reasoning}
             </div>
           )}
-          <div className={`rounded-lg p-3 mb-4 text-sm whitespace-pre-wrap ${isDark ? "bg-black/20 text-gray-400" : "bg-gray-50 text-gray-600"}`}>
+          <div className={`rounded-lg p-3 mb-4 text-sm ${isDark ? "bg-black/20 text-gray-400" : "bg-gray-50 text-gray-600"}`}>
             <span className="font-medium text-xs uppercase tracking-wider opacity-80">Proposed action</span>
-            <div className="mt-1">{action.proposedAction}</div>
+            {isManual ? (
+              <ul className="mt-2 space-y-1 list-decimal list-inside">
+                {parseSteps(action.proposedAction).map((step, i) => (
+                  <li key={i} className="whitespace-pre-wrap">{step}</li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-1 whitespace-pre-wrap">{action.proposedAction}</div>
+            )}
           </div>
         </>
       ) : null}
@@ -148,7 +182,7 @@ export function AgentActionCard({ action, onExecute, onReject, onClear, variant 
       )}
 
       <div className="flex flex-wrap gap-2 mt-4">
-        {variant === "pending" && (
+        {variant === "pending" && isAuto && (
           <>
             {onExecute && (
               <button
@@ -166,6 +200,37 @@ export function AgentActionCard({ action, onExecute, onReject, onClear, variant 
                 className="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 border border-red-500/30 transition-colors"
               >
                 ❌ Reject
+              </button>
+            )}
+          </>
+        )}
+        {variant === "pending" && isManual && (
+          <>
+            {onConvertToTasks && (
+              <button
+                type="button"
+                onClick={() => onConvertToTasks(action.id)}
+                className="px-4 py-2 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 transition-colors"
+              >
+                Create Tasks 📋
+              </button>
+            )}
+            {onMarkDone && (
+              <button
+                type="button"
+                onClick={() => onMarkDone(action.id)}
+                className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 font-medium hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors"
+              >
+                Mark Done ✅
+              </button>
+            )}
+            {onReject && (
+              <button
+                type="button"
+                onClick={() => onReject(action.id)}
+                className="px-4 py-2 rounded-xl bg-gray-500/20 text-gray-400 font-medium hover:bg-gray-500/30 border border-gray-500/30 transition-colors"
+              >
+                Dismiss ✗
               </button>
             )}
           </>
