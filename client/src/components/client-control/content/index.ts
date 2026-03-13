@@ -1,4 +1,7 @@
 export { ContentKPIStrip, type ContentKPIs } from "./ContentKPIStrip";
+export { ContentStatsBar } from "./ContentStatsBar";
+export { CreateContentModal } from "./CreateContentModal";
+export { EditContentModal } from "./EditContentModal";
 export { AIContentIdeasSection } from "./AIContentIdeasSection";
 export { ReelIdeasRow, type ReelIdeaCard } from "./ReelIdeasRow";
 export { ReferenceLinksRow } from "./ReferenceLinksRow";
@@ -7,7 +10,7 @@ export type { ContentIdea, ContentIdeaType, ReferenceLink } from "./contentIdeaT
 export { getIndustryForClient, getPreSeededIdeas } from "./contentIdeasSeed";
 // Legacy (kept for potential reuse)
 export { ContentCalendarCommand } from "./ContentCalendarCommand";
-export { ContentPipelineKanban } from "./ContentPipelineKanban";
+export { ContentPipelineKanban, columnIdToDefaultStatus } from "./ContentPipelineKanban";
 export { ContentIdeasBank, type ContentIdeaItem, type ContentIdeaSource } from "./ContentIdeasBank";
 export { IndustryTipsCard } from "./IndustryTipsCard";
 export { InspirationBoard, type InspirationItem } from "./InspirationBoard";

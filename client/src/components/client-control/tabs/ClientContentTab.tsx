@@ -6,6 +6,10 @@ import { api } from "@/lib/api";
 import type { ApiContentItem } from "@/lib/api";
 import { getContentCalendar } from "@/lib/client/mockClientTabData";
 import { ContentKPIStrip, type ContentKPIs } from "@/components/client-control/content/ContentKPIStrip";
+import { ContentStatsBar } from "@/components/client-control/content/ContentStatsBar";
+import { CreateContentModal } from "@/components/client-control/content/CreateContentModal";
+import { EditContentModal } from "@/components/client-control/content/EditContentModal";
+import { ContentPipelineKanban, columnIdToDefaultStatus } from "@/components/client-control/content/ContentPipelineKanban";
 import { AIContentIdeasSection } from "@/components/client-control/content/AIContentIdeasSection";
 import { ReelIdeasRow, type ReelIdeaCard } from "@/components/client-control/content/ReelIdeasRow";
 import { ReferenceLinksRow } from "@/components/client-control/content/ReferenceLinksRow";
@@ -57,6 +61,40 @@ export function ClientContentTab({ clientId }: Props) {
   const [clientName, setClientName] = useState<string | null>(null);
   const [schedulingIdea, setSchedulingIdea] = useState<ContentIdea | null>(null);
   const [scheduleDate, setScheduleDate] = useState<string>("");
+  const [selectedContent, setSelectedContent] = useState<ApiContentItem | null>(null);
+  const [showCreateContent, setShowCreateContent] = useState(false);
+  const [defaultCreateStatus, setDefaultCreateStatus] = useState("draft");
+
+  const fetchContent = useCallback(() => {
+    api
+      .getContentItemsMain(clientId)
+      .then(setContent)
+      .catch(() => {
+        fetch(`${API}/api/content?clientId=${clientId}`)
+          .then((r) => r.json())
+          .then((d: ApiContentItem[] | { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
+            const list = Array.isArray(d) ? d : (d as { content?: ApiContentItem[] }).content ?? (d as { items?: ApiContentItem[] }).items ?? [];
+            setContent(Array.isArray(list) ? list : []);
+          })
+          .catch(() => {
+            const mock = getContentCalendar(clientId);
+            setContent(
+              mock.map((c) => ({
+                id: c.id,
+                clientId: c.clientId,
+                title: c.title,
+                platform: "instagram",
+                status: c.status,
+                scheduledDate: c.date,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                type: c.type,
+                contentType: c.type,
+              }))
+            );
+          });
+      });
+  }, [clientId]);
 
   // Load ideas from localStorage on mount
   useEffect(() => {
@@ -124,40 +162,9 @@ export function ClientContentTab({ clientId }: Props) {
     }
   }, [clientId, references]);
 
-  // Fetch content from API (main API has agent-created items with source/directiveId)
   useEffect(() => {
-    fetch(`${API}/api/content?clientId=${clientId}`)
-      .then((r) => r.json())
-      .then((d: ApiContentItem[] | { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
-        const list = Array.isArray(d) ? d : (d as { content?: ApiContentItem[]; items?: ApiContentItem[] }).content ?? (d as { content?: ApiContentItem[]; items?: ApiContentItem[] }).items ?? [];
-        setContent(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        fetch(`${API}/api/agent-tools/content?clientId=${clientId}`)
-          .then((r) => r.json())
-          .then((d: { content?: ApiContentItem[]; items?: ApiContentItem[] }) => {
-            const list = d.content ?? d.items ?? [];
-            setContent(Array.isArray(list) ? list : []);
-          })
-          .catch(() => {
-            const mock = getContentCalendar(clientId);
-            setContent(
-              mock.map((c) => ({
-                id: c.id,
-                clientId: c.clientId,
-                title: c.title,
-                platform: "instagram",
-                status: c.status,
-                scheduledDate: c.date,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                type: c.type,
-                contentType: c.type,
-              }))
-            );
-          });
-      });
-  }, [clientId]);
+    fetchContent();
+  }, [fetchContent]);
 
   const startOfMonth = getStartOfMonth(new Date());
 
@@ -272,14 +279,25 @@ export function ClientContentTab({ clientId }: Props) {
   }, [clientId]);
 
   const handleApproveContent = useCallback((id: string) => {
-    api.patchContent(id, { status: "approved" }).then(() => {
-      setContent((prev) => prev.map((c) => (c.id === id ? { ...c, status: "approved" } : c)));
+    api.patchContent(id, { status: "approved" }).then((updated) => {
+      setContent((prev) => prev.map((c) => (c.id === id ? updated : c)));
     }).catch(() => {});
   }, []);
   const handleRejectContent = useCallback((id: string) => {
-    api.patchContent(id, { status: "cancelled" }).then(() => {
-      setContent((prev) => prev.map((c) => (c.id === id ? { ...c, status: "cancelled" } : c)));
+    api.patchContent(id, { status: "cancelled" }).then((updated) => {
+      setContent((prev) => prev.map((c) => (c.id === id ? updated : c)));
     }).catch(() => {});
+  }, []);
+
+  const handleContentStatusChange = useCallback((itemId: string, newStatus: string) => {
+    api.patchContent(itemId, { status: newStatus }).then((updated) => {
+      setContent((prev) => prev.map((c) => (c.id === itemId ? updated : c)));
+    }).catch(() => {});
+  }, []);
+
+  const openCreateWithStatus = useCallback((columnId: string) => {
+    setDefaultCreateStatus(columnIdToDefaultStatus(columnId));
+    setShowCreateContent(true);
   }, []);
 
   const addReference = useCallback(() => {
@@ -296,9 +314,25 @@ export function ClientContentTab({ clientId }: Props) {
 
   return (
     <div className={`flex-1 overflow-auto ${bgBase}`}>
-      <ContentKPIStrip kpis={kpis} />
+      <ContentStatsBar content={content} />
+      <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${isDark ? "border-[rgba(51,65,85,0.5)]" : "border-gray-200"}`}>
+        <ContentKPIStrip kpis={kpis} />
+        <button
+          type="button"
+          onClick={() => { setDefaultCreateStatus("draft"); setShowCreateContent(true); }}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 border border-blue-500/30 shrink-0"
+        >
+          + Add Content
+        </button>
+      </div>
 
       <div className="p-4 space-y-6">
+        <ContentPipelineKanban
+          content={content}
+          onItemClick={setSelectedContent}
+          onStatusChange={handleContentStatusChange}
+          onAddInColumn={openCreateWithStatus}
+        />
         {/* Main: AI Content Ideas — ~60% visual weight */}
         <div className="min-h-[400px]">
           <AIContentIdeasSection
@@ -327,6 +361,22 @@ export function ClientContentTab({ clientId }: Props) {
         {/* Monthly Planner — compact */}
         <MonthlyPlannerCompact items={allScheduledItems} />
       </div>
+
+      {showCreateContent && (
+        <CreateContentModal
+          clientId={clientId}
+          defaultStatus={defaultCreateStatus}
+          onClose={() => setShowCreateContent(false)}
+          onSuccess={fetchContent}
+        />
+      )}
+      {selectedContent && (
+        <EditContentModal
+          item={selectedContent}
+          onClose={() => setSelectedContent(null)}
+          onSuccess={() => { fetchContent(); setSelectedContent(null); }}
+        />
+      )}
 
       {/* Schedule date picker modal */}
       {schedulingIdea && (

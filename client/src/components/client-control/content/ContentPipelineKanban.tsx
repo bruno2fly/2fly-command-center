@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import type { ApiContentItem } from "@/lib/api";
 
 export type ContentItemForPipeline = {
   id: string;
@@ -19,6 +21,8 @@ const PIPELINE_COLUMNS = [
   { id: "approved", label: "Approved" },
   { id: "scheduled", label: "Scheduled" },
 ] as const;
+
+const STATUS_OPTIONS = ["draft", "review", "scheduled", "approved", "published", "cancelled"] as const;
 
 const ROWS = [
   { id: "feed", label: "Feed 📸", types: ["post", "blog", "ad_creative"] },
@@ -45,28 +49,56 @@ function typeToRow(type: string): (typeof ROWS)[number]["id"] {
   return "feed";
 }
 
+function toPipelineItem(c: ApiContentItem): ContentItemForPipeline & { _raw: ApiContentItem } {
+  return {
+    id: c.id,
+    title: c.title,
+    type: c.contentType ?? c.type ?? "post",
+    status: c.status ?? "draft",
+    scheduledDate: c.scheduledDate ?? null,
+    _raw: c,
+  };
+}
+
+export function columnIdToDefaultStatus(columnId: string): string {
+  const map: Record<string, string> = {
+    ideation: "draft",
+    creation: "draft",
+    review: "review",
+    approved: "approved",
+    scheduled: "scheduled",
+  };
+  return map[columnId] ?? "draft";
+}
+
 type Props = {
-  content: ContentItemForPipeline[];
+  content: ApiContentItem[];
+  onItemClick?: (item: ApiContentItem) => void;
+  onStatusChange?: (itemId: string, newStatus: string) => void;
+  onAddInColumn?: (columnId: string) => void;
 };
 
-export function ContentPipelineKanban({ content }: Props) {
+export function ContentPipelineKanban({ content, onItemClick, onStatusChange, onAddInColumn }: Props) {
   const { isDark } = useTheme();
+  const [changingId, setChangingId] = useState<string | null>(null);
+
+  const pipelineItems = useMemo(() => content.map(toPipelineItem), [content]);
 
   const byRowAndCol = useMemo(() => {
-    const map: Record<string, Record<string, ContentItemForPipeline[]>> = {};
+    const map: Record<string, Record<string, (ContentItemForPipeline & { _raw: ApiContentItem })[]>> = {};
     for (const row of ROWS) {
       map[row.id] = {};
       for (const col of PIPELINE_COLUMNS) {
         map[row.id][col.id] = [];
       }
     }
-    for (const item of content) {
+    for (const item of pipelineItems) {
       const row = typeToRow(item.type ?? "post");
       const col = statusToColumn(item.status, !!(item.scheduledDate && item.status === "draft"));
       if (map[row] && map[row][col]) map[row][col].push(item);
     }
     return map;
-  }, [content]);
+  }, [pipelineItems]);
 
   const cardBg = isDark ? "bg-[rgba(30,41,59,0.8)]" : "bg-white";
   const cardBorder = isDark ? "border-[rgba(51,65,85,0.5)]" : "border-gray-200";
@@ -115,14 +147,50 @@ export function ContentPipelineKanban({ content }: Props) {
                         {items.map((item, i) => (
                           <motion.div
                             key={item.id}
+                            layout
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 8 }}
                             transition={{ delay: i * 0.03 }}
-                            className={`rounded-xl border ${cardBorder} ${cardBg} p-2.5 cursor-grab hover:shadow-md hover:border-blue-500/20 transition-all duration-200`}
+                            className={`rounded-xl border ${cardBorder} ${cardBg} p-2.5 hover:shadow-md hover:border-blue-500/20 transition-all duration-200 ${onItemClick ? "cursor-pointer" : ""}`}
+                            onClick={() => onItemClick?.(item._raw)}
                           >
-                            <p className={`text-xs font-medium truncate ${textCls}`}>{item.title}</p>
+                            <div className="flex items-start justify-between gap-1">
+                              <p className={`text-xs font-medium truncate flex-1 min-w-0 ${textCls}`}>{item.title}</p>
+                              {onStatusChange && (
+                                <select
+                                  value={item.status}
+                                  disabled={!!changingId}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const newStatus = e.target.value;
+                                    setChangingId(item.id);
+                                    onStatusChange(item.id, newStatus);
+                                    toast.success(`📝 Moved to ${newStatus}`);
+                                    setChangingId(null);
+                                  }}
+                                  className={`text-[10px] rounded border px-1.5 py-0.5 min-w-0 shrink-0 ${isDark ? "bg-[#1a1818] border-[#2a2520] text-[#e8e4dc]" : "bg-gray-100 border-gray-300 text-gray-800"}`}
+                                >
+                                  {STATUS_OPTIONS.map((s) => (
+                                    <option key={s} value={s}>{s}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
                           </motion.div>
                         ))}
+                        {onAddInColumn && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddInColumn(col.id);
+                            }}
+                            className={`w-full text-left text-[10px] py-1.5 rounded-lg border border-dashed ${isDark ? "border-gray-600 text-gray-500 hover:border-blue-500/50 hover:text-blue-400" : "border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600"}`}
+                          >
+                            + Add
+                          </button>
+                        )}
                       </div>
                     </td>
                   );

@@ -147,8 +147,9 @@ model ContentItem {
   contentType     String   // post | reel | story | carousel | ad_creative
   title           String
   caption         String?
+  notes           String?  // internal notes
   mediaUrl        String?  // link to asset in drive/S3
-  status          String   @default("draft") // draft | review | approved | scheduled | published
+  status          String   @default("draft") // draft | review | approved | scheduled | published | cancelled
   scheduledDate   DateTime?
   publishedDate   DateTime?
   assignedTo      String?  // team member name or ID

@@ -440,13 +440,36 @@ export const api = {
     if (Array.isArray(data)) return data;
     return (data as { content?: ApiContentItem[] }).content ?? (data as { items?: ApiContentItem[] }).items ?? [];
   },
-  /** PATCH content item (main API) — e.g. status: approved | cancelled */
-  patchContent: (id: string, payload: Partial<Pick<ApiContentItem, 'status' | 'title' | 'scheduledDate'>>) =>
+  /** PATCH content item (main API) */
+  patchContent: (id: string, payload: Partial<Pick<ApiContentItem, 'status' | 'title' | 'scheduledDate' | 'platform' | 'contentType' | 'caption' | 'notes'>>) =>
     fetchMainAPI<ApiContentItem>(`/content/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
+  createContent: (data: { clientId: string; title: string; platform?: string; contentType?: string; status?: string; scheduledDate?: string; caption?: string; notes?: string }) =>
+    fetchMainAPI<ApiContentItem>('/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: data.clientId,
+        title: data.title,
+        platform: data.platform ?? 'instagram',
+        contentType: data.contentType ?? 'post',
+        status: data.status ?? 'draft',
+        scheduledDate: data.scheduledDate ?? null,
+        caption: data.caption ?? null,
+        notes: data.notes ?? null,
+      }),
+    }),
+  updateContent: (id: string, data: Partial<{ title: string; platform: string; contentType: string; status: string; scheduledDate: string; caption: string; notes: string }>) =>
+    fetchMainAPI<ApiContentItem>(`/content/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteContent: (id: string) =>
+    fetchMainAPI<{ deleted: boolean }>(`/content/${id}`, { method: 'DELETE' }),
   getInvoicesRaw: () =>
     fetchAPI<ApiInvoicesResponse>('/invoices'),
   getPayments: () => fetchAPI<ApiPaymentsResponse>('/payments'),
@@ -738,13 +761,15 @@ export type ApiContentItem = {
   clientId: string;
   client?: { name: string };
   platform: string;
+  contentType?: string;
+  type?: string;
   status: string;
-  scheduledDate?: string;
-  publishedDate?: string;
+  scheduledDate?: string | null;
+  publishedDate?: string | null;
+  caption?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
-  type?: string;
-  contentType?: string;
   source?: string;
   directiveId?: string | null;
 };

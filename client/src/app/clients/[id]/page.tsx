@@ -73,23 +73,7 @@ export default function ClientControlRoomPage() {
       .catch(() => setMainApiClient(null));
   }, [id]);
 
-  if (!client || !lane) {
-    return (
-      <div className="p-6">
-        <div className={`rounded-xl shadow-sm p-8 text-center ${isDark ? "bg-[#0a0a0e] border border-[#1a1810]" : "bg-white border border-gray-100"}`}>
-          <p className={isDark ? "text-[#8a7e6d]" : "text-gray-500"}>Client not found.</p>
-          <Link href="/clients" className="text-blue-600 hover:text-blue-700 font-medium mt-2 inline-block">
-            Back to clients
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const healthVariant =
-    lane.health === "green" ? "healthy" : lane.health === "yellow" ? "at_risk" : "critical";
-
-  const taskToDetail = (t: ApiTask): TaskDetailTask => ({
+    const taskToDetail = (t: ApiTask): TaskDetailTask => ({
     id: t.id,
     title: t.title,
     description: t.description,
@@ -187,6 +171,22 @@ export default function ClientControlRoomPage() {
     },
     [id]
   );
+
+  if (!client || !lane) {
+    return (
+      <div className="p-6">
+        <div className={`rounded-xl shadow-sm p-8 text-center ${isDark ? "bg-[#0a0a0e] border border-[#1a1810]" : "bg-white border border-gray-100"}`}>
+          <p className={isDark ? "text-[#8a7e6d]" : "text-gray-500"}>Client not found.</p>
+          <Link href="/clients" className="text-blue-600 hover:text-blue-700 font-medium mt-2 inline-block">
+            Back to clients
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const healthVariant =
+    lane.health === "green" ? "healthy" : lane.health === "yellow" ? "at_risk" : "critical";
 
   return (
     <div className="flex flex-col h-full">

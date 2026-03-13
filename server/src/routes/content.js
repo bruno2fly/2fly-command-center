@@ -46,7 +46,22 @@ router.get("/buffer-overview", async (_req, res) => {
 // POST /api/content — create content item
 router.post("/", async (req, res) => {
   try {
-    const item = await prisma.contentItem.create({ data: req.body });
+    const { clientId, title, platform, contentType, status, scheduledDate, caption, notes } = req.body || {};
+    if (!clientId || !title) {
+      return res.status(400).json({ error: "clientId and title required" });
+    }
+    const item = await prisma.contentItem.create({
+      data: {
+        clientId,
+        title: String(title).trim(),
+        platform: platform || "instagram",
+        contentType: contentType || "post",
+        status: status || "draft",
+        scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+        caption: caption != null ? String(caption) : null,
+        notes: notes != null ? String(notes) : null,
+      },
+    });
     res.status(201).json(item);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -56,9 +71,19 @@ router.post("/", async (req, res) => {
 // PATCH /api/content/:id — update (change status, reschedule, etc)
 router.patch("/:id", async (req, res) => {
   try {
+    const { title, platform, contentType, status, scheduledDate, caption, notes } = req.body || {};
+    const data = {};
+    if (title !== undefined) data.title = String(title).trim();
+    if (platform !== undefined) data.platform = platform;
+    if (contentType !== undefined) data.contentType = contentType;
+    if (status !== undefined) data.status = status;
+    if (scheduledDate !== undefined) data.scheduledDate = scheduledDate ? new Date(scheduledDate) : null;
+    if (caption !== undefined) data.caption = caption;
+    if (notes !== undefined) data.notes = notes;
+    if (status === "published") data.publishedDate = new Date();
     const item = await prisma.contentItem.update({
       where: { id: req.params.id },
-      data: req.body,
+      data,
     });
     res.json(item);
   } catch (err) {
