@@ -221,17 +221,7 @@ export function ClientTriageTable() {
                     >
                       Go
                     </Link>
-                    <a
-                      href="#"
-                      className={`px-2.5 py-1 rounded text-xs font-medium ${
-                        isDark
-                          ? "bg-[#141210] text-[#8a7e6d] hover:bg-[#1a1810]"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                      title="Open WhatsApp"
-                    >
-                      WhatsApp
-                    </a>
+
                   </div>
                 </td>
               </tr>
