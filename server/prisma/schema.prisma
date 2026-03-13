@@ -301,6 +301,7 @@ model AdCampaign {
   id              String   @id @default(cuid())
   clientId        String
   client          Client   @relation(fields: [clientId], references: [id])
+  metaCampaignId  String?  // Facebook campaign ID (e.g., 120237323259790160)
   name            String
   objective       String   // LEADS | TRAFFIC | AWARENESS | CONVERSIONS | REACH
   status          String   @default("draft") // draft | review | approved | active | paused | completed

@@ -59,6 +59,7 @@ async function syncAccount({ accountId, clientId, label }) {
 
     const data = {
       clientId: client.id,
+      metaCampaignId: c.id,
       name: c.name,
       status: c.status.toLowerCase(),
       objective: c.objective || 'LEADS',

@@ -291,6 +291,7 @@ function buildCampaignsFromReal(
     id: c.id,
     clientId,
     name: c.name,
+    metaCampaignId: (c as any).metaCampaignId ?? null,
     dailyBudget: c.dailyBudget ?? 0,
     spend: 0,
     roas: 0,
