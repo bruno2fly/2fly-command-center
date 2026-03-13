@@ -16,19 +16,19 @@ const prisma = new PrismaClient();
 
 const THRESHOLDS = {
   buffer: {
-    green: 5,   // >= 5 days of scheduled content = healthy
-    yellow: 2,  // 2-4 days = needs attention
-    // red: < 2 days = urgent
+    green: 3,   // >= 3 days of scheduled content = healthy
+    yellow: 1,  // 1-2 days = needs attention
+    // red: < 1 day = urgent (basically empty)
   },
   requests: {
-    greenHours: 72,    // resolved within 3 days = green
-    yellowHours: 168,  // pending 3-7 days = yellow
-    // red: > 7 days unresolved
+    greenHours: 168,   // resolved within 7 days = green
+    yellowHours: 336,  // pending 7-14 days = yellow
+    // red: > 14 days unresolved
   },
   ads: {
-    greenPct: 1.0,    // ROAS >= 100% of target
-    yellowPct: 0.8,   // ROAS 80-99% of target
-    // red: < 80% of target
+    greenPct: 0.7,    // ROAS >= 70% of target = green (allows variance)
+    yellowPct: 0.5,   // ROAS 50-69% of target = yellow
+    // red: < 50% of target
   },
 };
 
@@ -118,6 +118,18 @@ async function getAdsStatus(clientId) {
     return { status: "green", roas: 0, target: client.roasTarget, note: "No ad data yet" };
   }
 
+  // If ROAS is 0 but we have spend and leads, the client is active — don't mark red
+  // Use lead-based health: has leads = green, has spend but no leads = yellow, no data = green
+  if (!latestReport.roas || latestReport.roas === 0) {
+    if (latestReport.spend > 0 && latestReport.leads > 0) {
+      return { status: "green", roas: 0, target: client.roasTarget, spend: latestReport.spend, leads: latestReport.leads, note: "Active with leads" };
+    }
+    if (latestReport.spend > 0 && (!latestReport.leads || latestReport.leads === 0)) {
+      return { status: "yellow", roas: 0, target: client.roasTarget, spend: latestReport.spend, leads: 0, note: "Spending but no leads" };
+    }
+    return { status: "green", roas: 0, target: client.roasTarget, note: "No spend data" };
+  }
+
   const ratio = latestReport.roas / client.roasTarget;
 
   let status = "red";
@@ -155,8 +167,9 @@ async function computeClientHealth(clientId) {
   const yellowCount = statuses.filter((s) => s === "yellow").length;
 
   let overall = "green";
-  if (redCount > 0) overall = "red";
-  else if (yellowCount >= 2) overall = "red";
+  if (redCount >= 2) overall = "red";        // 2+ reds = red
+  else if (redCount === 1) overall = "yellow"; // 1 red = yellow (not instant red)
+  else if (yellowCount >= 2) overall = "yellow"; // 2+ yellows = yellow (not red)
   else if (yellowCount === 1) overall = "yellow";
 
   return {
