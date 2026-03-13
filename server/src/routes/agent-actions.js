@@ -81,8 +81,17 @@ router.post("/", async (req, res) => {
     const executionType = ["auto", "manual"].includes(body.executionType)
       ? body.executionType
       : detectExecutionType(title, proposedAction);
+    // Auto-resolve clientName → clientId if clientId not provided
+    let resolvedClientId = body.clientId ?? null;
+    if (!resolvedClientId && body.clientName) {
+      const allClients = await prisma.client.findMany({ select: { id: true, name: true } });
+      const nameLower = body.clientName.toLowerCase();
+      const match = allClients.find(c => c.name.toLowerCase() === nameLower)
+        || allClients.find(c => nameLower.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(nameLower));
+      if (match) resolvedClientId = match.id;
+    }
     const data = {
-      clientId: body.clientId ?? null,
+      clientId: resolvedClientId,
       clientName: body.clientName ?? null,
       agentId: body.agentId ?? "meta-traffic",
       agentName: body.agentName ?? "Meta Traffic",
