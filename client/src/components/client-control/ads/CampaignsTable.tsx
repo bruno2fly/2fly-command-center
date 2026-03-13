@@ -3,13 +3,11 @@
 import React, { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-} from "recharts";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { api } from "@/lib/api";
 import type { AdsCampaignEnhanced, AdsAdSet, AdsAd } from "@/lib/client/mockAdsData";
+import { EditBudgetModal } from "./EditBudgetModal";
+import { AskAgentModal } from "./AskAgentModal";
 
 type Props = {
   campaigns: AdsCampaignEnhanced[];
@@ -23,78 +21,6 @@ function stripActPrefix(adAccountId: string): string {
   const s = String(adAccountId || "").trim();
   if (s.toLowerCase().startsWith("act_")) return s.slice(4);
   return s;
-}
-
-function EditBudgetModal({
-  campaignName,
-  currentBudget,
-  isDark,
-  onConfirm,
-  onClose,
-}: {
-  campaignName: string;
-  currentBudget: number;
-  isDark: boolean;
-  onConfirm: (newBudget: number) => void;
-  onClose: () => void;
-}) {
-  const [value, setValue] = useState(String(currentBudget));
-  const num = parseFloat(value) || 0;
-  const pctChange = currentBudget > 0 ? ((num - currentBudget) / currentBudget) * 100 : 0;
-  const over30 = Math.abs(pctChange) > 30;
-  const modalCls = isDark ? "bg-[#0a0a0e] border-[#1a1810]" : "bg-white border-gray-200";
-  const inputCls = isDark ? "bg-[#141414] border-[#2a2520] text-[#e8e4dc]" : "bg-gray-50 border-gray-200 text-gray-900";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className={`max-w-sm w-full rounded-xl border p-6 shadow-xl ${modalCls}`} onClick={(e) => e.stopPropagation()}>
-        <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-[#e8e4dc]" : "text-gray-900"}`}>Edit Budget</h3>
-        <p className={`text-sm mb-4 ${isDark ? "text-[#8a7e6d]" : "text-gray-600"}`}>{campaignName}</p>
-        <div className="space-y-2 mb-2">
-          <label className={`text-xs ${isDark ? "text-[#8a7e6d]" : "text-gray-500"}`}>Current daily budget</label>
-          <p className="font-medium">${currentBudget}/day</p>
-        </div>
-        <div className="space-y-2 mb-4">
-          <label className={`text-xs ${isDark ? "text-[#8a7e6d]" : "text-gray-500"}`}>New daily budget ($)</label>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 ${inputCls}`}
-          />
-          {currentBudget > 0 && !Number.isNaN(num) && (
-            <p className={`text-xs ${pctChange >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-              This is a {pctChange >= 0 ? "" : ""} {Math.abs(pctChange).toFixed(0)}% {num >= currentBudget ? "increase" : "decrease"}.
-            </p>
-          )}
-          {over30 && (
-            <p className="text-xs text-amber-500">
-              ⚠️ Budget change exceeds 30% safety limit. Consider a smaller adjustment.
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2 justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`px-4 py-2 rounded-lg text-sm ${isDark ? "text-[#8a7e6d] hover:bg-[#1a1810]" : "text-gray-600 hover:bg-gray-100"}`}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => num >= 0 && onConfirm(num)}
-            disabled={Number.isNaN(num) || num < 0}
-            className="px-4 py-2 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function MiniSparkline({ data, color }: { data: number[]; color: string }) {
@@ -130,7 +56,12 @@ function CampaignRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [editBudgetOpen, setEditBudgetOpen] = useState(false);
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
+  const [askAgentOpen, setAskAgentOpen] = useState(false);
   const [executing, setExecuting] = useState<string | null>(null);
+
+  const isPaused = campaign.status === "paused";
+  const showPauseResume = canEditOrPause && (campaign.status === "active" || campaign.status === "learning" || isPaused);
+  const goodPerformanceWarning = !isPaused && (Number(campaign.ctr) > 2 || Number(campaign.conversions) > 0);
 
   const hasMetaLink = Boolean(adAccountId && campaign.metaCampaignId);
   const canEditOrPause = hasMetaLink && clientId && clientName;
@@ -177,26 +108,24 @@ function CampaignRow({
       const created = await api.createAgentAction({
         clientId,
         clientName,
-        agentId: "founder-boss",
-        agentName: "Bruno (Manual)",
+        agentId: "bruno",
+        agentName: "Bruno",
         category: "ads",
-        title: `Update budget: ${campaign.name} $${campaign.dailyBudget} → $${newBudget}`,
+        title: `Update budget for ${campaign.name}`,
         reasoning: "Manual budget change from Ads tab",
-        proposedAction: JSON.stringify({
-          type: "update_budget",
-          campaignId: campaign.metaCampaignId,
-          adAccountId,
-          oldBudget: campaign.dailyBudget,
-          newBudget,
-        }),
+        proposedAction: `Update daily budget from $${campaign.dailyBudget} to $${newBudget} for campaign ${campaign.name} (ID: ${campaign.metaCampaignId})`,
+        executionPlan: JSON.stringify([
+          { op: "update_budget", campaignId: campaign.metaCampaignId, dailyBudget: newBudget },
+        ]),
+        executionType: "auto",
         priority: "high",
         status: "approved",
       });
       const executed = await api.executeAgentAction(created.id);
       if (executed.status === "completed") {
-        toast.success(`✅ Budget updated: $${campaign.dailyBudget} → $${newBudget}/day`);
+        toast.success(`✅ Budget updated to $${newBudget}`);
       } else {
-        toast.error(`❌ Failed: ${executed.errorMessage || "Unknown error"}`);
+        toast.error(`❌ Failed: ${(executed as { errorMessage?: string }).errorMessage || "Unknown error"}`);
       }
       onRefresh?.();
     } catch (e) {
@@ -206,33 +135,35 @@ function CampaignRow({
     }
   };
 
-  const handlePauseConfirm = async () => {
+  const handlePauseResumeConfirm = async () => {
     if (!clientId || !clientName || !campaign.metaCampaignId || !adAccountId) return;
     setPauseConfirmOpen(false);
     setMenuOpen(false);
     setExecuting("pause");
+    const actionType = isPaused ? "resume_campaign" : "pause_campaign";
+    const actionLabel = isPaused ? "Resume" : "Pause";
     try {
       const created = await api.createAgentAction({
         clientId,
         clientName,
-        agentId: "founder-boss",
-        agentName: "Bruno (Manual)",
+        agentId: "bruno",
+        agentName: "Bruno",
         category: "ads",
-        title: `Pause campaign: ${campaign.name}`,
-        reasoning: "Manual pause from Ads tab",
-        proposedAction: JSON.stringify({
-          type: "pause_campaign",
-          campaignId: campaign.metaCampaignId,
-          adAccountId,
-        }),
+        title: `${actionLabel} campaign ${campaign.name}`,
+        reasoning: `Manual ${actionLabel.toLowerCase()} from Ads tab`,
+        proposedAction: isPaused
+          ? `Resume campaign ${campaign.metaCampaignId}`
+          : `Pause campaign ${campaign.metaCampaignId}`,
+        executionPlan: JSON.stringify([{ op: actionType, campaignId: campaign.metaCampaignId }]),
+        executionType: "auto",
         priority: "high",
         status: "approved",
       });
       const executed = await api.executeAgentAction(created.id);
       if (executed.status === "completed") {
-        toast.success(`✅ Campaign "${campaign.name}" paused.`);
+        toast.success(isPaused ? `✅ Campaign "${campaign.name}" resumed.` : `✅ Campaign "${campaign.name}" paused.`);
       } else {
-        toast.error(`❌ Failed: ${executed.errorMessage || "Unknown error"}`);
+        toast.error(`❌ Failed: ${(executed as { errorMessage?: string }).errorMessage || "Unknown error"}`);
       }
       onRefresh?.();
     } catch (e) {
@@ -242,9 +173,12 @@ function CampaignRow({
     }
   };
 
-  const handleAskAgent = async () => {
+  const handleAskAgentConfirm = async (focusText: string) => {
+    setAskAgentOpen(false);
     setMenuOpen(false);
     if (!clientName) return;
+    const focus = focusText || "General optimization";
+    const metricsSummary = `$${campaign.spend.toLocaleString()} spend, ${campaign.conversions} leads, ${campaign.ctr}% CTR, $${campaign.cpa} CPC`;
     try {
       await api.createAgentAction({
         clientName,
@@ -252,13 +186,14 @@ function CampaignRow({
         agentId: "meta-traffic",
         agentName: "Meta Traffic",
         category: "ads",
-        title: `Optimize campaign: ${campaign.name}`,
-        reasoning: "Bruno requested optimization review from the Ads tab",
-        proposedAction: `Analyze campaign ${campaign.name} (${campaign.metaCampaignId || campaign.id}) and propose optimizations. Current metrics: spend $${campaign.spend}, CPL $${campaign.cpa}, CTR ${campaign.ctr}%, ROAS ${campaign.roas}x.`,
+        title: `Optimize ${campaign.name}`,
+        reasoning: `Bruno requested optimization. Focus: ${focus}. Current metrics: ${metricsSummary}`,
+        proposedAction: `Analyze campaign ${campaign.name} and propose optimizations. Focus area: ${focus}`,
+        executionType: "manual",
         priority: "high",
         status: "pending",
       });
-      toast.success("🤖 Optimization request sent to Meta Traffic agent. Check Agent Actions for the proposal.");
+      toast.success("🤖 Agent will analyze and propose optimizations");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to send request");
     }
@@ -321,18 +256,20 @@ function CampaignRow({
                 >
                   {executing === "budget" ? "Updating…" : "Edit Budget"}
                 </button>
-                <button
-                  className={btnCls}
-                  title={tooltip}
-                  disabled={!canEditOrPause || campaign.status === "paused"}
-                  onClick={() => canEditOrPause && campaign.status !== "paused" && setPauseConfirmOpen(true)}
-                >
-                  {executing === "pause" ? "Pausing…" : "Pause"}
-                </button>
+                {showPauseResume && (
+                  <button
+                    className={btnCls}
+                    title={tooltip}
+                    disabled={!!executing}
+                    onClick={() => setPauseConfirmOpen(true)}
+                  >
+                    {executing === "pause" ? (isPaused ? "Resuming…" : "Pausing…") : isPaused ? "Resume" : "Pause"}
+                  </button>
+                )}
                 <button className={btnCls} onClick={handleViewInMeta}>
                   View in Meta
                 </button>
-                <button className={btnCls} onClick={handleAskAgent}>
+                <button className={btnCls} onClick={() => setAskAgentOpen(true)}>
                   Ask Agent to Optimize
                 </button>
               </div>
@@ -365,7 +302,6 @@ function CampaignRow({
         <EditBudgetModal
           campaignName={campaign.name}
           currentBudget={campaign.dailyBudget}
-          isDark={isDark}
           onConfirm={handleEditBudgetConfirm}
           onClose={() => setEditBudgetOpen(false)}
         />
@@ -377,11 +313,23 @@ function CampaignRow({
             className={`max-w-sm w-full rounded-xl border p-6 shadow-xl ${isDark ? "bg-[#0a0a0e] border-[#1a1810]" : "bg-white border-gray-200"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-[#e8e4dc]" : "text-gray-900"}`}>Pause campaign</h3>
+            <h3 className={`text-lg font-semibold mb-2 ${isDark ? "text-[#e8e4dc]" : "text-gray-900"}`}>
+              {isPaused ? "Resume campaign" : "Pause campaign"}
+            </h3>
             <p className={`text-sm mb-4 ${isDark ? "text-[#8a7e6d]" : "text-gray-600"}`}>
-              Pause &quot;{campaign.name}&quot;? This will stop all ads immediately.
+              {isPaused
+                ? `Resume "${campaign.name}"? Ads will start running again.`
+                : `Pause "${campaign.name}"? This will stop all ads immediately.`}
             </p>
-            {campaign.spend > 100 && (
+            {!isPaused && goodPerformanceWarning && (
+              <div className="flex items-start gap-2 rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-2 mb-4">
+                <span className="text-amber-500 shrink-0">⚠️</span>
+                <p className="text-sm text-amber-200">
+                  This campaign has good performance (CTR &gt; 2% or has leads). Pausing may reduce results.
+                </p>
+              </div>
+            )}
+            {!isPaused && campaign.spend > 100 && (
               <p className="text-sm text-amber-500 mb-4">⚠️ This campaign spends over $100/day.</p>
             )}
             <div className="flex gap-2 justify-end">
@@ -394,14 +342,28 @@ function CampaignRow({
               </button>
               <button
                 type="button"
-                onClick={handlePauseConfirm}
-                className="px-4 py-2 rounded-lg text-sm bg-red-600 text-white hover:bg-red-500"
+                onClick={handlePauseResumeConfirm}
+                className={`px-4 py-2 rounded-lg text-sm ${isPaused ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"} text-white`}
               >
-                Pause
+                {isPaused ? "Resume" : "Pause"}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {askAgentOpen && (
+        <AskAgentModal
+          campaignName={campaign.name}
+          metrics={{
+            spend: campaign.spend,
+            leads: campaign.conversions,
+            ctr: campaign.ctr,
+            cpc: campaign.cpa,
+          }}
+          onConfirm={handleAskAgentConfirm}
+          onClose={() => setAskAgentOpen(false)}
+        />
       )}
     </>
   );

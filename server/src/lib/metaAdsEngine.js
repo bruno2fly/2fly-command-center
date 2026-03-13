@@ -350,6 +350,10 @@ async function smartExecute(action) {
         const plan = [{ op: 'pause_campaign', campaignId: payload.campaignId }];
         return await executePlan(plan, client);
       }
+      if (payload.type === 'resume_campaign' && payload.campaignId != null) {
+        const plan = [{ op: 'resume_campaign', campaignId: payload.campaignId }];
+        return await executePlan(plan, client);
+      }
     } catch (e) {
       // Not valid JSON or unknown type, fall through
     }
