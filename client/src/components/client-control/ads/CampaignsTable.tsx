@@ -60,11 +60,10 @@ function CampaignRow({
   const [executing, setExecuting] = useState<string | null>(null);
 
   const isPaused = campaign.status === "paused";
-  const showPauseResume = canEditOrPause && (campaign.status === "active" || campaign.status === "learning" || isPaused);
-  const goodPerformanceWarning = !isPaused && (Number(campaign.ctr) > 2 || Number(campaign.conversions) > 0);
-
   const hasMetaLink = Boolean(adAccountId && campaign.metaCampaignId);
   const canEditOrPause = hasMetaLink && clientId && clientName;
+  const showPauseResume = canEditOrPause && (campaign.status === "active" || campaign.status === "learning" || isPaused);
+  const goodPerformanceWarning = !isPaused && (Number(campaign.ctr) > 2 || Number(campaign.conversions) > 0);
 
   const statusCls =
     campaign.status === "active"
