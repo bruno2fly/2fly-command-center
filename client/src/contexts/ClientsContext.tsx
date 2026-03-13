@@ -22,7 +22,7 @@ function mapApiClient(ac: ApiClient): Client {
   const pendingRequests = health?.modules?.requests?.pendingCount ?? 0;
   const roas = health?.modules?.ads?.roas ?? null;
 
-  return createClient({
+  const client = createClient({
     id: ac.id,
     name: ac.name,
     contentBufferDays: bufferDays,
@@ -32,6 +32,11 @@ function mapApiClient(ac: ApiClient): Client {
     performanceTrend: "flat", // not tracked in API yet
     monthlyRetainer: ac.monthlyRetainer ?? null,
   });
+  // Override with DB-computed health if available
+  if (ac.healthStatus) {
+    client.healthStatus = ac.healthStatus as "green" | "yellow" | "red";
+  }
+  return client;
 }
 
 function loadCachedClients(): Client[] | null {

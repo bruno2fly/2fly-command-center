@@ -17,6 +17,7 @@ export type Client = {
   websiteBacklog: number;
   performanceTrend: "up" | "flat" | "down";
   monthlyRetainer?: number | null;
+  healthStatus?: "green" | "yellow" | "red";
   // Computed
   contentBufferStatus: Status;
   adsHealthStatus: Status;

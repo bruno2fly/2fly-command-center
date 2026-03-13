@@ -80,14 +80,10 @@ export function buildClientLanes(
     const unpaidAmount = overdueInvoices.length > 0
       ? overdueInvoices.reduce((s, i) => s + i.amount, 0)
       : null;
-    // Use DB-computed healthStatus (from statusEngine) instead of frontend re-computation
-    const health = (client as any).healthStatus === "green"
-      ? "green"
-      : (client as any).healthStatus === "yellow"
-        ? "yellow"
-        : (client as any).healthStatus === "red"
-          ? "red"
-          : computeClientHealth({
+    // Use DB-computed healthStatus (from statusEngine) when available
+    const health = client.healthStatus
+      ? client.healthStatus
+      : computeClientHealth({
               contentBufferDays: client.contentBufferDays,
               hasOverdueInvoice: unpaidAmount != null && unpaidAmount > 0,
               lastDeliveredDate: extra.lastDeliveredDate,
