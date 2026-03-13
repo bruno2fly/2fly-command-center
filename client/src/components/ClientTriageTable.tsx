@@ -38,7 +38,7 @@ function PaymentIndicator({ lane }: { lane: ClientLane }) {
 }
 
 function AdsIndicator({ lane }: { lane: ClientLane }) {
-  if (lane.adsRoas != null)
+  if (lane.adsRoas != null && lane.adsRoas > 0)
     return (
       <span className="text-emerald-600 dark:text-emerald-400">
         {lane.adsRoasTrend ?? `${lane.adsRoas.toFixed(1)}x`}

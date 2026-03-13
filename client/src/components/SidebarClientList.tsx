@@ -86,34 +86,7 @@ export function SidebarClientList() {
         >
           Settings
         </Link>
-        <Link
-          href="/whatsapp"
-          className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
-            pathname === "/whatsapp" || pathname === "/whatsapp-inbox"
-              ? isDark
-                ? "bg-slate-800 text-emerald-400"
-                : "bg-blue-100 text-blue-700"
-              : isDark
-                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          }`}
-        >
-          WhatsApp Inbox
-        </Link>
-        <Link
-          href="/admin/whatsapp"
-          className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
-            pathname === "/admin/whatsapp"
-              ? isDark
-                ? "bg-slate-800 text-emerald-400"
-                : "bg-blue-100 text-blue-700"
-              : isDark
-                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          }`}
-        >
-          WhatsApp Chat
-        </Link>
+        {/* WhatsApp removed — cancelled */}
         <h2 className={`text-xs font-semibold uppercase tracking-wider pt-2 px-3 ${isDark ? "text-slate-500" : "text-gray-400"}`}>
           Clients
         </h2>
