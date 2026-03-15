@@ -15,6 +15,8 @@ type Props = {
   onAcknowledge?: () => void;
   onResolve?: () => void;
   onExecute?: () => void;
+  onApproveAgentAction?: () => void;
+  onConvertToTasks?: () => void;
   onSkip?: () => void;
   onDueDateChange?: (taskId: string, dueDate: string | null) => void;
   onOpenTaskDetail?: (taskId: string) => void;
@@ -66,6 +68,8 @@ export function ActionCard({
   onAcknowledge,
   onResolve,
   onExecute,
+  onApproveAgentAction,
+  onConvertToTasks,
   onSkip,
   onDueDateChange,
   onOpenTaskDetail,
@@ -88,10 +92,17 @@ export function ActionCard({
       onClick={isTaskClickable ? () => onOpenTaskDetail(action.entityId) : undefined}
       role={isTaskClickable ? "button" : undefined}
     >
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.normal}`}>
-          {action.isOverdue ? "OVERDUE" : action.priority.toUpperCase()}
-        </span>
+      <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          {action.entityType === "agent_action" && (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-medium border bg-indigo-500/20 text-indigo-300 border-indigo-500/30">
+              🤖 Agent
+            </span>
+          )}
+          <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.normal}`}>
+            {action.entityType === "agent_action" ? "REVIEW" : action.isOverdue ? "OVERDUE" : action.priority.toUpperCase()}
+          </span>
+        </div>
         <span className={`text-xs ${mutedCls}`}>{position} of {total}</span>
       </div>
 
@@ -196,13 +207,22 @@ export function ActionCard({
         )}
         {action.entityType === "agent_action" && (
           <>
-            {onExecute && (
+            {onApproveAgentAction && (
               <button
                 type="button"
-                onClick={onExecute}
-                className="flex-1 min-w-[120px] py-3 px-4 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors"
+                onClick={onApproveAgentAction}
+                className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition-colors"
               >
-                Execute ✅
+                ✅ Approve
+              </button>
+            )}
+            {onConvertToTasks && (
+              <button
+                type="button"
+                onClick={onConvertToTasks}
+                className="flex-1 min-w-[120px] py-3 px-4 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 transition-colors"
+              >
+                📋 Create Tasks
               </button>
             )}
             {onReject && (
@@ -211,7 +231,7 @@ export function ActionCard({
                 onClick={onReject}
                 className="flex-1 min-w-[100px] py-3 px-4 rounded-xl bg-red-500/20 text-red-400 font-medium hover:bg-red-500/30 transition-colors"
               >
-                ❌ Reject
+                ❌ Dismiss
               </button>
             )}
           </>

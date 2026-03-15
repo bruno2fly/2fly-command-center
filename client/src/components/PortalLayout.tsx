@@ -6,6 +6,7 @@ import { SidebarClientList } from "./SidebarClientList";
 import { FloatingChatWidget } from "./agent-chat/FloatingChatWidget";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { FocusModeProvider } from "@/contexts/FocusModeContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ActionsProvider } from "@/contexts/ActionsContext";
 import { ClientsProvider } from "@/contexts/ClientsContext";
 import { DailyPlannerProvider } from "@/contexts/DailyPlannerContext";
@@ -45,15 +46,17 @@ export function PortalLayout({ children }: Props) {
   return (
     <ThemeProvider>
       <FocusModeProvider>
-        <ClientsProvider>
-          <ActionsProvider>
-            <DailyPlannerProvider>
-              <AgentChatProvider>
-                <PortalLayoutInner>{children}</PortalLayoutInner>
-              </AgentChatProvider>
-            </DailyPlannerProvider>
-          </ActionsProvider>
-        </ClientsProvider>
+        <WorkspaceProvider>
+          <ClientsProvider>
+            <ActionsProvider>
+              <DailyPlannerProvider>
+                <AgentChatProvider>
+                  <PortalLayoutInner>{children}</PortalLayoutInner>
+                </AgentChatProvider>
+              </DailyPlannerProvider>
+            </ActionsProvider>
+          </ClientsProvider>
+        </WorkspaceProvider>
       </FocusModeProvider>
     </ThemeProvider>
   );

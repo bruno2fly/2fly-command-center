@@ -8,6 +8,7 @@ const { registerAutomations } = require("./lib/automations");
 import whatsappRoutes from "./routes/whatsapp.js";
 import agentsRoutes from "./routes/agents.js";
 import agentToolsRoutes from "./routes/agent-tools.js";
+import taskExecuteRoutes from "./routes/task-execute";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -30,6 +31,7 @@ app.use("/api/agent-tools", agentToolsRoutes);
 app.use("/api/briefs", require("./routes/briefs"));
 app.use("/api/directives", require("./routes/directives"));
 app.use("/api/agent-actions", require("./routes/agent-actions"));
+app.use("/api/tasks", taskExecuteRoutes);
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/invoices", require("./routes/invoices"));
 

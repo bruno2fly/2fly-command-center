@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useClients } from "@/contexts/ClientsContext";
@@ -29,6 +29,8 @@ function parseTabFromUrl(searchParams: ReturnType<typeof useSearchParams> | null
 export default function ClientControlRoomPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
   const id = params?.id ?? "";
   const { clients } = useClients();
   const { isDark } = useTheme();
@@ -172,6 +174,16 @@ export default function ClientControlRoomPage() {
     [id]
   );
 
+  const navigateToTab = useCallback(
+    (tab: string) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.set("tab", tab);
+      params.delete("sub");
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   if (!client || !lane) {
     return (
       <div className="p-6">
@@ -249,6 +261,7 @@ export default function ClientControlRoomPage() {
           onTitleChange={handleTaskTitleChange}
           onDescriptionChange={handleTaskDescriptionChange}
           onDelete={handleTaskDelete}
+          onNavigateToTab={navigateToTab}
         />
       )}
       {showCreateTask && (

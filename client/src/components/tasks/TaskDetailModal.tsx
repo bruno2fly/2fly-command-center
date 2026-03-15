@@ -3,7 +3,29 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { generateTaskPrompt } from "@/lib/generateTaskPrompt";
 import { getSourceBadge } from "./sourceBadges";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+export type ExecuteResult = {
+  success: boolean;
+  executionType: string;
+  type: string;
+  summary: string;
+  itemsCreated: number;
+  destination?: string;
+  items?: { id: string; title: string; type: string }[];
+  error?: string;
+};
+
+const DESTINATION_TAB: Record<string, { label: string; tab: string }> = {
+  content: { label: "📝 View in Content Tab →", tab: "content" },
+  ads: { label: "📊 View in Ads Tab →", tab: "ads" },
+  reports: { label: "📈 View in Reports Tab →", tab: "reports" },
+};
 
 export type TaskDetailTask = {
   id: string;
@@ -61,6 +83,7 @@ export interface TaskDetailModalProps {
   onTitleChange?: (taskId: string, title: string) => void;
   onDescriptionChange?: (taskId: string, description: string) => void;
   onDelete: (taskId: string) => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 export function TaskDetailModal({
@@ -74,6 +97,7 @@ export function TaskDetailModal({
   onTitleChange,
   onDescriptionChange,
   onDelete,
+  onNavigateToTab,
 }: TaskDetailModalProps) {
   const { isDark } = useTheme();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -82,6 +106,9 @@ export function TaskDetailModal({
   const [editDescription, setEditDescription] = useState(task.description ?? "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [executeResult, setExecuteResult] = useState<ExecuteResult | null>(null);
 
   useEffect(() => {
     setEditTitle(task.title);
@@ -126,6 +153,45 @@ export function TaskDetailModal({
     : { text: "Not set", className: mutedCls };
 
   const sourceBadge = getSourceBadge(task.source);
+
+  const handleExecute = useCallback(async () => {
+    setExecuting(true);
+    setExecuteResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/tasks/${task.id}/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const result = (await res.json()) as ExecuteResult & { error?: string };
+      if (result.success) {
+        setExecuteResult(result);
+        toast.success(result.summary);
+        onStatusChange(task.id, "completed");
+      } else {
+        toast.error(result.error || "Execution failed");
+      }
+    } catch {
+      toast.error("Agent couldn't execute — try Copy Prompt instead");
+    } finally {
+      setExecuting(false);
+    }
+  }, [task.id, task.title, onStatusChange]);
+
+  const handleCopyPrompt = useCallback(async () => {
+    try {
+      const client = await api.getClient(clientId) as { name?: string; notes?: string | null; platform?: string; platforms?: string; adBudget?: number; monthlyRetainer?: number };
+      const prompt = generateTaskPrompt(
+        { title: task.title, description: task.description, priority: task.priority, dueDate: task.dueDate, type: task.type },
+        { name: client.name ?? clientName, notes: client.notes, platform: client.platform ?? client.platforms, adBudget: client.adBudget, monthlyRetainer: client.monthlyRetainer }
+      );
+      await navigator.clipboard.writeText(prompt);
+      setCopySuccess(true);
+      window.setTimeout(() => setCopySuccess(false), 2000);
+      toast.success("Prompt copied — paste in Perplexity and go 🚀");
+    } catch {
+      toast.error("Failed to copy prompt");
+    }
+  }, [task, clientId, clientName]);
 
   return (
     <AnimatePresence>
@@ -277,6 +343,73 @@ export function TaskDetailModal({
                 </div>
               )}
             </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={handleExecute}
+                  disabled={executing || !!executeResult}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {executing ? (
+                    <>
+                      <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden />
+                      ⏳ Executing...
+                    </>
+                  ) : executeResult ? (
+                    "✅ Executed"
+                  ) : (
+                    "🤖 Execute"
+                  )}
+                </button>
+                <span className="text-[10px] text-blue-300/60 dark:text-blue-300/60 mt-0.5">Let AI handle this</span>
+              </div>
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={handleCopyPrompt}
+                  disabled={executing}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium bg-white/10 text-white hover:bg-white/15 border border-white/10 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  {copySuccess ? "✅ Copied!" : "📋 Copy Prompt"}
+                </button>
+                <span className="text-[10px] text-gray-400 mt-0.5">Run in Perplexity/Comet</span>
+              </div>
+            </div>
+
+            {executeResult && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4">
+                <h4 className={`text-sm font-semibold ${textCls} mb-2`}>✅ Execution Complete</h4>
+                <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"} mb-3`}>{executeResult.summary}</p>
+                {executeResult.items && executeResult.items.length > 0 && (
+                  <ul className="list-disc list-inside text-sm space-y-1 mb-3 text-gray-400">
+                    {executeResult.items.slice(0, 8).map((item) => (
+                      <li key={item.id}>
+                        <span className={isDark ? "text-gray-300" : "text-gray-700"}>
+                          {item.type === "reel" ? "🎬" : item.type === "story" ? "📱" : item.type === "carousel" ? "🎠" : "📸"} {item.title}
+                        </span>
+                      </li>
+                    ))}
+                    {executeResult.items.length > 8 && (
+                      <li className={mutedCls}>+{executeResult.items.length - 8} more</li>
+                    )}
+                  </ul>
+                )}
+                {executeResult.destination && DESTINATION_TAB[executeResult.destination] && onNavigateToTab && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onNavigateToTab(DESTINATION_TAB[executeResult.destination!].tab);
+                      onClose();
+                    }}
+                    className="text-sm font-medium text-emerald-400 hover:text-emerald-300"
+                  >
+                    {DESTINATION_TAB[executeResult.destination].label}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div>
               <h3 className={`text-xs font-semibold uppercase tracking-wider ${mutedCls} mb-2`}>Actions</h3>

@@ -12,6 +12,7 @@ import {
 import { createClient, type Client, type ClientRaw } from "@/lib/mockData";
 import { api, type ApiClient } from "@/lib/api";
 import type { InvoiceForLane } from "@/lib/founderData";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 const STORAGE_KEY = "2fly-clients";
 
@@ -81,18 +82,19 @@ const ClientsContext = createContext<ClientsContextValue | null>(null);
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export function ClientsProvider({ children }: { children: ReactNode }) {
+  const { workspace } = useWorkspace();
   const [clients, setClients] = useState<Client[]>([]);
   const [invoices, setInvoices] = useState<InvoiceForLane[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch from API on mount, fall back to cache only (no mock)
+  // Fetch from API on mount and when workspace changes
   useEffect(() => {
     let cancelled = false;
 
     async function fetchData() {
       try {
         const [clientsRes, invoicesRes] = await Promise.all([
-          fetch(`${API_BASE}/api/agent-tools/clients`).then((r) => r.ok ? r.json() : null),
+          fetch(`${API_BASE}/api/agent-tools/clients?workspace=${encodeURIComponent(workspace)}`).then((r) => r.ok ? r.json() : null),
           fetch(`${API_BASE}/api/agent-tools/invoices`).then((r) => r.ok ? r.json() : null),
         ]);
 
@@ -126,7 +128,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
 
     fetchData();
     return () => { cancelled = true; };
-  }, []);
+  }, [workspace]);
 
   const persist = useCallback((next: Client[]) => {
     setClients(next);
@@ -138,7 +140,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   const refreshClients = useCallback(async () => {
     try {
       const [clientsRes, invoicesRes] = await Promise.all([
-        fetch(`${API_BASE}/api/agent-tools/clients`).then((r) => r.ok ? r.json() : null),
+        fetch(`${API_BASE}/api/agent-tools/clients?workspace=${encodeURIComponent(workspace)}`).then((r) => r.ok ? r.json() : null),
         fetch(`${API_BASE}/api/agent-tools/invoices`).then((r) => r.ok ? r.json() : null),
       ]);
       if (clientsRes?.clients?.length > 0) {
@@ -161,21 +163,21 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
       const cached = loadCachedClients();
       if (cached && cached.length > 0) setClients(cached);
     }
-  }, []);
+  }, [workspace]);
 
   const addClient = useCallback(
     (raw: ClientRaw) => {
       const next = [...clients, createClient(raw)];
       persist(next);
 
-      // Also POST to API (fire-and-forget)
+      // Also POST to API (fire-and-forget), use current workspace
       fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/agent-tools/clients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: raw.name }),
+        body: JSON.stringify({ name: raw.name, workspace }),
       }).catch(() => { /* API down, local state still updated */ });
     },
-    [clients, persist]
+    [clients, persist, workspace]
   );
 
   const deleteClient = useCallback(

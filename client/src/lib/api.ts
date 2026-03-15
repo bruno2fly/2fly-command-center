@@ -360,6 +360,13 @@ export const api = {
     }),
   deleteClientTask: (clientId: string, taskId: string) =>
     fetchMainAPI<{ deleted: boolean }>(`/clients/${clientId}/tasks/${taskId}`, { method: 'DELETE' }),
+  /** POST /api/agents/chat — send message to agent for task execution */
+  postAgentChat: (payload: { agent: string; message: string; clientId?: string }) =>
+    fetchMainAPI<{ success: boolean; response: string; agent: string }>('/agents/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent: payload.agent, message: payload.message, clientId: payload.clientId }),
+    }),
   getClientActions: (clientId: string) =>
     fetchMainAPI<{ actions: ApiAction[]; total: number }>(`/clients/${clientId}/actions`),
   getClientReports: (clientId: string, params?: { type?: "daily" | "weekly"; limit?: number }) => {

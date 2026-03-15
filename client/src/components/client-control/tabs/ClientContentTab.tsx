@@ -8,9 +8,7 @@ import { getContentCalendar } from "@/lib/client/mockClientTabData";
 import { ContentKPIStrip, type ContentKPIs } from "@/components/client-control/content/ContentKPIStrip";
 import { ContentStatsBar } from "@/components/client-control/content/ContentStatsBar";
 import { CreateContentModal } from "@/components/client-control/content/CreateContentModal";
-import { EditContentModal } from "@/components/client-control/content/EditContentModal";
-import { ContentPipelineKanban, columnIdToDefaultStatus } from "@/components/client-control/content/ContentPipelineKanban";
-import { AIContentIdeasSection } from "@/components/client-control/content/AIContentIdeasSection";
+import { ContentIdeasView } from "@/components/client-control/content/ContentIdeasView";
 import { ReelIdeasRow, type ReelIdeaCard } from "@/components/client-control/content/ReelIdeasRow";
 import { ReferenceLinksRow } from "@/components/client-control/content/ReferenceLinksRow";
 import { MonthlyPlannerCompact } from "@/components/client-control/content/MonthlyPlannerCompact";
@@ -61,7 +59,6 @@ export function ClientContentTab({ clientId }: Props) {
   const [clientName, setClientName] = useState<string | null>(null);
   const [schedulingIdea, setSchedulingIdea] = useState<ContentIdea | null>(null);
   const [scheduleDate, setScheduleDate] = useState<string>("");
-  const [selectedContent, setSelectedContent] = useState<ApiContentItem | null>(null);
   const [showCreateContent, setShowCreateContent] = useState(false);
   const [defaultCreateStatus, setDefaultCreateStatus] = useState("draft");
 
@@ -278,27 +275,6 @@ export function ClientContentTab({ clientId }: Props) {
     setIdeas((prev) => [...prev, newIdea]);
   }, [clientId]);
 
-  const handleApproveContent = useCallback((id: string) => {
-    api.patchContent(id, { status: "approved" }).then((updated) => {
-      setContent((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    }).catch(() => {});
-  }, []);
-  const handleRejectContent = useCallback((id: string) => {
-    api.patchContent(id, { status: "cancelled" }).then((updated) => {
-      setContent((prev) => prev.map((c) => (c.id === id ? updated : c)));
-    }).catch(() => {});
-  }, []);
-
-  const handleContentStatusChange = useCallback((itemId: string, newStatus: string) => {
-    api.patchContent(itemId, { status: newStatus }).then((updated) => {
-      setContent((prev) => prev.map((c) => (c.id === itemId ? updated : c)));
-    }).catch(() => {});
-  }, []);
-
-  const openCreateWithStatus = useCallback((columnId: string) => {
-    setDefaultCreateStatus(columnIdToDefaultStatus(columnId));
-    setShowCreateContent(true);
-  }, []);
 
   const addReference = useCallback(() => {
     const newRef: ReferenceLink = {
@@ -327,23 +303,7 @@ export function ClientContentTab({ clientId }: Props) {
       </div>
 
       <div className="p-4 space-y-6">
-        <ContentPipelineKanban
-          content={content}
-          onItemClick={setSelectedContent}
-          onStatusChange={handleContentStatusChange}
-          onAddInColumn={openCreateWithStatus}
-        />
-        {/* Main: AI Content Ideas — ~60% visual weight */}
-        <div className="min-h-[400px]">
-          <AIContentIdeasSection
-            ideas={ideas}
-            agentContent={content}
-            onIdeasChange={setIdeas}
-            onSchedule={handleSchedule}
-            onApproveContent={handleApproveContent}
-            onRejectContent={handleRejectContent}
-          />
-        </div>
+        <ContentIdeasView clientId={clientId} onRefresh={fetchContent} />
 
         {/* Reel Ideas row */}
         <ReelIdeasRow
@@ -370,14 +330,6 @@ export function ClientContentTab({ clientId }: Props) {
           onSuccess={fetchContent}
         />
       )}
-      {selectedContent && (
-        <EditContentModal
-          item={selectedContent}
-          onClose={() => setSelectedContent(null)}
-          onSuccess={() => { fetchContent(); setSelectedContent(null); }}
-        />
-      )}
-
       {/* Schedule date picker modal */}
       {schedulingIdea && (
         <div

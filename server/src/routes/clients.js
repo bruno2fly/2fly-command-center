@@ -9,11 +9,14 @@ const { computeClientHealth, recomputeAllClients } = require("../lib/statusEngin
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET /api/clients — all clients with current health
+// GET /api/clients — all clients with current health (optional ?workspace=agency|saas)
 router.get("/", async (req, res) => {
   try {
+    const workspace = (req.query.workspace || "agency").toString();
+    const where = { status: "active" };
+    if (workspace === "agency" || workspace === "saas") where.workspace = workspace;
     const clients = await prisma.client.findMany({
-      where: { status: "active" },
+      where,
       orderBy: { name: "asc" },
     });
 

@@ -23,7 +23,20 @@ export function FocusedActionFlow({ clientId, clientName, onOpenTaskDetail }: Pr
     api
       .getClientActions(clientId)
       .then((r) => {
-        setQueue(r.actions ?? []);
+        const actions = r.actions ?? [];
+        // Agent actions (proposals) first, then rest by overdue + priority
+        const agentFirst = [...actions].sort((a, b) => {
+          const aAgent = a.entityType === "agent_action" ? 1 : 0;
+          const bAgent = b.entityType === "agent_action" ? 1 : 0;
+          if (aAgent !== bAgent) return bAgent - aAgent; // agent_action first
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+          const pa = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2;
+          const pb = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2;
+          return pa - pb;
+        });
+        setQueue(agentFirst);
       })
       .catch(() => setQueue([]))
       .finally(() => setLoading(false));
@@ -97,6 +110,21 @@ export function FocusedActionFlow({ clientId, clientName, onOpenTaskDetail }: Pr
     api.executeAgentAction(current.entityId).then(removeCurrentAndNext).catch(() => {});
   }, [current]);
 
+  const handleApproveAgentAction = useCallback(() => {
+    if (!current || current.entityType !== "agent_action") return;
+    api.patchAgentAction(current.entityId, { status: "approved" }).then(removeCurrentAndNext).catch(() => {});
+  }, [current]);
+
+  const handleConvertToTasks = useCallback(() => {
+    if (!current || current.entityType !== "agent_action") return;
+    api
+      .convertAgentActionToTasks(current.entityId, clientId)
+      .then(() => {
+        removeCurrentAndNext();
+      })
+      .catch(() => {});
+  }, [clientId, current]);
+
   const handleRejectAgentAction = useCallback(() => {
     if (!current || current.entityType !== "agent_action") return;
     api.patchAgentAction(current.entityId, { status: "rejected" }).then(removeCurrentAndNext).catch(() => {});
@@ -144,6 +172,8 @@ export function FocusedActionFlow({ clientId, clientName, onOpenTaskDetail }: Pr
           onAcknowledge={current?.entityType === "request" ? handleAcknowledge : undefined}
           onResolve={current?.entityType === "request" ? handleResolve : undefined}
           onExecute={current?.entityType === "agent_action" ? handleExecute : undefined}
+          onApproveAgentAction={current?.entityType === "agent_action" ? handleApproveAgentAction : undefined}
+          onConvertToTasks={current?.entityType === "agent_action" ? handleConvertToTasks : undefined}
           onDueDateChange={current?.entityType === "task" ? handleDueDateChange : undefined}
           onSkip={skipCurrent}
           onOpenTaskDetail={current?.entityType === "task" ? onOpenTaskDetail : undefined}

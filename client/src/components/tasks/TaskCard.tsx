@@ -50,9 +50,11 @@ type Props = {
   onStatusChange?: (status: string) => void;
   onDueDateChange?: (taskId: string, dueDate: string | null) => void;
   onTaskClick?: (task: ApiTask) => void;
+  onExecute?: (task: ApiTask) => void;
+  onCopyPrompt?: (task: ApiTask) => void;
 };
 
-export function TaskCard({ task, onStatusChange, onDueDateChange, onTaskClick }: Props) {
+export function TaskCard({ task, onStatusChange, onDueDateChange, onTaskClick, onExecute, onCopyPrompt }: Props) {
   const { isDark } = useTheme();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const isCompleted = task.status === "completed";
@@ -86,17 +88,45 @@ export function TaskCard({ task, onStatusChange, onDueDateChange, onTaskClick }:
           {isCompleted ? "✅" : priorityIcon}
         </span>
         <div className="min-w-0 flex-1">
-          <p
-            className={`text-sm font-medium truncate ${
+          <div className="flex items-center justify-between gap-2">
+            <p
+              className={`text-sm font-medium truncate flex-1 min-w-0 ${
               isCompleted
                 ? "text-gray-500 line-through"
                 : isDark
                   ? "text-[#c4b8a8]"
                   : "text-gray-900"
             }`}
-          >
-            {task.title}
-          </p>
+            >
+              {task.title}
+            </p>
+            {(onExecute || onCopyPrompt) && !isCompleted && (
+              <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                {onExecute && (
+                  <button
+                    type="button"
+                    onClick={() => onExecute(task)}
+                    className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    title="Execute with AI"
+                    aria-label="Execute with AI"
+                  >
+                    🤖
+                  </button>
+                )}
+                {onCopyPrompt && (
+                  <button
+                    type="button"
+                    onClick={() => onCopyPrompt(task)}
+                    className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    title="Copy prompt to clipboard"
+                    aria-label="Copy prompt to clipboard"
+                  >
+                    📋
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           {task.description && (
             <p className={`text-xs mt-0.5 line-clamp-2 ${isCompleted ? "text-gray-400" : isDark ? "text-gray-500" : "text-gray-600"}`}>
               {task.description}

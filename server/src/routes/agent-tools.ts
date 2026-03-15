@@ -30,11 +30,14 @@ router.use(agentAuth);
 // CLIENTS — Used by: client-memory, founder-boss
 // ================================================================
 
-// GET /api/agent-tools/clients — List all active clients with health
-router.get('/clients', async (_req: Request, res: Response) => {
+// GET /api/agent-tools/clients — List all active clients with health (optional ?workspace=agency|saas)
+router.get('/clients', async (req: Request, res: Response) => {
   try {
+    const workspace = (req.query.workspace as string) || 'agency';
+    const where: { status: string; workspace?: string } = { status: 'active' };
+    if (workspace === 'agency' || workspace === 'saas') where.workspace = workspace;
     const clients = await prisma.client.findMany({
-      where: { status: 'active' },
+      where,
       orderBy: { name: 'asc' },
     });
 
@@ -80,7 +83,7 @@ router.post('/clients', async (req: Request, res: Response) => {
   try {
     const {
       name, contactName, contactEmail, platforms, monthlyRetainer, adBudget,
-      roasTarget, notes, status, healthStatus,
+      roasTarget, notes, status, healthStatus, workspace: workspaceBody,
     } = req.body;
 
     if (!name) return res.status(400).json({ error: 'Client name is required' });
@@ -88,6 +91,8 @@ router.post('/clients', async (req: Request, res: Response) => {
     const platformsStr =
       typeof platforms === 'string' ? platforms :
       Array.isArray(platforms) ? JSON.stringify(platforms) : '["meta"]';
+
+    const workspace = workspaceBody === 'saas' ? 'saas' : 'agency';
 
     const client = await prisma.client.create({
       data: {
@@ -101,6 +106,7 @@ router.post('/clients', async (req: Request, res: Response) => {
         notes: notes || null,
         status: status || 'active',
         healthStatus: healthStatus || 'green',
+        workspace,
       },
     });
 
@@ -116,7 +122,7 @@ router.patch('/clients/:id', async (req: Request, res: Response) => {
   try {
     const allowed = [
       'name', 'contactName', 'contactEmail', 'monthlyRetainer', 'adBudget',
-      'roasTarget', 'platforms', 'status', 'healthStatus', 'notes',
+      'roasTarget', 'platforms', 'status', 'healthStatus', 'notes', 'workspace',
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) {

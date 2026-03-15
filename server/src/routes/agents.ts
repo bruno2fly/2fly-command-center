@@ -221,11 +221,69 @@ router.post('/chat', async (req: Request, res: Response) => {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[agents/chat] Error:', errMsg);
 
-    if (errMsg.includes('No Anthropic API key')) {
-      return res.status(503).json({
-        error: 'No Anthropic API key configured.',
-        hint: 'Set ANTHROPIC_API_KEY in server/.env',
-      });
+    // Fallback: if Anthropic key fails (no key or out of credits), use openclaw run CLI
+    if (errMsg.includes('No Anthropic API key') || errMsg.includes('credit balance') || errMsg.includes('api_key')) {
+      console.log('[agents/chat] Anthropic key failed, falling back to openclaw run CLI...');
+      try {
+        const { execSync } = await import('child_process');
+        const { agent, message: userMsg, clientId } = req.body as { agent?: string; message?: string; clientId?: string };
+        
+        // Build context
+        let contextData = '';
+        if (clientId) {
+          const ctx = await fetchClientContext(clientId);
+          if (ctx) contextData = `\n\nCLIENT CONTEXT:\n${ctx}`;
+        }
+        
+        // Load agent SOUL if available
+        const { join } = await import('path');
+        const { homedir } = await import('os');
+        const { readFileSync, existsSync } = await import('fs');
+        const soulPath = join(homedir(), '.openclaw', 'agents', agent || '', 'workspace', 'SOUL.md');
+        let soulContext = '';
+        if (existsSync(soulPath)) {
+          const soul = readFileSync(soulPath, 'utf-8');
+          soulContext = `\n\nYou are the ${agent} agent. Follow your SOUL:\n${soul.slice(0, 2000)}`;
+        }
+
+        const fullPrompt = `${soulContext}${contextData}\n\nUser request: ${userMsg}`;
+        
+        // Use openclaw agent CLI
+        const escapedPrompt = fullPrompt.replace(/'/g, "'\\''");
+        const result = execSync(
+          `openclaw agent --agent ${agent || 'content-system'} --json -m '${escapedPrompt}'`,
+          { 
+            encoding: 'utf-8', 
+            timeout: 120000,
+            env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' }
+          }
+        );
+        
+        // Parse openclaw agent JSON output
+        let agentResponse = result.trim();
+        try {
+          const parsed = JSON.parse(agentResponse);
+          // openclaw agent --json returns { result: { payloads: [{ text: "..." }] } }
+          if (parsed.result?.payloads?.[0]?.text) {
+            agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
+          } else {
+            agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
+          }
+        } catch { /* use raw text */ }
+        
+        return res.json({
+          success: true,
+          response: agentResponse,
+          agent: agent,
+          fallback: true,
+        });
+      } catch (fallbackErr) {
+        console.error('[agents/chat] Fallback also failed:', fallbackErr);
+        return res.status(503).json({
+          error: 'AI service unavailable. Both Anthropic API and OpenClaw fallback failed.',
+          hint: 'Add credits at console.anthropic.com or check openclaw status',
+        });
+      }
     }
 
     res.status(500).json({ error: errMsg });

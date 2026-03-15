@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAgentChat } from "@/contexts/AgentChatContext";
 import { useClients } from "@/contexts/ClientsContext";
+import { useWorkspace, type WorkspaceId } from "@/contexts/WorkspaceContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
@@ -19,11 +20,11 @@ export function CommandBar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { setTheme, isDark } = useTheme();
+  const { workspace, setWorkspace } = useWorkspace();
   const { togglePanel: toggleAgentChat, panelOpen: agentChatOpen } = useAgentChat();
+  const { invoices } = useClients();
   const [quickCapture, setQuickCapture] = useState("");
   const [quickCaptureLoading, setQuickCaptureLoading] = useState(false);
-
-  const { invoices } = useClients();
   const alerts = getGlobalAlerts();
   const approvals = getGlobalApprovals();
   const now = new Date();
@@ -101,8 +102,42 @@ export function CommandBar() {
             : "bg-white border-b border-gray-100"
         }`}
       >
-        {/* LEFT ZONE: Search + Critical Alert */}
+        {/* LEFT ZONE: Workspace switcher + Search + Critical Alert */}
         <div className="flex items-center gap-3 flex-1 min-w-0 max-w-xl">
+          <div
+            className={`flex rounded-lg p-0.5 border shrink-0 ${
+              isDark ? "bg-[#0a0a0e] border-[#1a1810]" : "bg-gray-100 border-gray-200"
+            }`}
+            role="tablist"
+            aria-label="Workspace"
+          >
+            {(
+              [
+                { id: "agency" as WorkspaceId, label: "🏢 2FLY Agency", title: "Agency clients" },
+                { id: "saas" as WorkspaceId, label: "🚀 2FLY SaaS", title: "Bruno's products" },
+              ] as const
+            ).map(({ id, label, title }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={workspace === id}
+                title={title}
+                onClick={() => setWorkspace(id)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  workspace === id
+                    ? isDark
+                      ? "bg-[#1a1810] text-emerald-400/90 shadow-sm"
+                      : "bg-white text-gray-900 shadow-sm"
+                    : isDark
+                      ? "text-[#8a7e6d] hover:text-[#c4b8a8]"
+                      : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setSearchOpen(true)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm min-w-[140px] shrink-0 ${

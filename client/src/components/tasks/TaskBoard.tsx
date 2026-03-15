@@ -1,24 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { api, type ApiTask } from "@/lib/api";
+import { generateTaskPrompt } from "@/lib/generateTaskPrompt";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 import { TaskCard } from "./TaskCard";
-import { TaskFilters } from "./TaskFilters";
+import { TaskFilters, type TaskFilterCounts } from "./TaskFilters";
 
 const COLUMNS = [
   { id: "pending", label: "Pending" },
   { id: "in_progress", label: "In Progress" },
   { id: "completed", label: "Completed" },
 ] as const;
-
-const SOURCE_QUICK_FILTERS: { value: string; icon: string; label: string }[] = [
-  { value: "", icon: "•", label: "All" },
-  { value: "manual", icon: "👤", label: "Mine" },
-  { value: "agent", icon: "🤖", label: "Agent" },
-  { value: "onboarding", icon: "📋", label: "Onboarding" },
-];
 
 type Props = {
   clientId: string;
@@ -31,9 +28,30 @@ type Props = {
 export function TaskBoard({ clientId, clientName = "—", onSelectTask, onOpenCreateTask, refreshTrigger = 0 }: Props) {
   const { isDark } = useTheme();
   const [tasks, setTasks] = useState<ApiTask[]>([]);
+  const [allTasksForCounts, setAllTasksForCounts] = useState<ApiTask[]>([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+
+  const filterCounts = useMemo((): TaskFilterCounts | undefined => {
+    if (allTasksForCounts.length === 0) return undefined;
+    const status: Record<string, number> = {};
+    const type: Record<string, number> = {};
+    const source: Record<string, number> = {};
+    for (const t of allTasksForCounts) {
+      status[t.status] = (status[t.status] ?? 0) + 1;
+      type[t.type ?? "task"] = (type[t.type ?? "task"] ?? 0) + 1;
+      source[t.source ?? "manual"] = (source[t.source ?? "manual"] ?? 0) + 1;
+    }
+    return { status, type, source };
+  }, [allTasksForCounts]);
+
+  useEffect(() => {
+    api
+      .getClientTasks(clientId, {})
+      .then((r) => setAllTasksForCounts(r.tasks ?? []))
+      .catch(() => setAllTasksForCounts([]));
+  }, [clientId, refreshTrigger]);
 
   const fetchTasks = useCallback(() => {
     const params: { status?: string; type?: string; source?: string } = {};
@@ -80,37 +98,55 @@ export function TaskBoard({ clientId, clientName = "—", onSelectTask, onOpenCr
       .catch(() => {});
   };
 
+  const handleExecuteTask = useCallback(
+    async (task: ApiTask) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/tasks/${task.id}/execute`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const result = (await res.json()) as { success?: boolean; summary?: string; error?: string };
+        if (result.success) {
+          toast.success(result.summary ?? "Execution complete");
+          fetchTasks();
+        } else {
+          toast.error(result.error ?? "Execution failed");
+        }
+      } catch {
+        toast.error("Agent couldn't execute — try Copy Prompt instead");
+      }
+    },
+    [clientId, fetchTasks]
+  );
+
+  const handleCopyPrompt = useCallback(
+    async (task: ApiTask) => {
+      try {
+        const client = (await api.getClient(clientId)) as { name?: string; notes?: string | null; platform?: string; platforms?: string; adBudget?: number; monthlyRetainer?: number };
+        const prompt = generateTaskPrompt(
+          { title: task.title, description: task.description, priority: task.priority, dueDate: task.dueDate, type: task.type },
+          { name: client.name ?? clientName ?? "—", notes: client.notes, platform: client.platform ?? client.platforms, adBudget: client.adBudget, monthlyRetainer: client.monthlyRetainer }
+        );
+        await navigator.clipboard.writeText(prompt);
+        toast.success("Prompt copied — paste in Perplexity and go 🚀");
+      } catch {
+        toast.error("Failed to copy prompt");
+      }
+    },
+    [clientId, clientName]
+  );
+
   const colBg = isDark ? "bg-[rgba(30,41,59,0.3)] border-[rgba(51,65,85,0.5)]" : "bg-gray-50/80 border-gray-200";
-  const quickBtn = (active: boolean) =>
-    active
-      ? isDark
-        ? "bg-blue-500/25 text-blue-400 border-blue-500/40"
-        : "bg-blue-100 text-blue-700 border-blue-200"
-      : isDark
-        ? "text-gray-400 hover:text-gray-200 border-[rgba(51,65,85,0.5)] hover:border-gray-500"
-        : "text-gray-600 hover:text-gray-900 border-gray-200 hover:border-gray-300";
 
   return (
     <div className="p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {SOURCE_QUICK_FILTERS.map((f) => (
-            <button
-              key={f.value || "all"}
-              type="button"
-              onClick={() => setSourceFilter(f.value)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${quickBtn(sourceFilter === f.value)}`}
-            >
-              <span>{f.icon}</span>
-              <span>{f.label}</span>
-            </button>
-          ))}
-        </div>
+        <div className="flex-1 min-w-0" />
         {onOpenCreateTask && (
           <button
             type="button"
             onClick={onOpenCreateTask}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 border border-blue-500/30"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 border border-blue-500/30 shrink-0"
           >
             + Create Task
           </button>
@@ -123,6 +159,7 @@ export function TaskBoard({ clientId, clientName = "—", onSelectTask, onOpenCr
         onStatusChange={setStatusFilter}
         onTypeChange={setTypeFilter}
         onSourceChange={setSourceFilter}
+        counts={filterCounts}
       />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {COLUMNS.map((col) => {
@@ -155,6 +192,8 @@ export function TaskBoard({ clientId, clientName = "—", onSelectTask, onOpenCr
                       onStatusChange={(status) => handleStatusChange(task.id, status)}
                       onDueDateChange={handleDueDateChange}
                       onTaskClick={onSelectTask}
+                      onExecute={handleExecuteTask}
+                      onCopyPrompt={handleCopyPrompt}
                     />
                   ))
                 )}
