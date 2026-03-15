@@ -120,18 +120,32 @@ Respond ONLY with the JSON object, no other text.
 }
 
 async function callOpenClawGateway(prompt: string): Promise<string> {
+  // Use openclaw agent CLI (routes through OpenClaw's working provider config)
   try {
-    const result = execSync("openclaw run --model anthropic/claude-sonnet-4-20250514 --no-stream 2>/dev/null", {
-      encoding: "utf-8",
-      input: prompt,
-      maxBuffer: 1024 * 1024,
-      timeout: 120_000,
-    });
-    return (result || "").trim();
-  } catch {
+    const escapedPrompt = prompt.replace(/'/g, "'\\''");
+    const result = execSync(
+      `openclaw agent --agent content-system --json -m '${escapedPrompt}'`,
+      {
+        encoding: "utf-8",
+        maxBuffer: 1024 * 1024,
+        timeout: 120_000,
+        env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
+      }
+    );
+    // Parse openclaw agent JSON response
+    try {
+      const parsed = JSON.parse((result || "").trim());
+      if (parsed.result?.payloads?.[0]?.text) {
+        return parsed.result.payloads.map((p: any) => p.text).join('\n');
+      }
+      return parsed.reply || parsed.response || (result || "").trim();
+    } catch {
+      return (result || "").trim();
+    }
+  } catch (cliErr) {
     // Fallback: direct Anthropic API
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("No AI provider available. Set ANTHROPIC_API_KEY or use OpenClaw CLI.");
+    if (!apiKey) throw new Error("No AI provider available. OpenClaw CLI failed and no ANTHROPIC_API_KEY set.");
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
