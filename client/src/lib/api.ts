@@ -221,6 +221,9 @@ export type ClientPayload = {
   status?: 'active' | 'paused' | 'offboarded';
   healthStatus?: 'green' | 'yellow' | 'red';
   notes?: string | null;
+  billingDay?: number;
+  autoInvoice?: boolean;
+  invoiceEmail?: string | null;
 };
 
 export const api = {

@@ -46,6 +46,9 @@ export function ClientFormModal({ isOpen, onClose, mode, client }: Props) {
   const [status, setStatus] = useState<"active" | "paused" | "offboarded">("active");
   const [healthStatus, setHealthStatus] = useState<"green" | "yellow" | "red">("green");
   const [notes, setNotes] = useState("");
+  const [billingDay, setBillingDay] = useState("1");
+  const [autoInvoice, setAutoInvoice] = useState(true);
+  const [invoiceEmail, setInvoiceEmail] = useState("");
 
   useEffect(() => {
     if (mode === "edit" && client) {
@@ -59,6 +62,9 @@ export function ClientFormModal({ isOpen, onClose, mode, client }: Props) {
       setStatus((client.status as "active" | "paused" | "offboarded") || "active");
       setHealthStatus((client.healthStatus as "green" | "yellow" | "red") || "green");
       setNotes(client.notes ?? "");
+      setBillingDay(String((client as any).billingDay ?? 1));
+      setAutoInvoice((client as any).autoInvoice ?? true);
+      setInvoiceEmail((client as any).invoiceEmail ?? "");
     } else {
       setName("");
       setContactName("");
@@ -70,6 +76,9 @@ export function ClientFormModal({ isOpen, onClose, mode, client }: Props) {
       setStatus("active");
       setHealthStatus("green");
       setNotes("");
+      setBillingDay("1");
+      setAutoInvoice(true);
+      setInvoiceEmail("");
     }
     setShowDeleteConfirm(false);
   }, [mode, client, isOpen]);
@@ -100,6 +109,9 @@ export function ClientFormModal({ isOpen, onClose, mode, client }: Props) {
         status,
         healthStatus,
         notes: notes.trim() || null,
+        billingDay: parseInt(billingDay) || 1,
+        autoInvoice,
+        invoiceEmail: invoiceEmail.trim() || null,
       };
       if (mode === "create") {
         await api.postClient(payload);
@@ -339,6 +351,61 @@ export function ClientFormModal({ isOpen, onClose, mode, client }: Props) {
               className={inputClass}
               disabled={submitting}
             />
+          </div>
+
+          {/* Billing Section */}
+          <div className={`pt-3 border-t ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
+            <h3 className={`text-sm font-semibold mb-3 ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>
+              💳 Billing
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="billing-day" className={labelClass}>
+                  Payment Due Day
+                </label>
+                <select
+                  id="billing-day"
+                  value={billingDay}
+                  onChange={(e) => setBillingDay(e.target.value)}
+                  className={inputClass}
+                  disabled={submitting}
+                >
+                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d} className={isDark ? "bg-[#0a0a0e]" : "bg-white"}>
+                      {d === 1 ? "1st" : d === 2 ? "2nd" : d === 3 ? "3rd" : `${d}th`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoInvoice}
+                    onChange={(e) => setAutoInvoice(e.target.checked)}
+                    disabled={submitting}
+                    className="rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500"
+                  />
+                  <span className={`text-sm ${isDark ? "text-[#8a7e6d]" : "text-gray-600"}`}>
+                    Auto-generate invoice
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div className="mt-3">
+              <label htmlFor="invoice-email" className={labelClass}>
+                Invoice Email (if different from contact)
+              </label>
+              <input
+                id="invoice-email"
+                type="email"
+                value={invoiceEmail}
+                onChange={(e) => setInvoiceEmail(e.target.value)}
+                placeholder="billing@client.com"
+                className={inputClass}
+                disabled={submitting}
+              />
+            </div>
           </div>
 
           {mode === "edit" && client && (
