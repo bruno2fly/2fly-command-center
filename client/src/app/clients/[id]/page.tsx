@@ -18,6 +18,7 @@ import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
 import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
 import { ClientReportsTab } from "@/components/client-control/tabs/ClientReportsTab";
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
+import { SaasOverviewTab } from "@/components/client-control/tabs/SaasOverviewTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
 import { TaskDetailModal, CreateTaskModal, type TaskDetailTask } from "@/components/tasks";
 
@@ -221,11 +222,19 @@ export default function ClientControlRoomPage() {
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
         {activeTab === "overview" && (
-          <ClientOverviewTab
-            clientId={id}
-            clientName={clientDisplayName}
-            onOpenTaskDetail={handleOpenTaskFromOverview}
-          />
+          client?.workspace === "saas" ? (
+            <SaasOverviewTab
+              clientId={id}
+              clientName={clientDisplayName}
+              onOpenTaskDetail={handleOpenTaskFromOverview}
+            />
+          ) : (
+            <ClientOverviewTab
+              clientId={id}
+              clientName={clientDisplayName}
+              onOpenTaskDetail={handleOpenTaskFromOverview}
+            />
+          )
         )}
         {activeTab === "tasks" && (
           <ClientTasksTab

@@ -18,6 +18,8 @@ export type Client = {
   performanceTrend: "up" | "flat" | "down";
   monthlyRetainer?: number | null;
   healthStatus?: "green" | "yellow" | "red";
+  workspace?: string;
+  notes?: string | null;
   // Computed
   contentBufferStatus: Status;
   adsHealthStatus: Status;

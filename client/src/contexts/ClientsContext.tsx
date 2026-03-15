@@ -37,6 +37,8 @@ function mapApiClient(ac: ApiClient): Client {
   if (ac.healthStatus) {
     client.healthStatus = ac.healthStatus as "green" | "yellow" | "red";
   }
+  client.workspace = ac.workspace || "agency";
+  client.notes = ac.notes || null;
   return client;
 }
 

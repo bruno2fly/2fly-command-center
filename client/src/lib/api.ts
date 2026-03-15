@@ -654,6 +654,7 @@ export type ApiClient = {
   adBudget: number;
   roasTarget: number;
   notes: string | null;
+  workspace?: string;
   createdAt: string;
   updatedAt: string;
   health?: {
