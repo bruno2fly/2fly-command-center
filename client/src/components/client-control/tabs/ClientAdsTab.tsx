@@ -264,7 +264,7 @@ function AccountPickerModal({
 
 type RealAdData = Awaited<ReturnType<typeof api.getClientMain>>;
 
-function buildKpiFromReport(report: RealAdData["adReports"] extends (infer R)[] ? R : never): AdsKPIData {
+function buildKpiFromReport(report: NonNullable<RealAdData["adReports"]>[number]): AdsKPIData {
   const r = report as { spend?: number; roas?: number; ctr?: number; cpa?: number; conversions?: number };
   return {
     spend: r.spend ?? 0,

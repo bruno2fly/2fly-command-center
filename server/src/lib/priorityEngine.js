@@ -40,6 +40,7 @@ async function getTodayView(prisma) {
       tasks: { where: { status: { in: ["pending", "in_progress"] } }, orderBy: { createdAt: "desc" } },
       contentItems: { orderBy: { createdAt: "desc" }, take: 5 },
       adReports: { orderBy: { weekStart: "desc" }, take: 1 },
+      requests: { where: { status: { in: ["open", "pending", "in_progress"] } }, orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -107,6 +108,24 @@ async function getTodayView(prisma) {
         reason: getHealthReason(client),
         action: "Review and fix health issues",
         actionType: "health",
+      });
+    }
+
+    // SLA breach — open requests older than 3 days
+    const SLA_MS = 3 * 24 * 60 * 60 * 1000;
+    const breachedRequests = (client.requests || []).filter(
+      (r) => r.createdAt && (nowMs - new Date(r.createdAt).getTime()) > SLA_MS
+    );
+    if (breachedRequests.length > 0 && !seenCritical.has(`${client.id}-sla`)) {
+      seenCritical.add(`${client.id}-sla`);
+      const oldest = breachedRequests[0];
+      const ageDays = Math.floor((nowMs - new Date(oldest.createdAt).getTime()) / 86400000);
+      critical.push({
+        clientId: client.id,
+        clientName: client.name,
+        reason: `${breachedRequests.length} request(s) breaching SLA — oldest: ${ageDays} days`,
+        action: oldest.title || "Review pending requests",
+        actionType: "task",
       });
     }
 
