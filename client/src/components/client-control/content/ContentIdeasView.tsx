@@ -12,7 +12,7 @@ import { ContentIdeaCard } from "./ContentIdeaCard";
 import { ApprovedContentSection } from "./ApprovedContentSection";
 import { EditContentModal } from "./EditContentModal";
 
-const IDEA_STATUSES = ["draft", "review"];
+const IDEA_STATUSES = ["draft", "review", "idea"];
 const APPROVED_STATUS = "approved";
 
 function contentTypeToFilter(type: string): ContentIdeaFilter | null {
