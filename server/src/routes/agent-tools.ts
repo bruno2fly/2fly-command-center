@@ -183,7 +183,7 @@ router.get('/content', async (req: Request, res: Response) => {
 // POST /api/agent-tools/content — Create content item
 router.post('/content', async (req: Request, res: Response) => {
   try {
-    const { clientId, platform, contentType, title, caption, status, scheduledDate, assignedTo } = req.body;
+    const { clientId, platform, contentType, type, title, caption, notes, status, scheduledDate, assignedTo, source } = req.body;
 
     if (!clientId || !title) {
       return res.status(400).json({ error: 'clientId and title are required' });
@@ -193,12 +193,14 @@ router.post('/content', async (req: Request, res: Response) => {
       data: {
         clientId,
         platform: platform || 'meta',
-        contentType: contentType || 'post',
+        contentType: type || contentType || 'post',
         title,
         caption: caption || null,
+        notes: notes || null,
         status: status || 'draft',
         scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
         assignedTo: assignedTo || null,
+        source: source || 'manual',
       },
     });
 
