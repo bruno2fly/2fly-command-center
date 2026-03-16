@@ -409,6 +409,195 @@ function PersonCharacter({
   );
 }
 
+// ─── Tom the Office Cat 🐱 ──────────────────────────────────
+const TOM_SPOTS = [
+  { x: 450, y: 200, action: "walking" },    // open plan
+  { x: 180, y: 390, action: "sleeping" },    // meeting room (on table!)
+  { x: 340, y: 450, action: "sitting" },     // kitchen (near food)
+  { x: 600, y: 170, action: "walking" },     // near creative desk
+  { x: 760, y: 290, action: "sleeping" },    // data center (warm servers)
+  { x: 130, y: 180, action: "sitting" },     // boss's office
+  { x: 500, y: 310, action: "walking" },     // wandering
+  { x: 700, y: 420, action: "sitting" },     // QA lab
+];
+
+function OfficeCat() {
+  const [spotIndex, setSpotIndex] = useState(0);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSpotIndex((prev) => (prev + 1) % TOM_SPOTS.length);
+    }, 10000 + Math.random() * 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const spot = TOM_SPOTS[spotIndex];
+  const isSleeping = spot.action === "sleeping";
+  const isSitting = spot.action === "sitting";
+
+  return (
+    <motion.g
+      animate={{ x: spot.x, y: spot.y }}
+      transition={{ duration: 3, ease: "easeInOut" }}
+      style={{ cursor: "pointer" }}
+      onHoverStart={() => setShowTooltip(true)}
+      onHoverEnd={() => setShowTooltip(false)}
+    >
+      {/* Shadow */}
+      <ellipse cx={0} cy={8} rx={8} ry={3} fill="rgba(0,0,0,0.2)" />
+
+      {isSleeping ? (
+        // Sleeping cat — curled up
+        <g>
+          {/* Body (curled) */}
+          <ellipse cx={0} cy={0} rx={10} ry={6} fill="#f97316" />
+          <ellipse cx={0} cy={0} rx={9} ry={5} fill="#fb923c" />
+          {/* Stripes */}
+          <path d="M-4,-4 Q0,-6 4,-4" fill="none" stroke="#ea580c" strokeWidth={0.8} />
+          <path d="M-3,-1 Q0,-3 3,-1" fill="none" stroke="#ea580c" strokeWidth={0.8} />
+          {/* Head tucked in */}
+          <circle cx={-6} cy={-2} r={4} fill="#fb923c" />
+          {/* Ears */}
+          <polygon points="-9,-5 -7,-9 -5,-5" fill="#fb923c" stroke="#ea580c" strokeWidth={0.3} />
+          <polygon points="-4,-5 -2,-8 -1,-4" fill="#fb923c" stroke="#ea580c" strokeWidth={0.3} />
+          {/* Closed eyes */}
+          <path d="M-8,-2 Q-7,-3 -6,-2" fill="none" stroke="#7c2d12" strokeWidth={0.6} />
+          <path d="M-5,-1 Q-4,-2 -3,-1" fill="none" stroke="#7c2d12" strokeWidth={0.6} />
+          {/* Tail wrapped around */}
+          <path d="M8,0 Q12,-4 10,-8 Q8,-10 5,-8" fill="none" stroke="#fb923c" strokeWidth={2.5} strokeLinecap="round" />
+          {/* Zzz */}
+          <motion.text
+            x={8} y={-10}
+            fontSize={7} fill="rgba(148,163,184,0.4)"
+            animate={{ opacity: [0, 0.6, 0], y: [-10, -16, -10] }}
+            transition={{ duration: 2.5, repeat: Infinity }}
+          >
+            z
+          </motion.text>
+          <motion.text
+            x={14} y={-14}
+            fontSize={5} fill="rgba(148,163,184,0.3)"
+            animate={{ opacity: [0, 0.5, 0], y: [-14, -18, -14] }}
+            transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
+          >
+            z
+          </motion.text>
+        </g>
+      ) : isSitting ? (
+        // Sitting cat — upright
+        <g>
+          {/* Body */}
+          <ellipse cx={0} cy={2} rx={7} ry={6} fill="#f97316" />
+          <ellipse cx={0} cy={2} rx={6} ry={5} fill="#fb923c" />
+          {/* Head */}
+          <circle cx={0} cy={-7} r={5} fill="#fb923c" />
+          {/* Ears */}
+          <polygon points="-4,-11 -2,-16 0,-11" fill="#fb923c" stroke="#ea580c" strokeWidth={0.3} />
+          <polygon points="0,-11 2,-16 4,-11" fill="#fb923c" stroke="#ea580c" strokeWidth={0.3} />
+          {/* Inner ears */}
+          <polygon points="-3,-11 -2,-14 -1,-11" fill="#fda4af" />
+          <polygon points="1,-11 2,-14 3,-11" fill="#fda4af" />
+          {/* Eyes */}
+          <motion.g
+            animate={{ scaleY: [1, 0.1, 1] }}
+            transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
+          >
+            <circle cx={-2} cy={-7} r={1.2} fill="#15803d" />
+            <circle cx={2} cy={-7} r={1.2} fill="#15803d" />
+            <circle cx={-2} cy={-7} r={0.5} fill="#0a0a0a" />
+            <circle cx={2} cy={-7} r={0.5} fill="#0a0a0a" />
+          </motion.g>
+          {/* Nose */}
+          <polygon points="-0.5,-5 0.5,-5 0,-4.2" fill="#fda4af" />
+          {/* Whiskers */}
+          <line x1={-2} y1={-5} x2={-10} y2={-6} stroke="rgba(255,255,255,0.15)" strokeWidth={0.3} />
+          <line x1={-2} y1={-4.5} x2={-10} y2={-4} stroke="rgba(255,255,255,0.15)" strokeWidth={0.3} />
+          <line x1={2} y1={-5} x2={10} y2={-6} stroke="rgba(255,255,255,0.15)" strokeWidth={0.3} />
+          <line x1={2} y1={-4.5} x2={10} y2={-4} stroke="rgba(255,255,255,0.15)" strokeWidth={0.3} />
+          {/* Tail */}
+          <motion.path
+            d="M6,4 Q12,2 10,-4"
+            fill="none"
+            stroke="#fb923c"
+            strokeWidth={2}
+            strokeLinecap="round"
+            animate={{ d: ["M6,4 Q12,2 10,-4", "M6,4 Q14,0 10,-4", "M6,4 Q12,2 10,-4"] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+          {/* Front paws */}
+          <ellipse cx={-3} cy={7} rx={2.5} ry={1.5} fill="#fb923c" />
+          <ellipse cx={3} cy={7} rx={2.5} ry={1.5} fill="#fb923c" />
+        </g>
+      ) : (
+        // Walking cat
+        <g>
+          {/* Body */}
+          <ellipse cx={0} cy={0} rx={10} ry={5} fill="#f97316" />
+          <ellipse cx={0} cy={0} rx={9} ry={4} fill="#fb923c" />
+          {/* Stripes */}
+          <path d="M-3,-3 L-3,3" stroke="#ea580c" strokeWidth={0.6} />
+          <path d="M0,-4 L0,4" stroke="#ea580c" strokeWidth={0.6} />
+          <path d="M3,-3 L3,3" stroke="#ea580c" strokeWidth={0.6} />
+          {/* Head */}
+          <circle cx={-10} cy={-2} r={5} fill="#fb923c" />
+          {/* Ears */}
+          <polygon points="-13,-6 -12,-11 -9,-6" fill="#fb923c" stroke="#ea580c" strokeWidth={0.3} />
+          <polygon points="-9,-6 -8,-10 -6,-5" fill="#fb923c" stroke="#ea580c" strokeWidth={0.3} />
+          <polygon points="-12,-6 -12,-9 -10,-6" fill="#fda4af" />
+          <polygon points="-8,-6 -8,-9 -7,-5" fill="#fda4af" />
+          {/* Eyes */}
+          <circle cx={-12} cy={-2} r={1} fill="#15803d" />
+          <circle cx={-8} cy={-2} r={1} fill="#15803d" />
+          <circle cx={-12} cy={-2} r={0.4} fill="#0a0a0a" />
+          <circle cx={-8} cy={-2} r={0.4} fill="#0a0a0a" />
+          {/* Nose */}
+          <polygon points="-10.5,0 -9.5,0 -10,0.8" fill="#fda4af" />
+          {/* Legs (walking animation) */}
+          <motion.g
+            animate={{ rotate: [0, 15, 0, -15, 0] }}
+            transition={{ duration: 0.6, repeat: Infinity }}
+          >
+            <rect x={-6} y={4} width={2} height={5} rx={1} fill="#fb923c" />
+          </motion.g>
+          <motion.g
+            animate={{ rotate: [0, -15, 0, 15, 0] }}
+            transition={{ duration: 0.6, repeat: Infinity }}
+          >
+            <rect x={4} y={4} width={2} height={5} rx={1} fill="#fb923c" />
+          </motion.g>
+          <rect x={-2} y={4} width={2} height={4} rx={1} fill="#ea580c" />
+          <rect x={1} y={4} width={2} height={4} rx={1} fill="#ea580c" />
+          {/* Tail */}
+          <motion.path
+            d="M9,0 Q14,-6 12,-10"
+            fill="none"
+            stroke="#fb923c"
+            strokeWidth={2}
+            strokeLinecap="round"
+            animate={{ d: ["M9,0 Q14,-6 12,-10", "M9,0 Q16,-4 12,-10", "M9,0 Q14,-6 12,-10"] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+        </g>
+      )}
+
+      {/* Tooltip */}
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.g
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <rect x={-20} y={-28} width={40} height={13} rx={4} fill="rgba(0,0,0,0.8)" stroke="rgba(251,146,60,0.3)" strokeWidth={0.5} />
+            <text x={0} y={-19} textAnchor="middle" fontSize={7} fill="#fb923c" fontFamily="monospace">🐱 Tom</text>
+          </motion.g>
+        )}
+      </AnimatePresence>
+    </motion.g>
+  );
+}
+
 // ─── Ambient Effects ────────────────────────────────────────
 function AmbientEffects() {
   return (
@@ -524,6 +713,9 @@ export function IsometricOffice({
             walkTarget={walkingAgents[agent.id]}
           />
         ))}
+
+        {/* Tom the office cat 🐱 */}
+        <OfficeCat />
 
         {/* Header */}
         <text x={440} y={32} textAnchor="middle" fontSize={13} fontWeight="bold" fill="rgba(148,163,184,0.5)" fontFamily="monospace" letterSpacing="2">
