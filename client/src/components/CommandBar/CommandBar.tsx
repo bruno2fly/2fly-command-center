@@ -159,6 +159,7 @@ export function CommandBar() {
         <nav className="flex items-center gap-1 flex-shrink-0">
           {navLink("/dashboard", "Dashboard")}
           {navLink("/clients", "Clients")}
+          {navLink("/office", "🏢 AI Office")}
           {navLink("/payments", "Payments")}
           {navLink("/content", "Content Calendar")}
           {/* WhatsApp removed */}
