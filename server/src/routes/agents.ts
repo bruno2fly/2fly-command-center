@@ -196,102 +196,55 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const sessionUser = `platform-${agent}-${clientId || 'global'}`;
 
-    const result = await sendToAgent(
-      agent,
-      message,
-      history || [],
-      sessionUser,
-      contextData,
-    );
+    // Primary: OpenClaw gateway CLI (uses gateway's working API key + per-agent model tiers)
+    const { join } = await import('path');
+    const { homedir } = await import('os');
+    const { readFileSync, existsSync } = await import('fs');
+    const { spawnSync } = await import('child_process');
 
-    // If there's a pending confirmation, store it
-    let confirmId: string | undefined;
-    if (result.pendingConfirmation && result._messages) {
-      confirmId = generateConfirmId();
-      pendingActions.set(confirmId, {
-        agentId: agent,
-        tool: result.pendingConfirmation,
-        messages: result._messages,
-        createdAt: Date.now(),
-      });
+    // Load agent SOUL if available
+    const soulPath = join(homedir(), '.openclaw', 'agents', agent, 'workspace', 'SOUL.md');
+    let soulContext = '';
+    if (existsSync(soulPath)) {
+      const soul = readFileSync(soulPath, 'utf-8');
+      soulContext = `\nYou are the ${agent} agent. Follow your SOUL:\n${soul.slice(0, 2000)}`;
     }
 
-    res.json(formatResponse(result, confirmId));
+    const fullPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}\n\nUser request: ${message}`;
+
+    console.log(`[agents/chat] Calling openclaw agent --agent ${agent} via gateway...`);
+    const spawnResult = spawnSync(
+      '/opt/homebrew/bin/openclaw',
+      ['agent', '--agent', agent, '--json', '-m', fullPrompt],
+      {
+        encoding: 'utf-8',
+        maxBuffer: 2 * 1024 * 1024,
+        timeout: 300000,
+        env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
+      }
+    );
+
+    if (spawnResult.error) throw spawnResult.error;
+    if (spawnResult.status !== 0) throw new Error(spawnResult.stderr || `Exit code ${spawnResult.status}`);
+
+    let agentResponse = (spawnResult.stdout || '').trim();
+    try {
+      const parsed = JSON.parse(agentResponse);
+      if (parsed.result?.payloads?.[0]?.text) {
+        agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
+      } else {
+        agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
+      }
+    } catch { /* use raw text */ }
+
+    res.json({
+      success: true,
+      response: agentResponse,
+      agent,
+    });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[agents/chat] Error:', errMsg);
-
-    // Fallback: if Anthropic key fails (no key or out of credits), use openclaw run CLI
-    if (errMsg.includes('No Anthropic API key') || errMsg.includes('credit balance') || errMsg.includes('api_key')) {
-      console.log('[agents/chat] Anthropic key failed, falling back to openclaw run CLI...');
-      try {
-        const { execSync } = await import('child_process');
-        const { agent, message: userMsg, clientId } = req.body as { agent?: string; message?: string; clientId?: string };
-        
-        // Build context
-        let contextData = '';
-        if (clientId) {
-          const ctx = await fetchClientContext(clientId);
-          if (ctx) contextData = `\n\nCLIENT CONTEXT:\n${ctx}`;
-        }
-        
-        // Load agent SOUL if available
-        const { join } = await import('path');
-        const { homedir } = await import('os');
-        const { readFileSync, existsSync } = await import('fs');
-        const soulPath = join(homedir(), '.openclaw', 'agents', agent || '', 'workspace', 'SOUL.md');
-        let soulContext = '';
-        if (existsSync(soulPath)) {
-          const soul = readFileSync(soulPath, 'utf-8');
-          soulContext = `\n\nYou are the ${agent} agent. Follow your SOUL:\n${soul.slice(0, 2000)}`;
-        }
-
-        const fullPrompt = `${soulContext}${contextData}\n\nUser request: ${userMsg}`;
-        
-        // Use openclaw agent CLI — spawnSync avoids shell escaping issues
-        const { spawnSync } = await import('child_process');
-        const spawnResult = spawnSync(
-          '/opt/homebrew/bin/openclaw',
-          ['agent', '--agent', agent || 'content-system', '--json', '-m', fullPrompt],
-          { 
-            encoding: 'utf-8',
-            maxBuffer: 2 * 1024 * 1024,
-            timeout: 300000, // 5 min — complex strategy prompts need time
-            env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' }
-          }
-        );
-        
-        if (spawnResult.error) throw spawnResult.error;
-        if (spawnResult.status !== 0) throw new Error(spawnResult.stderr || `Exit code ${spawnResult.status}`);
-        const result = (spawnResult.stdout || '').trim();
-        
-        // Parse openclaw agent JSON output
-        let agentResponse = result.trim();
-        try {
-          const parsed = JSON.parse(agentResponse);
-          // openclaw agent --json returns { result: { payloads: [{ text: "..." }] } }
-          if (parsed.result?.payloads?.[0]?.text) {
-            agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
-          } else {
-            agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
-          }
-        } catch { /* use raw text */ }
-        
-        return res.json({
-          success: true,
-          response: agentResponse,
-          agent: agent,
-          fallback: true,
-        });
-      } catch (fallbackErr) {
-        console.error('[agents/chat] Fallback also failed:', fallbackErr);
-        return res.status(503).json({
-          error: 'AI service unavailable. Both Anthropic API and OpenClaw fallback failed.',
-          hint: 'Add credits at console.anthropic.com or check openclaw status',
-        });
-      }
-    }
-
     res.status(500).json({ error: errMsg });
   }
 });
