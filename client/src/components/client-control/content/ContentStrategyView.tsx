@@ -188,7 +188,8 @@ function InlineAgentChat({
         let attempts = 0;
         const pollInterval = setInterval(async () => {
           attempts++;
-          if (attempts > 60) { // 5 min max
+          console.log(`[Strategy] Polling job ${jobId} — attempt ${attempts}`);
+          if (attempts > 60) {
             clearInterval(pollInterval);
             clearInterval(timer);
             setResponse("Timed out waiting for response");
@@ -196,12 +197,16 @@ function InlineAgentChat({
             return;
           }
           try {
-            const pollRes = await fetch(`${API}/api/agents/job/${jobId}`);
+            const pollUrl = `http://localhost:4000/api/agents/job/${jobId}`;
+            console.log(`[Strategy] Fetching: ${pollUrl}`);
+            const pollRes = await fetch(pollUrl);
             const pollData = await pollRes.json();
+            console.log(`[Strategy] Poll result:`, pollData.status, pollData.response?.length || 0);
             if (pollData.status === "done") {
               clearInterval(pollInterval);
               clearInterval(timer);
-              setResponse(pollData.response || "Done");
+              console.log(`[Strategy] Job done! Response: ${pollData.response?.slice(0, 100)}`);
+              setResponse(pollData.response || "Done — but empty response");
               setSending(false);
               setTimeout(onComplete, 2000);
             } else if (pollData.status === "error") {
@@ -210,10 +215,10 @@ function InlineAgentChat({
               setResponse(`Error: ${pollData.error}`);
               setSending(false);
             }
-          } catch {
-            // Network error — keep trying
+          } catch (err) {
+            console.error(`[Strategy] Poll error:`, err);
           }
-        }, 3000); // Poll every 3s
+        }, 3000);
         return;
       }
 
