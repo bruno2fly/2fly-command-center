@@ -122,27 +122,37 @@ Respond ONLY with the JSON object, no other text.
 async function callOpenClawGateway(prompt: string): Promise<string> {
   // Use openclaw agent CLI (routes through OpenClaw's working provider config)
   try {
-    const escapedPrompt = prompt.replace(/'/g, "'\\''");
-    const result = execSync(
-      `openclaw agent --agent content-system --json -m '${escapedPrompt}'`,
+    const { spawnSync } = await import("child_process");
+    
+    // Use spawnSync with argument array — avoids all shell escaping issues
+    const result = spawnSync(
+      "/opt/homebrew/bin/openclaw",
+      ["agent", "--agent", "content-system", "--json", "-m", prompt],
       {
         encoding: "utf-8",
-        maxBuffer: 1024 * 1024,
-        timeout: 120_000,
+        maxBuffer: 2 * 1024 * 1024,
+        timeout: 300_000, // 5 minutes — agent needs time for complex prompts
         env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
       }
     );
+    
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(result.stderr || `Exit code ${result.status}`);
+    
+    const output = (result.stdout || "").trim();
+    
     // Parse openclaw agent JSON response
     try {
-      const parsed = JSON.parse((result || "").trim());
+      const parsed = JSON.parse(output);
       if (parsed.result?.payloads?.[0]?.text) {
         return parsed.result.payloads.map((p: any) => p.text).join('\n');
       }
-      return parsed.reply || parsed.response || (result || "").trim();
+      return parsed.reply || parsed.response || output;
     } catch {
-      return (result || "").trim();
+      return output;
     }
-  } catch (cliErr) {
+  } catch (cliErr: any) {
+    console.error("[task-execute] OpenClaw CLI failed:", cliErr?.message?.slice(0, 200) || cliErr);
     // Fallback: direct Anthropic API
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("No AI provider available. OpenClaw CLI failed and no ANTHROPIC_API_KEY set.");

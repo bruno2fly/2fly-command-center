@@ -248,16 +248,22 @@ router.post('/chat', async (req: Request, res: Response) => {
 
         const fullPrompt = `${soulContext}${contextData}\n\nUser request: ${userMsg}`;
         
-        // Use openclaw agent CLI
-        const escapedPrompt = fullPrompt.replace(/'/g, "'\\''");
-        const result = execSync(
-          `openclaw agent --agent ${agent || 'content-system'} --json -m '${escapedPrompt}'`,
+        // Use openclaw agent CLI — spawnSync avoids shell escaping issues
+        const { spawnSync } = await import('child_process');
+        const spawnResult = spawnSync(
+          '/opt/homebrew/bin/openclaw',
+          ['agent', '--agent', agent || 'content-system', '--json', '-m', fullPrompt],
           { 
-            encoding: 'utf-8', 
+            encoding: 'utf-8',
+            maxBuffer: 2 * 1024 * 1024,
             timeout: 120000,
             env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' }
           }
         );
+        
+        if (spawnResult.error) throw spawnResult.error;
+        if (spawnResult.status !== 0) throw new Error(spawnResult.stderr || `Exit code ${spawnResult.status}`);
+        const result = (spawnResult.stdout || '').trim();
         
         // Parse openclaw agent JSON output
         let agentResponse = result.trim();
