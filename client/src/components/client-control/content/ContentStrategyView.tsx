@@ -182,38 +182,38 @@ function InlineAgentChat({
         return;
       }
 
-      // Async: poll for result
+      // Async: poll for result using setInterval
       if (data.jobId) {
         const jobId = data.jobId;
-        const poll = async () => {
-          for (let i = 0; i < 60; i++) { // Poll up to 5 min (60 * 5s)
-            await new Promise((r) => setTimeout(r, 5000));
-            try {
-              const pollRes = await fetch(`${API}/api/agents/job/${jobId}`);
-              const pollData = await pollRes.json();
-              if (pollData.status === "done") {
-                setResponse(pollData.response || "Done");
-                setSending(false);
-                clearInterval(timer);
-                setTimeout(onComplete, 2000);
-                return;
-              }
-              if (pollData.status === "error") {
-                setResponse(`Error: ${pollData.error}`);
-                setSending(false);
-                clearInterval(timer);
-                return;
-              }
-              // Still running — continue polling
-            } catch {
-              // Network error on poll — keep trying
-            }
+        let attempts = 0;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          if (attempts > 60) { // 5 min max
+            clearInterval(pollInterval);
+            clearInterval(timer);
+            setResponse("Timed out waiting for response");
+            setSending(false);
+            return;
           }
-          setResponse("Timed out waiting for response");
-          setSending(false);
-          clearInterval(timer);
-        };
-        poll();
+          try {
+            const pollRes = await fetch(`${API}/api/agents/job/${jobId}`);
+            const pollData = await pollRes.json();
+            if (pollData.status === "done") {
+              clearInterval(pollInterval);
+              clearInterval(timer);
+              setResponse(pollData.response || "Done");
+              setSending(false);
+              setTimeout(onComplete, 2000);
+            } else if (pollData.status === "error") {
+              clearInterval(pollInterval);
+              clearInterval(timer);
+              setResponse(`Error: ${pollData.error}`);
+              setSending(false);
+            }
+          } catch {
+            // Network error — keep trying
+          }
+        }, 3000); // Poll every 3s
         return;
       }
 
