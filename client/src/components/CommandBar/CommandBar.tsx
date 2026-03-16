@@ -78,7 +78,7 @@ export function CommandBar() {
     return (
       <Link
         href={href}
-        className={`px-3 py-2 rounded-lg text-sm font-medium ${
+        className={`px-2 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap ${
           isActive
             ? isDark
               ? "bg-[#141210] text-emerald-400/90"
@@ -156,7 +156,7 @@ export function CommandBar() {
         </div>
 
         {/* CENTER ZONE: Main nav */}
-        <nav className="flex items-center gap-1 flex-shrink-0">
+        <nav className="flex items-center gap-1 flex-shrink-0 overflow-x-auto scrollbar-hide">
           {navLink("/dashboard", "Dashboard")}
           {navLink("/clients", "Clients")}
           {navLink("/office", "🏢 AI Office")}

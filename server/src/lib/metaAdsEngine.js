@@ -86,9 +86,64 @@ async function getCampaigns(clientName) {
 }
 
 /**
- * Pause a campaign
+ * Check if an ad account has other ACTIVE campaigns besides the one being paused.
+ * Safety check: don't leave an account with zero running campaigns.
  */
-async function pauseCampaign(campaignId) {
+async function checkPauseSafety(campaignId, adAccountId) {
+  if (!adAccountId) return { safe: true, reason: 'No ad account to check' };
+  try {
+    const token = getToken();
+    const url = `${BASE_URL}/${adAccountId}/campaigns?fields=id,name,status&access_token=${token}&limit=50`;
+    const res = await fetch(url);
+    if (!res.ok) return { safe: true, reason: 'Could not verify — proceeding with caution' };
+    const data = await res.json();
+    const activeCampaigns = (data.data || []).filter(
+      c => c.status === 'ACTIVE' && c.id !== campaignId
+    );
+    if (activeCampaigns.length === 0) {
+      return {
+        safe: false,
+        reason: `⚠️ SAFETY BLOCK: This is the ONLY active campaign for this ad account. Pausing it would leave the account with zero running campaigns. Create a replacement campaign first, or override with force=true.`,
+        activeCampaigns: 0,
+      };
+    }
+    return {
+      safe: true,
+      reason: `${activeCampaigns.length} other active campaign(s) will keep running`,
+      activeCampaigns: activeCampaigns.length,
+    };
+  } catch (err) {
+    return { safe: true, reason: 'Safety check failed — proceeding with caution' };
+  }
+}
+
+/**
+ * Pause a campaign (with safety check)
+ */
+async function pauseCampaign(campaignId, options = {}) {
+  // Safety check: don't pause if it's the only active campaign
+  if (!options.force && !options.skipSafety) {
+    // Try to find the ad account for this campaign
+    try {
+      const token = getToken();
+      const campaignRes = await fetch(`${BASE_URL}/${campaignId}?fields=account_id&access_token=${token}`);
+      if (campaignRes.ok) {
+        const campaignData = await campaignRes.json();
+        const adAccountId = campaignData.account_id ? `act_${campaignData.account_id}` : null;
+        const safety = await checkPauseSafety(campaignId, adAccountId);
+        if (!safety.safe) {
+          return {
+            success: false,
+            campaignId,
+            action: 'blocked',
+            detail: safety.reason,
+            safetyBlock: true,
+          };
+        }
+      }
+    } catch { /* proceed if safety check itself fails */ }
+  }
+
   const result = await metaAPIForm(campaignId, { status: 'PAUSED' });
   return {
     success: true,

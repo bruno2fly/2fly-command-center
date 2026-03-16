@@ -211,6 +211,17 @@ router.post('/content', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/agent-tools/content/:id — Delete content item
+router.delete('/content/:id', async (req: Request, res: Response) => {
+  try {
+    await prisma.contentItem.delete({ where: { id: req.params.id } });
+    res.json({ deleted: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(400).json({ error: message });
+  }
+});
+
 // PATCH /api/agent-tools/content/:id — Update content item
 router.patch('/content/:id', async (req: Request, res: Response) => {
   try {

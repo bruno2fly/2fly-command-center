@@ -39,7 +39,7 @@ export function ClientTabBar({ activeTab }: Props) {
   );
 
   return (
-    <nav className={`flex gap-1 border-b px-1 ${isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-200 bg-white"}`}>
+    <nav className={`flex gap-1 border-b px-1 overflow-x-auto scrollbar-hide ${isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-200 bg-white"}`}>
       {CLIENT_TABS.map((tab) => (
         <button
           key={tab}
