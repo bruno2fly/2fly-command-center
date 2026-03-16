@@ -323,7 +323,7 @@ export function ClientContentTab({ clientId }: Props) {
       </div>
 
       {contentSubView === "strategy" ? (
-        <ContentStrategyView clientId={clientId} />
+        <ContentStrategyView clientId={clientId} clientName={clientName || undefined} />
       ) : contentSubView === "calendar" ? (
         <div className="p-4">
           <MonthlyPlannerCompact items={allScheduledItems} />
