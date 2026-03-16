@@ -225,58 +225,43 @@ router.post('/chat', async (req: Request, res: Response) => {
     // Store job and run in background
     agentJobs.set(jobId, { status: 'running', agent });
 
-    // Fire and forget — runs in background
-    (async () => {
-      try {
-        const { spawn } = await import('child_process');
-        const child = spawn(
-          '/opt/homebrew/bin/openclaw',
-          ['agent', '--agent', agent, '--json', '-m', fullPrompt],
-          {
-            env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
+    // Fire and forget — execFile is more reliable than spawn for capturing output
+    const { execFile } = await import('child_process');
+    
+    const child = execFile(
+      '/opt/homebrew/bin/openclaw',
+      ['agent', '--agent', agent, '--json', '-m', fullPrompt],
+      {
+        encoding: 'utf-8',
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: 300000, // 5 min
+        env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          const errMsg = error.killed ? 'Timed out after 5 minutes' : (stderr?.slice(0, 300) || error.message);
+          agentJobs.set(jobId, { status: 'error', agent, error: errMsg });
+          console.error(`[agents/chat] Job ${jobId} failed:`, errMsg.slice(0, 200));
+          return;
+        }
+
+        let agentResponse = (stdout || '').trim();
+        try {
+          const parsed = JSON.parse(agentResponse);
+          if (parsed.result?.payloads?.[0]?.text) {
+            agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
+          } else {
+            agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
           }
-        );
+        } catch { /* use raw text */ }
 
-        let stdout = '';
-        let stderr = '';
-        child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
-        child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+        agentJobs.set(jobId, { status: 'done', agent, response: agentResponse });
+        console.log(`[agents/chat] Job ${jobId} completed (${agentResponse.length} chars)`);
 
-        child.on('close', (code: number | null) => {
-          if (code !== 0) {
-            agentJobs.set(jobId, { status: 'error', agent, error: stderr.slice(0, 300) || `Exit code ${code}` });
-            console.error(`[agents/chat] Job ${jobId} failed:`, stderr.slice(0, 200));
-            return;
-          }
-
-          let agentResponse = stdout.trim();
-          try {
-            const parsed = JSON.parse(agentResponse);
-            if (parsed.result?.payloads?.[0]?.text) {
-              agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
-            } else {
-              agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
-            }
-          } catch { /* use raw text */ }
-
-          agentJobs.set(jobId, { status: 'done', agent, response: agentResponse });
-          console.log(`[agents/chat] Job ${jobId} completed (${agentResponse.length} chars)`);
-
-          // Auto-cleanup after 10 minutes
-          setTimeout(() => agentJobs.delete(jobId), 600000);
-        });
-
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          if (agentJobs.get(jobId)?.status === 'running') {
-            child.kill('SIGTERM');
-            agentJobs.set(jobId, { status: 'error', agent, error: 'Timed out after 5 minutes' });
-          }
-        }, 300000);
-      } catch (err: any) {
-        agentJobs.set(jobId, { status: 'error', agent, error: err?.message || 'Unknown error' });
+        // Auto-cleanup after 10 minutes
+        setTimeout(() => agentJobs.delete(jobId), 600000);
       }
-    })();
+    );
 
     // Return immediately with job ID
     res.json({ success: true, jobId, status: 'running', agent });
