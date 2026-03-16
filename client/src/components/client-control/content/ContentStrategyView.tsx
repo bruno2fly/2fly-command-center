@@ -18,6 +18,8 @@ const STRATEGY_TYPES: { type: string; label: string; emoji: string }[] = [
   { type: "local_intel", label: "Local Intelligence", emoji: "📍" },
   { type: "visual_direction", label: "Visual Direction", emoji: "🎨" },
   { type: "content_scores", label: "Content Scores", emoji: "📈" },
+  { type: "content_calendar", label: "Content Calendar", emoji: "📅" },
+  { type: "full_strategy", label: "Full Content Strategy", emoji: "🧠" },
 ];
 
 type Props = {
@@ -113,13 +115,13 @@ function StrategyCard({
                   ))}
                 </ul>
               ) : (
-                <pre
-                  className={`text-xs overflow-auto max-h-64 whitespace-pre-wrap break-words ${mutedCls}`}
-                >
-                  {typeof parsed === "string"
-                    ? parsed
-                    : JSON.stringify(parsed, null, 2)}
-                </pre>
+                <div className={`text-sm overflow-auto max-h-96 whitespace-pre-wrap break-words leading-relaxed ${textCls}`}>
+                  {typeof parsed === "object" && parsed !== null && "content" in (parsed as Record<string, unknown>)
+                    ? String((parsed as Record<string, unknown>).content)
+                    : typeof parsed === "string"
+                      ? parsed
+                      : JSON.stringify(parsed, null, 2)}
+                </div>
               )}
             </div>
           </motion.div>
@@ -156,6 +158,59 @@ function InlineAgentChat({
     { label: "🔥 2-Week Calendar", prompt: `Generate a 2-week content calendar for ${name} with specific post ideas, hooks, best posting times, and content types. Include at least 10 content ideas.` },
     { label: "🧠 Audience Map", prompt: `Map the audience psychology for ${name}: desires, fears, triggers, objections, and purchase motivations. Save as audience_map strategy.` },
   ];
+
+  // Auto-detect strategy type from prompt/response and save to DB
+  async function saveStrategyFromResponse(text: string) {
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    
+    // Detect what kind of strategy this is based on keywords
+    const typeMap: { keywords: string[]; type: string; title: string }[] = [
+      { keywords: ["brand profile", "brand intelligence", "uvp", "unique value"], type: "brand_profile", title: "Brand Intelligence Profile" },
+      { keywords: ["audience psychology", "audience map", "desires", "fears", "triggers", "pain points"], type: "audience_map", title: "Audience Psychology" },
+      { keywords: ["competitor", "competition", "market analysis"], type: "competitor_analysis", title: "Competitor & Market Analysis" },
+      { keywords: ["review mining", "reviews", "testimonial"], type: "review_mining", title: "Review Mining Insights" },
+      { keywords: ["trend", "trending", "viral"], type: "trend_intel", title: "Trend Intelligence" },
+      { keywords: ["content pillar", "pillars"], type: "content_pillars", title: "Content Pillars" },
+      { keywords: ["hook library", "hooks", "hook"], type: "hook_library", title: "Hook Library" },
+      { keywords: ["local intel", "local events", "seasonal"], type: "local_intel", title: "Local Intelligence" },
+      { keywords: ["visual direction", "visual style", "aesthetic"], type: "visual_direction", title: "Visual Direction" },
+      { keywords: ["calendar", "content plan", "week 1", "week 2", "schedule"], type: "content_calendar", title: "Content Calendar" },
+    ];
+
+    const lower = text.toLowerCase();
+    let stratType = "full_strategy";
+    let stratTitle = "Full Content Strategy";
+
+    for (const t of typeMap) {
+      if (t.keywords.some((k) => lower.includes(k))) {
+        stratType = t.type;
+        stratTitle = t.title;
+        break;
+      }
+    }
+
+    // If response contains multiple sections, save as full_strategy
+    const sectionCount = typeMap.filter((t) => t.keywords.some((k) => lower.includes(k))).length;
+    if (sectionCount >= 3) {
+      stratType = "full_strategy";
+      stratTitle = "Full Content Strategy";
+    }
+
+    try {
+      await fetch(`${API}/api/clients/${clientId}/strategy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: stratType,
+          title: stratTitle,
+          data: JSON.stringify({ content: text, generatedAt: new Date().toISOString() }),
+        }),
+      });
+      console.log(`[Strategy] Saved as ${stratType}: ${stratTitle}`);
+    } catch (err) {
+      console.error("[Strategy] Failed to save strategy:", err);
+    }
+  }
 
   async function sendMessage(msg: string) {
     setSending(true);
@@ -206,8 +261,13 @@ function InlineAgentChat({
               clearInterval(pollInterval);
               clearInterval(timer);
               console.log(`[Strategy] Job done! Response: ${pollData.response?.slice(0, 100)}`);
-              setResponse(pollData.response || "Done — but empty response");
+              const agentText = pollData.response || "";
+              setResponse(agentText);
               setSending(false);
+              // Auto-save as strategy document
+              if (agentText.length > 50) {
+                await saveStrategyFromResponse(agentText);
+              }
               setTimeout(onComplete, 2000);
             } else if (pollData.status === "error") {
               clearInterval(pollInterval);
