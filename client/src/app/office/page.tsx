@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
+import { IsometricOffice } from "@/components/office/IsometricOffice";
 
 // ─── Agent Definitions ──────────────────────────────────────
 type AgentDef = {
@@ -239,6 +240,7 @@ export default function OfficePage() {
   const [chatResponse, setChatResponse] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
   const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+  const [view, setView] = useState<"cards" | "floor">("floor");
 
   const fetchData = useCallback(async () => {
     try {
@@ -405,6 +407,33 @@ export default function OfficePage() {
                 Your AI team, working 24/7 · Auto-refreshes every 15s
               </p>
             </div>
+            {/* View Toggle */}
+            <div className={`flex rounded-lg overflow-hidden border ${isDark ? "border-white/10" : "border-gray-200"}`}>
+              <button
+                onClick={() => setView("floor")}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  view === "floor"
+                    ? "bg-indigo-600 text-white"
+                    : isDark
+                      ? "bg-white/5 text-gray-400 hover:text-white"
+                      : "bg-gray-50 text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                🏢 Floor View
+              </button>
+              <button
+                onClick={() => setView("cards")}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  view === "cards"
+                    ? "bg-indigo-600 text-white"
+                    : isDark
+                      ? "bg-white/5 text-gray-400 hover:text-white"
+                      : "bg-gray-50 text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                📊 Cards View
+              </button>
+            </div>
           </div>
           
           {/* Stats Bar */}
@@ -431,8 +460,23 @@ export default function OfficePage() {
           </div>
         </motion.div>
 
-        {/* Office Floor */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Isometric Floor View */}
+        {view === "floor" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={`rounded-xl border ${cardBg} p-4 overflow-hidden`}
+          >
+            <IsometricOffice
+              actions={actions}
+              onSelectAgent={setSelectedAgent}
+              selectedAgent={selectedAgent}
+            />
+          </motion.div>
+        )}
+
+        {/* Cards View */}
+        {view === "cards" && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {AGENTS.map((agent, i) => {
             const status = getAgentStatus(agent.id);
             const statusConfig = getStatusConfig(status);
@@ -575,7 +619,7 @@ export default function OfficePage() {
               </motion.div>
             );
           })}
-        </div>
+        </div>}
 
         {/* Agent Detail Panel */}
         <AnimatePresence>
