@@ -256,7 +256,7 @@ router.post('/chat', async (req: Request, res: Response) => {
           { 
             encoding: 'utf-8',
             maxBuffer: 2 * 1024 * 1024,
-            timeout: 120000,
+            timeout: 300000, // 5 min — complex strategy prompts need time
             env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' }
           }
         );

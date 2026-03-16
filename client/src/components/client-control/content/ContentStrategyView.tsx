@@ -161,6 +161,8 @@ function InlineAgentChat({
     setResponse(null);
     setMessage("");
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 310000); // 5m10s
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/agents/chat`,
         {
@@ -171,8 +173,10 @@ function InlineAgentChat({
             message: msg,
             clientId,
           }),
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeout);
       const data = await res.json();
       setResponse(data.response || data.error || "No response");
       // Refresh strategies after agent responds
