@@ -19,6 +19,15 @@ import {
 
 const router = Router();
 
+// ─── In-memory store for async agent jobs ─────────────────
+interface AgentJob {
+  status: 'running' | 'done' | 'error';
+  agent: string;
+  response?: string;
+  error?: string;
+}
+const agentJobs = new Map<string, AgentJob>();
+
 // ─── In-memory store for pending confirmations ────────────
 // Keyed by a confirmation ID, expires after 5 minutes.
 
@@ -194,13 +203,12 @@ router.post('/chat', async (req: Request, res: Response) => {
       contextData = await fetchClientContext(clientId);
     }
 
-    const sessionUser = `platform-${agent}-${clientId || 'global'}`;
+    // Async job: spawn CLI in background, return job ID immediately
+    const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    // Primary: OpenClaw gateway CLI (uses gateway's working API key + per-agent model tiers)
     const { join } = await import('path');
     const { homedir } = await import('os');
     const { readFileSync, existsSync } = await import('fs');
-    const { spawnSync } = await import('child_process');
 
     // Load agent SOUL if available
     const soulPath = join(homedir(), '.openclaw', 'agents', agent, 'workspace', 'SOUL.md');
@@ -212,41 +220,89 @@ router.post('/chat', async (req: Request, res: Response) => {
 
     const fullPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}\n\nUser request: ${message}`;
 
-    console.log(`[agents/chat] Calling openclaw agent --agent ${agent} via gateway...`);
-    const spawnResult = spawnSync(
-      '/opt/homebrew/bin/openclaw',
-      ['agent', '--agent', agent, '--json', '-m', fullPrompt],
-      {
-        encoding: 'utf-8',
-        maxBuffer: 2 * 1024 * 1024,
-        timeout: 300000,
-        env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
+    console.log(`[agents/chat] Starting async job ${jobId} for agent ${agent}...`);
+
+    // Store job and run in background
+    agentJobs.set(jobId, { status: 'running', agent });
+
+    // Fire and forget — runs in background
+    (async () => {
+      try {
+        const { spawn } = await import('child_process');
+        const child = spawn(
+          '/opt/homebrew/bin/openclaw',
+          ['agent', '--agent', agent, '--json', '-m', fullPrompt],
+          {
+            env: { ...process.env, PATH: process.env.PATH + ':/opt/homebrew/bin:/usr/local/bin' },
+          }
+        );
+
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+        child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+        child.on('close', (code: number | null) => {
+          if (code !== 0) {
+            agentJobs.set(jobId, { status: 'error', agent, error: stderr.slice(0, 300) || `Exit code ${code}` });
+            console.error(`[agents/chat] Job ${jobId} failed:`, stderr.slice(0, 200));
+            return;
+          }
+
+          let agentResponse = stdout.trim();
+          try {
+            const parsed = JSON.parse(agentResponse);
+            if (parsed.result?.payloads?.[0]?.text) {
+              agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
+            } else {
+              agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
+            }
+          } catch { /* use raw text */ }
+
+          agentJobs.set(jobId, { status: 'done', agent, response: agentResponse });
+          console.log(`[agents/chat] Job ${jobId} completed (${agentResponse.length} chars)`);
+
+          // Auto-cleanup after 10 minutes
+          setTimeout(() => agentJobs.delete(jobId), 600000);
+        });
+
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          if (agentJobs.get(jobId)?.status === 'running') {
+            child.kill('SIGTERM');
+            agentJobs.set(jobId, { status: 'error', agent, error: 'Timed out after 5 minutes' });
+          }
+        }, 300000);
+      } catch (err: any) {
+        agentJobs.set(jobId, { status: 'error', agent, error: err?.message || 'Unknown error' });
       }
-    );
+    })();
 
-    if (spawnResult.error) throw spawnResult.error;
-    if (spawnResult.status !== 0) throw new Error(spawnResult.stderr || `Exit code ${spawnResult.status}`);
-
-    let agentResponse = (spawnResult.stdout || '').trim();
-    try {
-      const parsed = JSON.parse(agentResponse);
-      if (parsed.result?.payloads?.[0]?.text) {
-        agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
-      } else {
-        agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
-      }
-    } catch { /* use raw text */ }
-
-    res.json({
-      success: true,
-      response: agentResponse,
-      agent,
-    });
+    // Return immediately with job ID
+    res.json({ success: true, jobId, status: 'running', agent });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[agents/chat] Error:', errMsg);
     res.status(500).json({ error: errMsg });
   }
+});
+
+// ================================================================
+// GET /api/agents/job/:jobId — Poll async agent job status
+// ================================================================
+router.get('/job/:jobId', (req: Request, res: Response) => {
+  const { jobId } = req.params;
+  const job = agentJobs.get(jobId);
+  if (!job) {
+    return res.status(404).json({ error: 'Job not found or expired' });
+  }
+  if (job.status === 'done') {
+    return res.json({ success: true, status: 'done', response: job.response, agent: job.agent });
+  }
+  if (job.status === 'error') {
+    return res.json({ success: false, status: 'error', error: job.error, agent: job.agent });
+  }
+  return res.json({ success: true, status: 'running', agent: job.agent });
 });
 
 // ================================================================

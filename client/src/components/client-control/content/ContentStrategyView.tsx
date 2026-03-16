@@ -144,6 +144,7 @@ function InlineAgentChat({
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   const name = clientName || "this client";
 
@@ -160,31 +161,69 @@ function InlineAgentChat({
     setSending(true);
     setResponse(null);
     setMessage("");
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 310000); // 5m10s
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/agents/chat`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agent: "content-system",
-            message: msg,
-            clientId,
-          }),
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeout);
+      // Start async job
+      const res = await fetch(`${API}/api/agents/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "content-system", message: msg, clientId }),
+      });
       const data = await res.json();
-      setResponse(data.response || data.error || "No response");
-      // Refresh strategies after agent responds
-      setTimeout(onComplete, 2000);
+      
+      // If sync response (backwards compat)
+      if (data.response) {
+        setResponse(data.response);
+        setSending(false);
+        clearInterval(timer);
+        setTimeout(onComplete, 2000);
+        return;
+      }
+
+      // Async: poll for result
+      if (data.jobId) {
+        const jobId = data.jobId;
+        const poll = async () => {
+          for (let i = 0; i < 60; i++) { // Poll up to 5 min (60 * 5s)
+            await new Promise((r) => setTimeout(r, 5000));
+            try {
+              const pollRes = await fetch(`${API}/api/agents/job/${jobId}`);
+              const pollData = await pollRes.json();
+              if (pollData.status === "done") {
+                setResponse(pollData.response || "Done");
+                setSending(false);
+                clearInterval(timer);
+                setTimeout(onComplete, 2000);
+                return;
+              }
+              if (pollData.status === "error") {
+                setResponse(`Error: ${pollData.error}`);
+                setSending(false);
+                clearInterval(timer);
+                return;
+              }
+              // Still running — continue polling
+            } catch {
+              // Network error on poll — keep trying
+            }
+          }
+          setResponse("Timed out waiting for response");
+          setSending(false);
+          clearInterval(timer);
+        };
+        poll();
+        return;
+      }
+
+      setResponse(data.error || "No response");
+      setSending(false);
+      clearInterval(timer);
     } catch {
       setResponse("Failed to reach Content Agent");
-    } finally {
       setSending(false);
+      clearInterval(timer);
     }
   }
 
@@ -204,7 +243,7 @@ function InlineAgentChat({
             transition={{ duration: 1.5, repeat: Infinity }}
             className="text-xs text-indigo-400 ml-2"
           >
-            ⚡ Generating...
+            ⚡ Generating... {elapsed > 0 ? `${elapsed}s` : ""}
           </motion.span>
         )}
       </div>
