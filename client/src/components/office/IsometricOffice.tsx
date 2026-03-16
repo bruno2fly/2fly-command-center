@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -11,10 +11,12 @@ type AgentDef = {
   name: string;
   role: string;
   emoji: string;
-  color: string;
+  neonColor: string; // primary neon accent
+  glowColor: string; // glow rgba
   desk: string;
   schedule: string;
   personality: string;
+  stationProps: string; // what's on their desk
 };
 
 type AgentAction = {
@@ -29,140 +31,377 @@ type AgentAction = {
 
 // ─── Agent Data ─────────────────────────────────────────────
 const AGENTS: AgentDef[] = [
-  { id: "founder-boss", name: "Boss", role: "Strategic Command", emoji: "👔", color: "#f59e0b", desk: "corner-office", schedule: "Always on", personality: "Reviewing the numbers..." },
-  { id: "meta-traffic", name: "Meta Traffic", role: "Media Buyer", emoji: "📊", color: "#3b82f6", desk: "ads-wing", schedule: "9AM · 4PM · 10PM", personality: "Watching ROAS..." },
-  { id: "content-system", name: "Content AI", role: "Content Strategist", emoji: "🧠", color: "#a855f7", desk: "creative-studio", schedule: "9AM · 4PM · 10PM", personality: "Brainstorming hooks..." },
-  { id: "research-intel", name: "Research", role: "Intelligence Analyst", emoji: "🔍", color: "#10b981", desk: "intel-lab", schedule: "8AM daily", personality: "Scanning the web..." },
-  { id: "growth-strategist", name: "Growth", role: "Revenue Architect", emoji: "🚀", color: "#f97316", desk: "strategy-room", schedule: "Monday 9AM", personality: "Crunching numbers..." },
-  { id: "project-manager", name: "PM", role: "Operations Lead", emoji: "📋", color: "#6366f1", desk: "ops-center", schedule: "Every 1-2h", personality: "Checking deadlines..." },
-  { id: "client-memory", name: "Memory", role: "Knowledge Keeper", emoji: "🗄️", color: "#64748b", desk: "archives", schedule: "On demand", personality: "Organizing files..." },
-  { id: "inbox-triage", name: "Inbox", role: "Communications", emoji: "📬", color: "#ec4899", desk: "front-desk", schedule: "Always on", personality: "Sorting messages..." },
-  { id: "approval-feedback", name: "Approval", role: "Quality Control", emoji: "✅", color: "#22c55e", desk: "review-room", schedule: "On demand", personality: "Reviewing approvals..." },
+  { id: "founder-boss", name: "BOSS", role: "Strategic Command", emoji: "👔", neonColor: "#fbbf24", glowColor: "rgba(251,191,36,0.3)", desk: "corner-office", schedule: "Always on", personality: "Reviewing the numbers...", stationProps: "holodesk" },
+  { id: "meta-traffic", name: "META", role: "Media Buyer", emoji: "📊", neonColor: "#3b82f6", glowColor: "rgba(59,130,246,0.3)", desk: "ads-wing", schedule: "9AM·4PM·10PM", personality: "Watching ROAS...", stationProps: "charts" },
+  { id: "content-system", name: "CONTENT", role: "Content Strategist", emoji: "🧠", neonColor: "#a855f7", glowColor: "rgba(168,85,247,0.3)", desk: "creative-studio", schedule: "9AM·4PM·10PM", personality: "Brainstorming...", stationProps: "creative" },
+  { id: "research-intel", name: "INTEL", role: "Intelligence Analyst", emoji: "🔍", neonColor: "#10b981", glowColor: "rgba(16,185,129,0.3)", desk: "intel-lab", schedule: "8AM daily", personality: "Scanning web...", stationProps: "servers" },
+  { id: "growth-strategist", name: "GROWTH", role: "Revenue Architect", emoji: "🚀", neonColor: "#f97316", glowColor: "rgba(249,115,22,0.3)", desk: "strategy-room", schedule: "Mon 9AM", personality: "Crunching numbers...", stationProps: "charts" },
+  { id: "project-manager", name: "PM", role: "Operations Lead", emoji: "📋", neonColor: "#6366f1", glowColor: "rgba(99,102,241,0.3)", desk: "ops-center", schedule: "Every 1-2h", personality: "Checking deadlines...", stationProps: "screens" },
+  { id: "client-memory", name: "MEMORY", role: "Knowledge Keeper", emoji: "🗄️", neonColor: "#64748b", glowColor: "rgba(100,116,139,0.3)", desk: "archives", schedule: "On demand", personality: "Organizing files...", stationProps: "cabinets" },
+  { id: "inbox-triage", name: "INBOX", role: "Communications", emoji: "📬", neonColor: "#ec4899", glowColor: "rgba(236,72,153,0.3)", desk: "front-desk", schedule: "Always on", personality: "Sorting messages...", stationProps: "comms" },
+  { id: "approval-feedback", name: "GATE", role: "Quality Control", emoji: "✅", neonColor: "#22c55e", glowColor: "rgba(34,197,94,0.3)", desk: "review-room", schedule: "On demand", personality: "Reviewing...", stationProps: "screens" },
 ];
 
-// ─── Desk Positions (isometric grid) ────────────────────────
-// Positions on a virtual grid, transformed to isometric
-const DESK_POSITIONS: Record<string, { x: number; y: number; furniture: string }> = {
-  "corner-office":   { x: 1, y: 0, furniture: "executive" },
-  "ads-wing":        { x: 3, y: 0, furniture: "monitors" },
-  "creative-studio": { x: 5, y: 0, furniture: "design" },
-  "intel-lab":       { x: 0, y: 2, furniture: "screens" },
-  "strategy-room":   { x: 2, y: 2, furniture: "whiteboard" },
-  "ops-center":      { x: 4, y: 2, furniture: "desk" },
-  "archives":        { x: 1, y: 4, furniture: "cabinet" },
-  "front-desk":      { x: 3, y: 4, furniture: "reception" },
-  "review-room":     { x: 5, y: 4, furniture: "desk" },
+// ─── Desk Positions ─────────────────────────────────────────
+const DESK_POSITIONS: Record<string, { x: number; y: number }> = {
+  "corner-office":   { x: 1, y: 0 },
+  "ads-wing":        { x: 3, y: 0 },
+  "creative-studio": { x: 5, y: 0 },
+  "intel-lab":       { x: 0, y: 2 },
+  "strategy-room":   { x: 2, y: 2 },
+  "ops-center":      { x: 4, y: 2 },
+  "archives":        { x: 1, y: 4 },
+  "front-desk":      { x: 3, y: 4 },
+  "review-room":     { x: 5, y: 4 },
 };
 
-// Coffee machine and meeting room positions
 const COFFEE_POS = { x: 2.5, y: 3 };
-const MEETING_POS = { x: 3, y: 1 };
+
+// ─── Room Labels ────────────────────────────────────────────
+const ROOM_LABELS: Record<string, { label: string; icon: string }> = {
+  "corner-office": { label: "COMMAND", icon: "⚡" },
+  "ads-wing": { label: "ADS LAB", icon: "💰" },
+  "creative-studio": { label: "CREATIVE", icon: "🎨" },
+  "intel-lab": { label: "INTEL", icon: "🔬" },
+  "strategy-room": { label: "STRATEGY", icon: "📈" },
+  "ops-center": { label: "OPS", icon: "⚙️" },
+  "archives": { label: "MEMORY", icon: "💾" },
+  "front-desk": { label: "COMMS", icon: "📡" },
+  "review-room": { label: "QA GATE", icon: "🔎" },
+};
+
+// ─── Neon pathway connections ───────────────────────────────
+const PATHWAYS: [string, string][] = [
+  ["corner-office", "ads-wing"],
+  ["corner-office", "strategy-room"],
+  ["ads-wing", "creative-studio"],
+  ["ads-wing", "ops-center"],
+  ["creative-studio", "ops-center"],
+  ["intel-lab", "strategy-room"],
+  ["strategy-room", "ops-center"],
+  ["intel-lab", "archives"],
+  ["ops-center", "review-room"],
+  ["archives", "front-desk"],
+  ["front-desk", "review-room"],
+  ["strategy-room", "front-desk"],
+];
 
 // ─── Isometric Transform ────────────────────────────────────
 function toIso(gridX: number, gridY: number): { x: number; y: number } {
   const tileW = 120;
   const tileH = 60;
   return {
-    x: (gridX - gridY) * (tileW / 2) + 400,
-    y: (gridX + gridY) * (tileH / 2) + 60,
+    x: (gridX - gridY) * (tileW / 2) + 420,
+    y: (gridX + gridY) * (tileH / 2) + 80,
   };
 }
 
+// ─── SVG Definitions (glows, gradients) ─────────────────────
+function SvgDefs() {
+  return (
+    <defs>
+      {/* Background glow */}
+      <radialGradient id="bgGlow" cx="50%" cy="40%">
+        <stop offset="0%" stopColor="rgba(99,102,241,0.06)" />
+        <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+      </radialGradient>
+
+      {/* Neon glow filters */}
+      <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      <filter id="screenGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      {/* Holographic gradient */}
+      <linearGradient id="holoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.6" />
+        <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.4" />
+        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.6" />
+      </linearGradient>
+
+      {/* Data flow gradient */}
+      <linearGradient id="dataFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#06b6d4" stopOpacity="0" />
+        <stop offset="50%" stopColor="#06b6d4" stopOpacity="1" />
+        <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+  );
+}
+
 // ─── Floor Tile ─────────────────────────────────────────────
-function FloorTile({ gridX, gridY, highlight }: { gridX: number; gridY: number; highlight?: boolean }) {
+function FloorTile({ gridX, gridY, highlight, glowColor }: { gridX: number; gridY: number; highlight?: boolean; glowColor?: string }) {
   const { x, y } = toIso(gridX, gridY);
   const w = 120;
   const h = 60;
   return (
-    <polygon
-      points={`${x},${y - h / 2} ${x + w / 2},${y} ${x},${y + h / 2} ${x - w / 2},${y}`}
-      fill={highlight ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.02)"}
-      stroke="rgba(255,255,255,0.04)"
-      strokeWidth={0.5}
-    />
+    <g>
+      <polygon
+        points={`${x},${y - h / 2} ${x + w / 2},${y} ${x},${y + h / 2} ${x - w / 2},${y}`}
+        fill={highlight ? (glowColor || "rgba(99,102,241,0.06)") : "rgba(255,255,255,0.01)"}
+        stroke={highlight ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)"}
+        strokeWidth={highlight ? 0.8 : 0.3}
+      />
+      {/* Grid lines inside tile */}
+      <line
+        x1={x - w / 4} y1={y - h / 4}
+        x2={x + w / 4} y2={y + h / 4}
+        stroke="rgba(255,255,255,0.015)"
+        strokeWidth={0.3}
+      />
+    </g>
   );
 }
 
-// ─── Desk SVG ───────────────────────────────────────────────
-function Desk({ gridX, gridY, type }: { gridX: number; gridY: number; type: string }) {
-  const { x, y } = toIso(gridX, gridY);
+// ─── Neon Pathway ───────────────────────────────────────────
+function NeonPathway({ from, to, active }: { from: string; to: string; active: boolean }) {
+  const posA = DESK_POSITIONS[from];
+  const posB = DESK_POSITIONS[to];
+  if (!posA || !posB) return null;
 
-  const deskColor = type === "executive" ? "#4a3728" : type === "monitors" ? "#2a2a3a" : "#1e1e2e";
-  const topColor = type === "executive" ? "#6b4f3a" : "#2d2d40";
+  const a = toIso(posA.x, posA.y);
+  const b = toIso(posB.x, posB.y);
+
+  const pathId = `path-${from}-${to}`;
 
   return (
     <g>
-      {/* Desk surface - isometric box */}
-      <polygon
-        points={`${x - 30},${y - 20} ${x + 10},${y - 36} ${x + 50},${y - 20} ${x + 10},${y - 4}`}
-        fill={topColor}
-        stroke="rgba(255,255,255,0.08)"
-        strokeWidth={0.5}
+      {/* Base line (dim) */}
+      <line
+        x1={a.x} y1={a.y}
+        x2={b.x} y2={b.y}
+        stroke="rgba(6,182,212,0.08)"
+        strokeWidth={1.5}
       />
-      {/* Desk front */}
-      <polygon
-        points={`${x - 30},${y - 20} ${x + 10},${y - 4} ${x + 10},${y + 8} ${x - 30},${y - 8}`}
-        fill={deskColor}
-        stroke="rgba(255,255,255,0.05)"
-        strokeWidth={0.5}
-      />
-      {/* Desk side */}
-      <polygon
-        points={`${x + 10},${y - 4} ${x + 50},${y - 20} ${x + 50},${y - 8} ${x + 10},${y + 8}`}
-        fill={deskColor}
-        opacity={0.7}
-        stroke="rgba(255,255,255,0.05)"
-        strokeWidth={0.5}
-      />
-      {/* Monitor */}
-      {(type === "monitors" || type === "screens" || type === "executive") && (
+      {/* Active neon line */}
+      {active && (
+        <line
+          x1={a.x} y1={a.y}
+          x2={b.x} y2={b.y}
+          stroke="rgba(6,182,212,0.25)"
+          strokeWidth={1}
+          filter="url(#neonGlow)"
+        />
+      )}
+      {/* Data flow dot */}
+      {active && (
         <>
-          <rect x={x - 8} y={y - 44} width={20} height={14} rx={1} fill="#111827" stroke="#374151" strokeWidth={0.5} />
-          <rect x={x - 5} y={y - 42} width={14} height={10} rx={0.5} fill="#1e3a5f" opacity={0.8} />
-          <rect x={x + 1} y={y - 30} width={2} height={4} fill="#374151" />
+          <path id={pathId} d={`M${a.x},${a.y} L${b.x},${b.y}`} fill="none" />
+          <motion.circle
+            r={2.5}
+            fill="#06b6d4"
+            filter="url(#neonGlow)"
+          >
+            <animateMotion
+              dur={`${2 + Math.random() * 2}s`}
+              repeatCount="indefinite"
+              path={`M${a.x},${a.y} L${b.x},${b.y}`}
+            />
+          </motion.circle>
         </>
       )}
-      {/* Chair */}
-      <ellipse cx={x - 5} cy={y + 14} rx={10} ry={5} fill="rgba(55,65,81,0.6)" />
     </g>
   );
 }
 
-// ─── Coffee Machine ─────────────────────────────────────────
-function CoffeeMachine() {
-  const { x, y } = toIso(COFFEE_POS.x, COFFEE_POS.y);
-  return (
-    <g>
-      <rect x={x - 8} y={y - 24} width={16} height={20} rx={2} fill="#292524" stroke="#78716c" strokeWidth={0.5} />
-      <rect x={x - 4} y={y - 20} width={8} height={6} rx={1} fill="#dc2626" opacity={0.6} />
-      <motion.circle
-        cx={x}
-        cy={y - 28}
-        r={2}
-        fill="#a3e635"
-        animate={{ opacity: [0.3, 1, 0.3] }}
-        transition={{ duration: 2, repeat: Infinity }}
-      />
-      <text x={x} y={y + 6} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.3)">☕</text>
-    </g>
-  );
-}
-
-// ─── Plant ──────────────────────────────────────────────────
-function Plant({ gridX, gridY }: { gridX: number; gridY: number }) {
+// ─── Cyberpunk Station ──────────────────────────────────────
+function Station({ gridX, gridY, type, neonColor, glowColor, agentStatus }: {
+  gridX: number; gridY: number; type: string; neonColor: string; glowColor: string; agentStatus: AgentStatus;
+}) {
   const { x, y } = toIso(gridX, gridY);
+  const isActive = agentStatus === "active";
+
   return (
     <g>
-      <rect x={x - 5} y={y - 4} width={10} height={8} rx={1} fill="#78350f" />
-      <circle cx={x} cy={y - 10} r={8} fill="#15803d" opacity={0.7} />
-      <circle cx={x - 4} cy={y - 12} r={5} fill="#22c55e" opacity={0.5} />
-      <circle cx={x + 3} cy={y - 14} r={4} fill="#16a34a" opacity={0.6} />
+      {/* Platform base */}
+      <polygon
+        points={`${x - 32},${y - 8} ${x + 8},${y - 28} ${x + 48},${y - 12} ${x + 8},${y + 8}`}
+        fill="rgba(15,23,42,0.8)"
+        stroke={isActive ? neonColor : "rgba(100,116,139,0.15)"}
+        strokeWidth={isActive ? 1 : 0.5}
+        filter={isActive ? "url(#screenGlow)" : undefined}
+      />
+      {/* Platform top surface */}
+      <polygon
+        points={`${x - 32},${y - 10} ${x + 8},${y - 30} ${x + 48},${y - 14} ${x + 8},${y + 6}`}
+        fill="rgba(30,41,59,0.6)"
+        stroke={isActive ? neonColor : "rgba(100,116,139,0.1)"}
+        strokeWidth={0.5}
+      />
+
+      {/* Station-specific props */}
+      {(type === "charts" || type === "holodesk") && (
+        <g>
+          {/* Holographic screen */}
+          <motion.rect
+            x={x - 10} y={y - 54} width={24} height={16} rx={1}
+            fill="rgba(6,182,212,0.1)"
+            stroke={isActive ? neonColor : "rgba(6,182,212,0.2)"}
+            strokeWidth={0.5}
+            filter={isActive ? "url(#screenGlow)" : undefined}
+            animate={isActive ? { opacity: [0.6, 1, 0.6] } : {}}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          {/* Chart bars */}
+          {[0, 1, 2, 3].map((i) => (
+            <motion.rect
+              key={i}
+              x={x - 6 + i * 5}
+              y={y - 50 + (isActive ? 0 : 2)}
+              width={3}
+              height={isActive ? 4 + Math.random() * 6 : 4}
+              fill={neonColor}
+              opacity={isActive ? 0.8 : 0.3}
+              animate={isActive ? { height: [4, 4 + Math.random() * 8, 4] } : {}}
+              transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+            />
+          ))}
+          {/* Stand */}
+          <rect x={x + 1} y={y - 38} width={2} height={10} fill="rgba(100,116,139,0.3)" />
+        </g>
+      )}
+
+      {type === "servers" && (
+        <g>
+          {/* Server rack */}
+          <rect x={x + 20} y={y - 48} width={12} height={24} rx={1} fill="rgba(15,23,42,0.9)" stroke="rgba(100,116,139,0.2)" strokeWidth={0.5} />
+          {[0, 1, 2, 3].map((i) => (
+            <motion.circle
+              key={i}
+              cx={x + 29}
+              cy={y - 44 + i * 6}
+              r={1.5}
+              fill={isActive ? "#10b981" : "#374151"}
+              animate={isActive ? { opacity: [0.3, 1, 0.3] } : {}}
+              transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }}
+            />
+          ))}
+        </g>
+      )}
+
+      {type === "creative" && (
+        <g>
+          {/* Tablet/Drawing surface */}
+          <rect x={x - 8} y={y - 50} width={20} height={14} rx={2} fill="rgba(15,23,42,0.9)" stroke="rgba(168,85,247,0.3)" strokeWidth={0.5} />
+          {/* Color palette dots */}
+          {["#ec4899", "#a855f7", "#3b82f6", "#10b981"].map((c, i) => (
+            <circle key={i} cx={x - 4 + i * 5} cy={y - 43} r={2} fill={c} opacity={isActive ? 0.8 : 0.3} />
+          ))}
+          {isActive && (
+            <motion.line
+              x1={x - 4} y1={y - 48}
+              x2={x + 8} y2={y - 46}
+              stroke="#a855f7"
+              strokeWidth={1}
+              opacity={0.6}
+              animate={{ x2: [x + 8, x - 2, x + 8] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            />
+          )}
+        </g>
+      )}
+
+      {type === "cabinets" && (
+        <g>
+          {/* File cabinet */}
+          <rect x={x + 18} y={y - 44} width={14} height={20} rx={1} fill="rgba(30,41,59,0.8)" stroke="rgba(100,116,139,0.2)" strokeWidth={0.5} />
+          {[0, 1, 2].map((i) => (
+            <rect key={i} x={x + 20} y={y - 42 + i * 6} width={10} height={4} rx={0.5} fill="rgba(100,116,139,0.15)" stroke="rgba(100,116,139,0.1)" strokeWidth={0.3} />
+          ))}
+          {/* Drawer handle */}
+          <rect x={x + 23} y={y - 40} width={4} height={0.8} fill="rgba(148,163,184,0.3)" />
+        </g>
+      )}
+
+      {type === "comms" && (
+        <g>
+          {/* Antenna / transmitter */}
+          <line x1={x + 24} y1={y - 52} x2={x + 24} y2={y - 36} stroke="rgba(236,72,153,0.4)" strokeWidth={1} />
+          <motion.circle
+            cx={x + 24} cy={y - 54}
+            r={3}
+            fill="none"
+            stroke={isActive ? "#ec4899" : "rgba(236,72,153,0.2)"}
+            strokeWidth={0.5}
+            animate={isActive ? { r: [3, 8, 3], opacity: [0.8, 0, 0.8] } : {}}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          {isActive && (
+            <motion.circle
+              cx={x + 24} cy={y - 54}
+              r={5}
+              fill="none"
+              stroke="#ec4899"
+              strokeWidth={0.3}
+              animate={{ r: [5, 12, 5], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+            />
+          )}
+        </g>
+      )}
+
+      {type === "screens" && (
+        <g>
+          {/* Multi-screen setup */}
+          {[-12, 4].map((ox, i) => (
+            <motion.rect
+              key={i}
+              x={x + ox} y={y - 52} width={14} height={10} rx={1}
+              fill="rgba(15,23,42,0.9)"
+              stroke={isActive ? neonColor : "rgba(100,116,139,0.2)"}
+              strokeWidth={0.5}
+              animate={isActive ? { opacity: [0.7, 1, 0.7] } : {}}
+              transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
+            />
+          ))}
+          {/* Screen content lines */}
+          {isActive && [0, 1, 2].map((i) => (
+            <rect key={i} x={x - 9} y={y - 50 + i * 3} width={8} height={1} fill={neonColor} opacity={0.4} rx={0.5} />
+          ))}
+        </g>
+      )}
+
+      {/* Base glow ring for active stations */}
+      {isActive && (
+        <motion.ellipse
+          cx={x + 8}
+          cy={y + 2}
+          rx={36}
+          ry={14}
+          fill="none"
+          stroke={neonColor}
+          strokeWidth={0.5}
+          opacity={0.3}
+          animate={{ opacity: [0.1, 0.4, 0.1], rx: [34, 38, 34] }}
+          transition={{ duration: 3, repeat: Infinity }}
+        />
+      )}
     </g>
   );
 }
 
-// ─── Agent Character ────────────────────────────────────────
-function AgentCharacter({
+// ─── Robot Agent Character ──────────────────────────────────
+function RobotAgent({
   agent,
   status,
   speechText,
@@ -178,121 +417,218 @@ function AgentCharacter({
   walkTarget?: { x: number; y: number } | null;
 }) {
   const deskPos = DESK_POSITIONS[agent.desk];
-  const homePos = toIso(deskPos.x, deskPos.y);
-  const targetPos = walkTarget || homePos;
-
-  const statusColor = status === "active" ? "#22c55e" : status === "completed" ? "#3b82f6" : "#6b7280";
+  const home = toIso(deskPos.x, deskPos.y);
+  const target = walkTarget || home;
+  const isActive = status === "active";
 
   return (
     <motion.g
-      animate={{ x: targetPos.x - homePos.x, y: targetPos.y - homePos.y }}
-      transition={{ duration: 2, ease: "easeInOut" }}
+      animate={{ x: target.x - home.x, y: target.y - home.y }}
+      transition={{ duration: 2.5, ease: "easeInOut" }}
       style={{ cursor: "pointer" }}
       onClick={onClick}
     >
       {/* Shadow */}
-      <ellipse cx={homePos.x} cy={homePos.y + 18} rx={12} ry={5} fill="rgba(0,0,0,0.3)" />
+      <motion.ellipse
+        cx={home.x}
+        cy={home.y + 16}
+        rx={10}
+        ry={4}
+        fill={isActive ? agent.glowColor : "rgba(0,0,0,0.3)"}
+        animate={isActive ? { rx: [10, 14, 10], opacity: [0.3, 0.6, 0.3] } : {}}
+        transition={{ duration: 2, repeat: Infinity }}
+      />
 
-      {/* Body */}
       <motion.g
-        animate={status === "active" ? { y: [0, -2, 0] } : {}}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+        animate={isActive ? { y: [0, -3, 0] } : {}}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
       >
-        {/* Legs */}
-        <rect x={homePos.x - 5} y={homePos.y + 4} width={4} height={12} rx={2} fill="#374151" />
-        <rect x={homePos.x + 1} y={homePos.y + 4} width={4} height={12} rx={2} fill="#374151" />
+        {/* Robot body */}
+        <rect x={home.x - 7} y={home.y - 8} width={14} height={16} rx={3} fill="rgba(30,41,59,0.9)" stroke={agent.neonColor} strokeWidth={isActive ? 1 : 0.5} />
+        
+        {/* Chest light */}
+        <motion.circle
+          cx={home.x}
+          cy={home.y}
+          r={2}
+          fill={agent.neonColor}
+          animate={isActive ? { opacity: [0.4, 1, 0.4], r: [1.5, 2.5, 1.5] } : { opacity: 0.3 }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        />
 
-        {/* Body */}
-        <rect x={homePos.x - 8} y={homePos.y - 14} width={16} height={20} rx={4} fill={agent.color} />
+        {/* Arms */}
+        <rect x={home.x - 11} y={home.y - 6} width={3} height={10} rx={1.5} fill="rgba(30,41,59,0.8)" stroke={agent.neonColor} strokeWidth={0.3} />
+        <rect x={home.x + 8} y={home.y - 6} width={3} height={10} rx={1.5} fill="rgba(30,41,59,0.8)" stroke={agent.neonColor} strokeWidth={0.3} />
+
+        {/* Legs */}
+        <rect x={home.x - 5} y={home.y + 8} width={4} height={6} rx={1} fill="rgba(30,41,59,0.8)" stroke={agent.neonColor} strokeWidth={0.3} />
+        <rect x={home.x + 1} y={home.y + 8} width={4} height={6} rx={1} fill="rgba(30,41,59,0.8)" stroke={agent.neonColor} strokeWidth={0.3} />
 
         {/* Head */}
-        <circle cx={homePos.x} cy={homePos.y - 22} r={9} fill="#fbbf24" />
+        <rect x={home.x - 8} y={home.y - 22} width={16} height={14} rx={4} fill="rgba(15,23,42,0.95)" stroke={agent.neonColor} strokeWidth={isActive ? 1 : 0.5} />
+        
+        {/* Antenna */}
+        <line x1={home.x} y1={home.y - 22} x2={home.x} y2={home.y - 28} stroke={agent.neonColor} strokeWidth={0.8} />
+        <motion.circle
+          cx={home.x}
+          cy={home.y - 29}
+          r={2}
+          fill={agent.neonColor}
+          animate={isActive ? { opacity: [0.3, 1, 0.3] } : { opacity: 0.2 }}
+          transition={{ duration: 1, repeat: Infinity }}
+          filter={isActive ? "url(#neonGlow)" : undefined}
+        />
 
         {/* Eyes */}
         <motion.g
-          animate={status === "active" ? { scaleY: [1, 0.1, 1] } : {}}
-          transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+          animate={isActive ? { scaleY: [1, 0.1, 1] } : {}}
+          transition={{ duration: 4, repeat: Infinity, repeatDelay: 2 }}
         >
-          <circle cx={homePos.x - 3} cy={homePos.y - 23} r={1.5} fill="#1e1b4b" />
-          <circle cx={homePos.x + 3} cy={homePos.y - 23} r={1.5} fill="#1e1b4b" />
+          <motion.rect
+            x={home.x - 6} y={home.y - 18}
+            width={4} height={3} rx={1}
+            fill={agent.neonColor}
+            animate={isActive ? { opacity: [0.6, 1, 0.6] } : { opacity: 0.4 }}
+            transition={{ duration: 2, repeat: Infinity }}
+            filter={isActive ? "url(#screenGlow)" : undefined}
+          />
+          <motion.rect
+            x={home.x + 2} y={home.y - 18}
+            width={4} height={3} rx={1}
+            fill={agent.neonColor}
+            animate={isActive ? { opacity: [0.6, 1, 0.6] } : { opacity: 0.4 }}
+            transition={{ duration: 2, repeat: Infinity }}
+            filter={isActive ? "url(#screenGlow)" : undefined}
+          />
         </motion.g>
 
-        {/* Agent emoji badge */}
-        <text x={homePos.x} y={homePos.y - 2} textAnchor="middle" fontSize={10}>
-          {agent.emoji}
-        </text>
+        {/* Mouth / visor line */}
+        <rect x={home.x - 4} y={home.y - 12} width={8} height={1} rx={0.5} fill={agent.neonColor} opacity={isActive ? 0.5 : 0.2} />
       </motion.g>
 
-      {/* Name tag */}
+      {/* Name tag with neon border */}
       <g>
         <rect
-          x={homePos.x - 24}
-          y={homePos.y - 40}
-          width={48}
-          height={14}
-          rx={4}
-          fill="rgba(0,0,0,0.7)"
-          stroke={isSelected ? "#818cf8" : "rgba(255,255,255,0.1)"}
+          x={home.x - 26}
+          y={home.y - 38}
+          width={52}
+          height={12}
+          rx={3}
+          fill="rgba(0,0,0,0.8)"
+          stroke={isSelected ? agent.neonColor : "rgba(255,255,255,0.1)"}
           strokeWidth={isSelected ? 1.5 : 0.5}
         />
         <text
-          x={homePos.x}
-          y={homePos.y - 30}
+          x={home.x}
+          y={home.y - 29.5}
           textAnchor="middle"
-          fontSize={8}
+          fontSize={7}
           fontWeight="bold"
-          fill="white"
+          fill={agent.neonColor}
+          fontFamily="monospace"
         >
           {agent.name}
         </text>
       </g>
 
-      {/* Status dot */}
+      {/* Status indicator */}
       <motion.circle
-        cx={homePos.x + 20}
-        cy={homePos.y - 38}
+        cx={home.x + 22}
+        cy={home.y - 36}
         r={3}
-        fill={statusColor}
-        animate={status === "active" ? { scale: [1, 1.4, 1], opacity: [1, 0.6, 1] } : {}}
-        transition={status === "active" ? { duration: 1.5, repeat: Infinity } : {}}
+        fill={isActive ? "#22c55e" : status === "completed" ? "#3b82f6" : "#4b5563"}
+        animate={isActive ? { scale: [1, 1.5, 1], opacity: [1, 0.5, 1] } : {}}
+        transition={isActive ? { duration: 1.2, repeat: Infinity } : {}}
+        filter={isActive ? "url(#neonGlow)" : undefined}
       />
 
       {/* Speech bubble */}
       <AnimatePresence>
-        {(isSelected || status === "active") && (
+        {(isSelected || isActive) && (
           <motion.g
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 5 }}
           >
             <rect
-              x={homePos.x - 50}
-              y={homePos.y - 62}
-              width={100}
-              height={18}
-              rx={6}
-              fill={status === "active" ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)"}
-              stroke={status === "active" ? "rgba(34,197,94,0.3)" : "rgba(255,255,255,0.1)"}
+              x={home.x - 55}
+              y={home.y - 56}
+              width={110}
+              height={16}
+              rx={5}
+              fill="rgba(0,0,0,0.85)"
+              stroke={isActive ? agent.neonColor : "rgba(255,255,255,0.1)"}
               strokeWidth={0.5}
             />
             <text
-              x={homePos.x}
-              y={homePos.y - 50}
+              x={home.x}
+              y={home.y - 45}
               textAnchor="middle"
-              fontSize={7}
-              fill={status === "active" ? "#86efac" : "#9ca3af"}
+              fontSize={6.5}
+              fill={isActive ? agent.neonColor : "#9ca3af"}
+              fontFamily="monospace"
             >
-              {speechText.slice(0, 30)}{speechText.length > 30 ? "..." : ""}
+              {speechText.slice(0, 35)}{speechText.length > 35 ? "…" : ""}
             </text>
-            {/* Bubble tail */}
             <polygon
-              points={`${homePos.x - 3},${homePos.y - 44} ${homePos.x + 3},${homePos.y - 44} ${homePos.x},${homePos.y - 40}`}
-              fill={status === "active" ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)"}
+              points={`${home.x - 4},${home.y - 40} ${home.x + 4},${home.y - 40} ${home.x},${home.y - 36}`}
+              fill="rgba(0,0,0,0.85)"
             />
           </motion.g>
         )}
       </AnimatePresence>
     </motion.g>
+  );
+}
+
+// ─── Coffee Machine (cyberpunk) ─────────────────────────────
+function CoffeeMachine() {
+  const { x, y } = toIso(COFFEE_POS.x, COFFEE_POS.y);
+  return (
+    <g>
+      <rect x={x - 8} y={y - 22} width={16} height={20} rx={2} fill="rgba(15,23,42,0.9)" stroke="rgba(6,182,212,0.2)" strokeWidth={0.5} />
+      <motion.rect
+        x={x - 4} y={y - 18} width={8} height={5} rx={1}
+        fill="rgba(6,182,212,0.15)"
+        animate={{ opacity: [0.3, 0.8, 0.3] }}
+        transition={{ duration: 3, repeat: Infinity }}
+      />
+      <motion.circle
+        cx={x} cy={y - 26} r={2}
+        fill="#06b6d4"
+        filter="url(#neonGlow)"
+        animate={{ opacity: [0.2, 0.8, 0.2] }}
+        transition={{ duration: 2, repeat: Infinity }}
+      />
+      <text x={x} y={y + 6} textAnchor="middle" fontSize={7} fill="rgba(6,182,212,0.3)" fontFamily="monospace">☕</text>
+    </g>
+  );
+}
+
+// ─── Ambient Particles ──────────────────────────────────────
+function AmbientParticles() {
+  return (
+    <g>
+      {Array.from({ length: 20 }).map((_, i) => (
+        <motion.circle
+          key={i}
+          cx={150 + Math.random() * 600}
+          cy={50 + Math.random() * 400}
+          r={0.5 + Math.random() * 1}
+          fill={["#06b6d4", "#a855f7", "#3b82f6", "#22c55e"][i % 4]}
+          opacity={0.15}
+          animate={{
+            cy: [50 + Math.random() * 400, 30 + Math.random() * 400],
+            opacity: [0, 0.3, 0],
+          }}
+          transition={{
+            duration: 5 + Math.random() * 5,
+            repeat: Infinity,
+            delay: Math.random() * 5,
+          }}
+        />
+      ))}
+    </g>
   );
 }
 
@@ -302,82 +638,16 @@ function RoomLabel({ gridX, gridY, label, icon }: { gridX: number; gridY: number
   return (
     <text
       x={x}
-      y={y + 30}
+      y={y + 28}
       textAnchor="middle"
-      fontSize={7}
-      fill="rgba(255,255,255,0.15)"
-      fontWeight="500"
+      fontSize={6}
+      fill="rgba(148,163,184,0.25)"
+      fontFamily="monospace"
+      fontWeight="bold"
+      letterSpacing="1"
     >
       {icon} {label}
     </text>
-  );
-}
-
-// ─── Wall Segments ──────────────────────────────────────────
-function Walls() {
-  // Back wall
-  const topLeft = toIso(-0.5, -0.5);
-  const topRight = toIso(6, -0.5);
-  const midRight = toIso(6, 5);
-  const midLeft = toIso(-0.5, 5);
-
-  return (
-    <g>
-      {/* Back walls */}
-      <line x1={topLeft.x} y1={topLeft.y} x2={topRight.x} y2={topRight.y} stroke="rgba(99,102,241,0.15)" strokeWidth={2} />
-      <line x1={topLeft.x} y1={topLeft.y} x2={midLeft.x} y2={midLeft.y} stroke="rgba(99,102,241,0.15)" strokeWidth={2} />
-      {/* Front walls (subtle) */}
-      <line x1={topRight.x} y1={topRight.y} x2={midRight.x} y2={midRight.y} stroke="rgba(99,102,241,0.06)" strokeWidth={1} />
-      <line x1={midLeft.x} y1={midLeft.y} x2={midRight.x} y2={midRight.y} stroke="rgba(99,102,241,0.06)" strokeWidth={1} />
-    </g>
-  );
-}
-
-// ─── Day/Night Overlay ──────────────────────────────────────
-function DayNightOverlay() {
-  const hour = new Date().getHours();
-  // Night: 9PM-6AM = darker overlay
-  const isNight = hour >= 21 || hour < 6;
-  const isDusk = hour >= 18 && hour < 21;
-
-  if (!isNight && !isDusk) return null;
-
-  return (
-    <rect
-      x={0}
-      y={0}
-      width={900}
-      height={500}
-      fill={isNight ? "rgba(15,23,42,0.3)" : "rgba(30,27,75,0.15)"}
-    />
-  );
-}
-
-// ─── Window Glow (night) ────────────────────────────────────
-function WindowGlow() {
-  const hour = new Date().getHours();
-  if (hour >= 6 && hour < 20) return null;
-
-  return (
-    <g>
-      {[0, 2, 4].map((i) => {
-        const { x, y } = toIso(i + 0.5, -0.7);
-        return (
-          <motion.rect
-            key={i}
-            x={x - 8}
-            y={y - 12}
-            width={16}
-            height={10}
-            rx={1}
-            fill="#fef08a"
-            opacity={0.15}
-            animate={{ opacity: [0.1, 0.2, 0.1] }}
-            transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}
-          />
-        );
-      })}
-    </g>
   );
 }
 
@@ -396,8 +666,7 @@ export function IsometricOffice({
   function getAgentStatus(agentId: string): AgentStatus {
     const agentActions = actions.filter((a) => (a.agentId || a.agentName) === agentId);
     if (agentActions.length === 0) return "idle";
-    const hasActive = agentActions.some((a) => ["pending", "proposed", "approved", "executing"].includes(a.status));
-    if (hasActive) return "active";
+    if (agentActions.some((a) => ["pending", "proposed", "approved", "executing"].includes(a.status))) return "active";
     return "completed";
   }
 
@@ -407,102 +676,125 @@ export function IsometricOffice({
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const latest = agentActs[0];
     if (latest && ["pending", "proposed", "executing"].includes(latest.status)) {
-      return `Working: ${latest.title.slice(0, 25)}...`;
+      return `> ${latest.title.slice(0, 28)}...`;
     }
     if (latest && latest.status === "completed") {
       const ago = Math.floor((Date.now() - new Date(latest.createdAt).getTime()) / 60000);
-      if (ago < 60) return `Done "${latest.title.slice(0, 20)}" ${ago}m ago`;
+      if (ago < 60) return `✓ ${latest.title.slice(0, 22)} ${ago}m ago`;
     }
     return agent.personality;
   }
 
-  // Randomly send active agents to get coffee
+  // Active agents walk to coffee
   useEffect(() => {
     const interval = setInterval(() => {
-      const activeAgents = AGENTS.filter((a) => getAgentStatus(a.id) === "active");
-      if (activeAgents.length > 0) {
-        const lucky = activeAgents[Math.floor(Math.random() * activeAgents.length)];
+      const active = AGENTS.filter((a) => getAgentStatus(a.id) === "active");
+      if (active.length > 0) {
+        const lucky = active[Math.floor(Math.random() * active.length)];
         const coffeeIso = toIso(COFFEE_POS.x, COFFEE_POS.y);
         setWalkingAgents((prev) => ({ ...prev, [lucky.id]: coffeeIso }));
-        // Walk back after 4s
         setTimeout(() => {
           setWalkingAgents((prev) => ({ ...prev, [lucky.id]: null }));
         }, 4000);
       }
-    }, 15000);
+    }, 12000);
     return () => clearInterval(interval);
   }, [actions]);
 
-  const roomLabels: Record<string, { label: string; icon: string }> = {
-    "corner-office": { label: "Corner Office", icon: "🏢" },
-    "ads-wing": { label: "Ads Wing", icon: "💰" },
-    "creative-studio": { label: "Creative Studio", icon: "🎨" },
-    "intel-lab": { label: "Intel Lab", icon: "🔬" },
-    "strategy-room": { label: "Strategy Room", icon: "📈" },
-    "ops-center": { label: "Ops Center", icon: "⚙️" },
-    "archives": { label: "Archives", icon: "📚" },
-    "front-desk": { label: "Front Desk", icon: "🏪" },
-    "review-room": { label: "Review Room", icon: "🔎" },
-  };
+  // Check which pathways have active agents at either end
+  function isPathwayActive(from: string, to: string): boolean {
+    const fromAgent = AGENTS.find((a) => a.desk === from);
+    const toAgent = AGENTS.find((a) => a.desk === to);
+    return (
+      (fromAgent ? getAgentStatus(fromAgent.id) === "active" : false) ||
+      (toAgent ? getAgentStatus(toAgent.id) === "active" : false)
+    );
+  }
+
+  const hour = new Date().getHours();
+  const timeLabel = hour >= 21 || hour < 6 ? "🌙 NIGHT OPS" : hour >= 18 ? "🌅 EVENING" : "☀️ ACTIVE";
 
   return (
     <div className="relative w-full overflow-x-auto">
       <svg
-        viewBox="0 0 900 520"
+        viewBox="0 0 900 540"
         className="w-full min-w-[700px]"
-        style={{ maxHeight: "70vh" }}
+        style={{ maxHeight: "72vh" }}
       >
-        {/* Background gradient */}
-        <defs>
-          <radialGradient id="floorGlow" cx="50%" cy="40%">
-            <stop offset="0%" stopColor="rgba(99,102,241,0.05)" />
-            <stop offset="100%" stopColor="rgba(0,0,0,0)" />
-          </radialGradient>
-        </defs>
-        <rect x={0} y={0} width={900} height={520} fill="url(#floorGlow)" />
+        <SvgDefs />
+
+        {/* Background */}
+        <rect x={0} y={0} width={900} height={540} fill="url(#bgGlow)" />
+
+        {/* Ambient particles */}
+        <AmbientParticles />
 
         {/* Floor tiles */}
         {Array.from({ length: 7 }).map((_, gx) =>
           Array.from({ length: 6 }).map((_, gy) => {
-            const isDeskTile = Object.values(DESK_POSITIONS).some(
-              (p) => Math.floor(p.x) === gx && Math.floor(p.y) === gy
+            const deskEntry = Object.entries(DESK_POSITIONS).find(
+              ([, p]) => Math.floor(p.x) === gx && Math.floor(p.y) === gy
             );
-            return <FloorTile key={`${gx}-${gy}`} gridX={gx} gridY={gy} highlight={isDeskTile} />;
+            const agent = deskEntry ? AGENTS.find((a) => a.desk === deskEntry[0]) : null;
+            return (
+              <FloorTile
+                key={`${gx}-${gy}`}
+                gridX={gx}
+                gridY={gy}
+                highlight={!!deskEntry}
+                glowColor={agent ? agent.glowColor.replace("0.3", "0.04") : undefined}
+              />
+            );
           })
         )}
 
-        {/* Walls */}
-        <Walls />
-        <WindowGlow />
+        {/* Neon pathways */}
+        {PATHWAYS.map(([from, to]) => (
+          <NeonPathway
+            key={`${from}-${to}`}
+            from={from}
+            to={to}
+            active={isPathwayActive(from, to)}
+          />
+        ))}
 
         {/* Coffee machine */}
         <CoffeeMachine />
 
-        {/* Plants */}
-        <Plant gridX={-0.3} gridY={0.5} />
-        <Plant gridX={5.8} gridY={0.5} />
-        <Plant gridX={-0.3} gridY={3.5} />
-        <Plant gridX={5.8} gridY={3.5} />
+        {/* Stations & room labels */}
+        {AGENTS.map((agent) => {
+          const pos = DESK_POSITIONS[agent.desk];
+          const room = ROOM_LABELS[agent.desk];
+          return (
+            <g key={`station-${agent.id}`}>
+              <Station
+                gridX={pos.x}
+                gridY={pos.y}
+                type={agent.stationProps}
+                neonColor={agent.neonColor}
+                glowColor={agent.glowColor}
+                agentStatus={getAgentStatus(agent.id)}
+              />
+              {room && (
+                <RoomLabel
+                  gridX={pos.x}
+                  gridY={pos.y}
+                  label={room.label}
+                  icon={room.icon}
+                />
+              )}
+            </g>
+          );
+        })}
 
-        {/* Desks & room labels */}
-        {Object.entries(DESK_POSITIONS).map(([deskId, pos]) => (
-          <g key={deskId}>
-            <Desk gridX={pos.x} gridY={pos.y} type={pos.furniture} />
-            <RoomLabel
-              gridX={pos.x}
-              gridY={pos.y}
-              label={roomLabels[deskId]?.label || deskId}
-              icon={roomLabels[deskId]?.icon || ""}
-            />
-          </g>
-        ))}
+        {/* Night overlay */}
+        {(hour >= 21 || hour < 6) && (
+          <rect x={0} y={0} width={900} height={540} fill="rgba(15,23,42,0.2)" />
+        )}
 
-        {/* Day/Night overlay */}
-        <DayNightOverlay />
-
-        {/* Agent characters (rendered last = on top) */}
+        {/* Robot agents */}
         {AGENTS.map((agent) => (
-          <AgentCharacter
+          <RobotAgent
             key={agent.id}
             agent={agent}
             status={getAgentStatus(agent.id)}
@@ -514,11 +806,11 @@ export function IsometricOffice({
         ))}
 
         {/* Title */}
-        <text x={450} y={20} textAnchor="middle" fontSize={14} fontWeight="bold" fill="rgba(255,255,255,0.5)">
-          🏢 2FLY AI Office
+        <text x={450} y={22} textAnchor="middle" fontSize={12} fontWeight="bold" fill="rgba(6,182,212,0.6)" fontFamily="monospace" letterSpacing="3">
+          2FLY AI HEADQUARTERS
         </text>
-        <text x={450} y={35} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.2)">
-          {new Date().getHours() >= 21 || new Date().getHours() < 6 ? "🌙 Night Shift" : new Date().getHours() >= 18 ? "🌅 Evening" : "☀️ Office Hours"}
+        <text x={450} y={36} textAnchor="middle" fontSize={8} fill="rgba(148,163,184,0.3)" fontFamily="monospace">
+          {timeLabel} · {AGENTS.filter((a) => getAgentStatus(a.id) === "active").length} ACTIVE
         </text>
       </svg>
     </div>
