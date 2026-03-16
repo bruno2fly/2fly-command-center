@@ -9,6 +9,7 @@ import { ContentKPIStrip, type ContentKPIs } from "@/components/client-control/c
 import { ContentStatsBar } from "@/components/client-control/content/ContentStatsBar";
 import { CreateContentModal } from "@/components/client-control/content/CreateContentModal";
 import { ContentIdeasView } from "@/components/client-control/content/ContentIdeasView";
+import { ContentStrategyView } from "@/components/client-control/content/ContentStrategyView";
 import { ReelIdeasRow, type ReelIdeaCard } from "@/components/client-control/content/ReelIdeasRow";
 import { ReferenceLinksRow } from "@/components/client-control/content/ReferenceLinksRow";
 import { MonthlyPlannerCompact } from "@/components/client-control/content/MonthlyPlannerCompact";
@@ -61,6 +62,8 @@ export function ClientContentTab({ clientId }: Props) {
   const [scheduleDate, setScheduleDate] = useState<string>("");
   const [showCreateContent, setShowCreateContent] = useState(false);
   const [defaultCreateStatus, setDefaultCreateStatus] = useState("draft");
+  type ContentSubView = "pipeline" | "calendar" | "strategy";
+  const [contentSubView, setContentSubView] = useState<ContentSubView>("pipeline");
 
   const fetchContent = useCallback(() => {
     api
@@ -291,36 +294,71 @@ export function ClientContentTab({ clientId }: Props) {
   return (
     <div className={`flex-1 overflow-auto ${bgBase}`}>
       <ContentStatsBar content={content} />
-      <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${isDark ? "border-[rgba(51,65,85,0.5)]" : "border-gray-200"}`}>
-        <ContentKPIStrip kpis={kpis} />
-        <button
-          type="button"
-          onClick={() => { setDefaultCreateStatus("draft"); setShowCreateContent(true); }}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 border border-blue-500/30 shrink-0"
-        >
-          + Add Content
-        </button>
+      {/* Pipeline / Calendar / Strategy toggle */}
+      <div className={`flex items-center gap-1 px-4 py-2 border-b ${isDark ? "border-white/5" : "border-gray-200"}`}>
+        {(
+          [
+            { id: "pipeline" as const, label: "Pipeline", emoji: "📊" },
+            { id: "calendar" as const, label: "Calendar", emoji: "📅" },
+            { id: "strategy" as const, label: "Strategy", emoji: "🧠" },
+          ] as const
+        ).map(({ id, label, emoji }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setContentSubView(id)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              contentSubView === id
+                ? isDark
+                  ? "bg-white/15 text-white border border-white/20"
+                  : "bg-gray-200 text-gray-900 border border-gray-300"
+                : isDark
+                  ? "text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 border border-transparent"
+            }`}
+          >
+            {emoji} {label}
+          </button>
+        ))}
       </div>
 
-      <div className="p-4 space-y-6">
-        <ContentIdeasView clientId={clientId} onRefresh={fetchContent} />
+      {contentSubView === "strategy" ? (
+        <ContentStrategyView clientId={clientId} />
+      ) : contentSubView === "calendar" ? (
+        <div className="p-4">
+          <MonthlyPlannerCompact items={allScheduledItems} />
+        </div>
+      ) : (
+        <>
+          <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${isDark ? "border-[rgba(51,65,85,0.5)]" : "border-gray-200"}`}>
+            <ContentKPIStrip kpis={kpis} />
+            <button
+              type="button"
+              onClick={() => { setDefaultCreateStatus("draft"); setShowCreateContent(true); }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 border border-blue-500/30 shrink-0"
+            >
+              + Add Content
+            </button>
+          </div>
 
-        {/* Reel Ideas row */}
-        <ReelIdeasRow
-          items={reelCards}
-          onAddNew={addReelIdea}
-        />
+          <div className="p-4 space-y-6">
+            <ContentIdeasView clientId={clientId} onRefresh={fetchContent} />
 
-        {/* Reference Links */}
-        <ReferenceLinksRow
-          items={references}
-          onItemsChange={setReferences}
-          onAdd={addReference}
-        />
+            <ReelIdeasRow
+              items={reelCards}
+              onAddNew={addReelIdea}
+            />
 
-        {/* Monthly Planner — compact */}
-        <MonthlyPlannerCompact items={allScheduledItems} />
-      </div>
+            <ReferenceLinksRow
+              items={references}
+              onItemsChange={setReferences}
+              onAdd={addReference}
+            />
+
+            <MonthlyPlannerCompact items={allScheduledItems} />
+          </div>
+        </>
+      )}
 
       {showCreateContent && (
         <CreateContentModal

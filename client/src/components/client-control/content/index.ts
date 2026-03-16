@@ -1,5 +1,6 @@
 export { ContentKPIStrip, type ContentKPIs } from "./ContentKPIStrip";
 export { ContentStatsBar } from "./ContentStatsBar";
+export { ContentStrategyView } from "./ContentStrategyView";
 export { CreateContentModal } from "./CreateContentModal";
 export { EditContentModal } from "./EditContentModal";
 export { AIContentIdeasSection } from "./AIContentIdeasSection";

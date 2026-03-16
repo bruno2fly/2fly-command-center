@@ -347,6 +347,77 @@ router.patch("/:id", async (req, res) => {
 });
 
 // POST /api/clients/recompute — force recompute all health
+// ─── Content Strategy (AI-generated strategy docs) ─────────────────────
+// GET /api/clients/:clientId/strategy — list all for client
+router.get("/:clientId/strategy", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const list = await prisma.contentStrategy.findMany({
+      where: { clientId },
+      orderBy: [{ type: "asc" }, { version: "desc" }, { updatedAt: "desc" }],
+    });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/clients/:clientId/strategy/:type — get latest by type
+router.get("/:clientId/strategy/:type", async (req, res) => {
+  try {
+    const { clientId, type } = req.params;
+    const doc = await prisma.contentStrategy.findFirst({
+      where: { clientId, type },
+      orderBy: [{ version: "desc" }, { updatedAt: "desc" }],
+    });
+    if (!doc) return res.status(404).json({ error: "Not found" });
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/clients/:clientId/strategy — create or update (version history)
+router.post("/:clientId/strategy", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { type, title, data } = req.body;
+    if (!type || !title) {
+      return res.status(400).json({ error: "type and title required" });
+    }
+    const last = await prisma.contentStrategy.findFirst({
+      where: { clientId, type },
+      orderBy: { version: "desc" },
+    });
+    const version = (last?.version ?? 0) + 1;
+    const doc = await prisma.contentStrategy.create({
+      data: {
+        clientId,
+        type: String(type),
+        title: String(title),
+        data: typeof data === "string" ? data : JSON.stringify(data ?? {}),
+        version,
+      },
+    });
+    res.status(201).json(doc);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/clients/:clientId/strategy/:id — delete by strategy id
+router.delete("/:clientId/strategy/:id", async (req, res) => {
+  try {
+    const { clientId, id } = req.params;
+    await prisma.contentStrategy.deleteMany({
+      where: { id, clientId },
+    });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/recompute", async (_req, res) => {
   try {
     const results = await recomputeAllClients();

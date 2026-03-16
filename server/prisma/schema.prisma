@@ -59,15 +59,31 @@ model Client {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  contentItems    ContentItem[]
-  requests        ClientRequest[]
-  adReports       AdReport[]
-  healthLogs      HealthLog[]
-  invoices        Invoice[]
-  adCampaigns     AdCampaign[]
-  metaConnection  MetaConnection?
-  tasks           Task[]
-  dailyReports    DailyReport[]
+  contentItems       ContentItem[]
+  contentStrategies  ContentStrategy[]
+  requests           ClientRequest[]
+  adReports          AdReport[]
+  healthLogs         HealthLog[]
+  invoices           Invoice[]
+  adCampaigns        AdCampaign[]
+  metaConnection     MetaConnection?
+  tasks              Task[]
+  dailyReports       DailyReport[]
+}
+
+// AI-generated content strategy (brand profile, pillars, hooks, etc.)
+model ContentStrategy {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type      String   // brand_profile, audience_map, competitor_analysis, review_mining, trend_intel, content_pillars, hook_library, content_scores, local_intel, visual_direction
+  title     String
+  data      String   // JSON stringified strategy data
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId, type])
 }
 
 // Auto-generated daily/weekly reports (cron at 10 PM)

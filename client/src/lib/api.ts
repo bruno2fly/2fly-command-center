@@ -480,6 +480,21 @@ export const api = {
     }),
   deleteContent: (id: string) =>
     fetchMainAPI<{ deleted: boolean }>(`/content/${id}`, { method: 'DELETE' }),
+
+  // Content Strategy (AI-generated strategy docs)
+  getClientStrategies: (clientId: string) =>
+    fetchMainAPI<ApiContentStrategy[]>(`/clients/${encodeURIComponent(clientId)}/strategy`),
+  getClientStrategyByType: (clientId: string, type: string) =>
+    fetchMainAPI<ApiContentStrategy>(`/clients/${encodeURIComponent(clientId)}/strategy/${encodeURIComponent(type)}`),
+  createClientStrategy: (clientId: string, data: { type: string; title: string; data: string | object }) =>
+    fetchMainAPI<ApiContentStrategy>(`/clients/${encodeURIComponent(clientId)}/strategy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteClientStrategy: (clientId: string, id: string) =>
+    fetchMainAPI<void>(`/clients/${encodeURIComponent(clientId)}/strategy/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
   getInvoicesRaw: () =>
     fetchAPI<ApiInvoicesResponse>('/invoices'),
   getPayments: () => fetchAPI<ApiPaymentsResponse>('/payments'),
@@ -764,6 +779,17 @@ export type ApiRequestItem = {
 export type ApiRequestsResponse = {
   requests: ApiRequestItem[];
   total: number;
+};
+
+export type ApiContentStrategy = {
+  id: string;
+  clientId: string;
+  type: string;
+  title: string;
+  data: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ApiContentItem = {
