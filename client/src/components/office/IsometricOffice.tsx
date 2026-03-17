@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "@/contexts/ThemeContext";
+
+// Theme context for office sub-components
+const OfficeThemeCtx = createContext(true); // true = dark
 
 // ─── Types ──────────────────────────────────────────────────
 type AgentStatus = "active" | "idle" | "completed";
@@ -56,18 +60,11 @@ const DESK_POSITIONS: Record<string, { x: number; y: number; facing: "left" | "r
 
 // ─── SVG Defs (Cyberpunk) ───────────────────────────────────
 function SvgDefs() {
+  const dk = useContext(OfficeThemeCtx);
   return (
     <defs>
       <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="rgba(0,0,0,0.5)" />
-      </filter>
-      <filter id="neonGlow" x="-100%" y="-100%" width="300%" height="300%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
+        <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor={dk ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.1)"} />
       </filter>
       <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
         <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
@@ -76,46 +73,36 @@ function SvgDefs() {
           <feMergeNode in="SourceGraphic" />
         </feMerge>
       </filter>
-      <filter id="hologram" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
-        <feFlood floodColor="#00f0ff" floodOpacity="0.3" result="color" />
-        <feComposite in="color" in2="blur" operator="in" result="glow" />
-        <feMerge>
-          <feMergeNode in="glow" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
-      {/* Circuit board pattern */}
+      {/* Floor patterns */}
       <pattern id="circuitBoard" patternUnits="userSpaceOnUse" width="40" height="40">
-        <rect width="40" height="40" fill="#050510" />
-        <path d="M0 20h15M25 20h15M20 0v15M20 25v15" stroke="#0a1628" strokeWidth="0.5" />
-        <circle cx="20" cy="20" r="1.5" fill="#0d2847" />
-        <circle cx="0" cy="0" r="1" fill="#0d2847" />
-        <circle cx="40" cy="40" r="1" fill="#0d2847" />
+        <rect width="40" height="40" fill={dk ? "#050510" : "#f1f5f9"} />
+        <path d="M0 20h15M25 20h15M20 0v15M20 25v15" stroke={dk ? "#0a1628" : "#e2e8f0"} strokeWidth="0.5" />
+        <circle cx="20" cy="20" r="1.5" fill={dk ? "#0d2847" : "#cbd5e1"} />
+        <circle cx="0" cy="0" r="1" fill={dk ? "#0d2847" : "#cbd5e1"} />
+        <circle cx="40" cy="40" r="1" fill={dk ? "#0d2847" : "#cbd5e1"} />
       </pattern>
-      {/* Hex grid pattern */}
       <pattern id="hexGrid" patternUnits="userSpaceOnUse" width="28" height="49">
         <rect width="28" height="49" fill="transparent" />
-        <path d="M14,0 L28,8 L28,24 L14,32 L0,24 L0,8 Z M14,17 L28,25 L28,41 L14,49 L0,41 L0,25 Z" fill="none" stroke="rgba(0,240,255,0.04)" strokeWidth="0.5" />
+        <path d="M14,0 L28,8 L28,24 L14,32 L0,24 L0,8 Z M14,17 L28,25 L28,41 L14,49 L0,41 L0,25 Z" fill="none" stroke={dk ? "rgba(0,240,255,0.04)" : "rgba(99,102,241,0.06)"} strokeWidth="0.5" />
       </pattern>
       {/* Neon line gradients */}
       <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#00f0ff" stopOpacity="0" />
-        <stop offset="50%" stopColor="#00f0ff" stopOpacity="0.8" />
-        <stop offset="100%" stopColor="#00f0ff" stopOpacity="0" />
+        <stop offset="0%" stopColor={dk ? "#00f0ff" : "#6366f1"} stopOpacity="0" />
+        <stop offset="50%" stopColor={dk ? "#00f0ff" : "#6366f1"} stopOpacity={dk ? "0.8" : "0.3"} />
+        <stop offset="100%" stopColor={dk ? "#00f0ff" : "#6366f1"} stopOpacity="0" />
       </linearGradient>
       <linearGradient id="neonMagenta" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#ff00ff" stopOpacity="0" />
-        <stop offset="50%" stopColor="#ff00ff" stopOpacity="0.6" />
-        <stop offset="100%" stopColor="#ff00ff" stopOpacity="0" />
+        <stop offset="0%" stopColor={dk ? "#ff00ff" : "#ec4899"} stopOpacity="0" />
+        <stop offset="50%" stopColor={dk ? "#ff00ff" : "#ec4899"} stopOpacity={dk ? "0.6" : "0.25"} />
+        <stop offset="100%" stopColor={dk ? "#ff00ff" : "#ec4899"} stopOpacity="0" />
       </linearGradient>
       <linearGradient id="neonAmber" x1="0%" y1="0%" x2="0%" y2="100%">
         <stop offset="0%" stopColor="#f59e0b" stopOpacity="0" />
-        <stop offset="50%" stopColor="#f59e0b" stopOpacity="0.5" />
+        <stop offset="50%" stopColor="#f59e0b" stopOpacity={dk ? "0.5" : "0.2"} />
         <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
       </linearGradient>
       <radialGradient id="spotlightCenter" cx="50%" cy="40%" r="60%">
-        <stop offset="0%" stopColor="rgba(0,240,255,0.03)" />
+        <stop offset="0%" stopColor={dk ? "rgba(0,240,255,0.03)" : "rgba(99,102,241,0.04)"} />
         <stop offset="100%" stopColor="transparent" />
       </radialGradient>
     </defs>
@@ -124,79 +111,89 @@ function SvgDefs() {
 
 // ─── Cyberpunk Office Layout ────────────────────────────────
 function OfficeLayout() {
+  const dk = useContext(OfficeThemeCtx);
+  // Theme palette
+  const roomBg = dk ? "#080818" : "#ffffff";
+  const roomBg2 = dk ? "#0a0818" : "#fef9ff";
+  const roomBg3 = dk ? "#040a08" : "#f0fdf4";
+  const roomBg4 = dk ? "#030810" : "#eff6ff";
+  const roomBg5 = dk ? "#0a0514" : "#fdf2f8";
+  const labelOpacity = dk ? 0.6 : 0.8;
+  const borderOpacity = dk ? 0.4 : 0.5;
+  const pulseOpacity = dk ? [0.2, 0.6, 0.2] : [0.1, 0.3, 0.1];
+  const subtleStroke = dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+
   return (
     <g>
-      {/* Main floor — circuit board */}
+      {/* Main floor */}
       <rect x={60} y={60} width={770} height={430} rx={4} fill="url(#circuitBoard)" />
-      {/* Hex overlay */}
       <rect x={60} y={60} width={770} height={430} rx={4} fill="url(#hexGrid)" />
-      {/* Ambient spotlight */}
       <rect x={60} y={60} width={770} height={430} rx={4} fill="url(#spotlightCenter)" />
 
-      {/* ── Boss's Corner Office (neon-bordered) ── */}
-      <rect x={70} y={70} width={160} height={150} rx={2} fill="#080818" />
-      <rect x={70} y={70} width={160} height={150} rx={2} fill="none" stroke="#f59e0b" strokeWidth={1.5} opacity={0.4} />
+      {/* ── Boss's Corner Office ── */}
+      <rect x={70} y={70} width={160} height={150} rx={2} fill={roomBg} />
+      <rect x={70} y={70} width={160} height={150} rx={2} fill="none" stroke="#f59e0b" strokeWidth={1.5} opacity={borderOpacity} />
       <motion.rect x={70} y={70} width={160} height={150} rx={2} fill="none" stroke="#f59e0b" strokeWidth={0.5}
-        animate={{ opacity: [0.2, 0.6, 0.2] }} transition={{ duration: 3, repeat: Infinity }} />
-      <text x={150} y={88} textAnchor="middle" fontSize={8} fill="rgba(245,158,11,0.6)" fontFamily="monospace" fontWeight="bold">⚡ COMMAND CENTER</text>
+        animate={{ opacity: pulseOpacity as number[] }} transition={{ duration: 3, repeat: Infinity }} />
+      <text x={150} y={88} textAnchor="middle" fontSize={8} fill={dk ? "rgba(245,158,11,0.6)" : "rgba(180,100,0,0.8)"} fontFamily="monospace" fontWeight="bold">⚡ COMMAND CENTER</text>
       {/* Door glow */}
-      <rect x={210} y={158} width={20} height={6} fill="#f59e0b" opacity={0.15} rx={1} />
-      <rect x={213} y={160} width={14} height={2} fill="#f59e0b" opacity={0.5} rx={0.5} />
+      <rect x={210} y={158} width={20} height={6} fill="#f59e0b" opacity={dk ? 0.15 : 0.08} rx={1} />
+      <rect x={213} y={160} width={14} height={2} fill="#f59e0b" opacity={dk ? 0.5 : 0.3} rx={0.5} />
 
       {/* ── Meeting Room (magenta neon) ── */}
-      <rect x={70} y={270} width={160} height={140} rx={2} fill="#0a0818" />
-      <rect x={70} y={270} width={160} height={140} rx={2} fill="none" stroke="#ff00ff" strokeWidth={1.5} opacity={0.3} />
-      <motion.rect x={70} y={270} width={160} height={140} rx={2} fill="none" stroke="#ff00ff" strokeWidth={0.5}
-        animate={{ opacity: [0.15, 0.4, 0.15] }} transition={{ duration: 4, repeat: Infinity }} />
-      <text x={150} y={288} textAnchor="middle" fontSize={8} fill="rgba(255,0,255,0.5)" fontFamily="monospace" fontWeight="bold">🔮 WAR ROOM</text>
-      {/* Holographic meeting table */}
-      <rect x={105} y={310} width={90} height={50} rx={20} fill="#0c0520" stroke="rgba(255,0,255,0.2)" strokeWidth={1} />
-      <motion.rect x={108} y={313} width={84} height={44} rx={18} fill="none" stroke="rgba(255,0,255,0.15)" strokeWidth={0.5}
+      <rect x={70} y={270} width={160} height={140} rx={2} fill={roomBg2} />
+      <rect x={70} y={270} width={160} height={140} rx={2} fill="none" stroke={dk ? "#ff00ff" : "#ec4899"} strokeWidth={1.5} opacity={dk ? 0.3 : 0.4} />
+      <motion.rect x={70} y={270} width={160} height={140} rx={2} fill="none" stroke={dk ? "#ff00ff" : "#ec4899"} strokeWidth={0.5}
+        animate={{ opacity: dk ? [0.15, 0.4, 0.15] : [0.08, 0.2, 0.08] }} transition={{ duration: 4, repeat: Infinity }} />
+      <text x={150} y={288} textAnchor="middle" fontSize={8} fill={dk ? "rgba(255,0,255,0.5)" : "rgba(190,24,93,0.7)"} fontFamily="monospace" fontWeight="bold">🔮 WAR ROOM</text>
+      {/* Meeting table */}
+      <rect x={105} y={310} width={90} height={50} rx={20} fill={dk ? "#0c0520" : "#fdf2f8"} stroke={dk ? "rgba(255,0,255,0.2)" : "rgba(236,72,153,0.2)"} strokeWidth={1} />
+      <motion.rect x={108} y={313} width={84} height={44} rx={18} fill="none" stroke={dk ? "rgba(255,0,255,0.15)" : "rgba(236,72,153,0.1)"} strokeWidth={0.5}
         animate={{ opacity: [0.1, 0.3, 0.1] }} transition={{ duration: 2, repeat: Infinity }} />
-      {/* Holographic projector center */}
-      <motion.circle cx={150} cy={335} r={6} fill="none" stroke="rgba(0,240,255,0.2)" strokeWidth={0.5}
+      {/* Projector */}
+      <motion.circle cx={150} cy={335} r={6} fill="none" stroke={dk ? "rgba(0,240,255,0.2)" : "rgba(99,102,241,0.15)"} strokeWidth={0.5}
         animate={{ r: [4, 8, 4], opacity: [0.3, 0.1, 0.3] }} transition={{ duration: 3, repeat: Infinity }} />
-      <motion.circle cx={150} cy={335} r={3} fill="rgba(0,240,255,0.15)"
+      <motion.circle cx={150} cy={335} r={3} fill={dk ? "rgba(0,240,255,0.15)" : "rgba(99,102,241,0.1)"}
         animate={{ r: [2, 4, 2], opacity: [0.4, 0.15, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
-      {/* Chairs with neon ring */}
+      {/* Chairs */}
       {[
         { x: 120, y: 305 }, { x: 160, y: 305 },
         { x: 120, y: 365 }, { x: 160, y: 365 },
         { x: 100, y: 330 }, { x: 200, y: 330 },
       ].map((c, i) => (
         <g key={`mc-${i}`}>
-          <circle cx={c.x} cy={c.y} r={8} fill="#0c0a1a" stroke="rgba(255,0,255,0.12)" strokeWidth={0.5} />
+          <circle cx={c.x} cy={c.y} r={8} fill={dk ? "#0c0a1a" : "#f8fafc"} stroke={dk ? "rgba(255,0,255,0.12)" : "rgba(236,72,153,0.15)"} strokeWidth={0.5} />
         </g>
       ))}
 
       {/* ── Open Plan Area ── */}
-      <text x={460} y={88} textAnchor="middle" fontSize={8} fill="rgba(0,240,255,0.3)" fontFamily="monospace" fontWeight="bold">◈ OPEN FLOOR ◈</text>
+      <text x={460} y={88} textAnchor="middle" fontSize={8} fill={dk ? "rgba(0,240,255,0.3)" : "rgba(99,102,241,0.4)"} fontFamily="monospace" fontWeight="bold">◈ OPEN FLOOR ◈</text>
 
-      {/* ── Kitchen/Break area (green neon) ── */}
-      <rect x={260} y={380} width={200} height={100} rx={2} fill="#040a08" />
-      <rect x={260} y={380} width={200} height={100} rx={2} fill="none" stroke="#10b981" strokeWidth={1} opacity={0.3} />
-      <text x={360} y={398} textAnchor="middle" fontSize={8} fill="rgba(16,185,129,0.5)" fontFamily="monospace" fontWeight="bold">☕ RECHARGE BAY</text>
-      {/* Counter with glow */}
-      <rect x={280} y={410} width={160} height={12} rx={2} fill="#0a1a14" stroke="rgba(16,185,129,0.15)" strokeWidth={0.5} />
-      {/* Coffee machine with holographic display */}
-      <rect x={310} y={400} width={16} height={18} rx={2} fill="#0c1a14" stroke="rgba(16,185,129,0.2)" strokeWidth={0.5} />
+      {/* ── Kitchen/Break area ── */}
+      <rect x={260} y={380} width={200} height={100} rx={2} fill={roomBg3} />
+      <rect x={260} y={380} width={200} height={100} rx={2} fill="none" stroke="#10b981" strokeWidth={1} opacity={dk ? 0.3 : 0.4} />
+      <text x={360} y={398} textAnchor="middle" fontSize={8} fill={dk ? "rgba(16,185,129,0.5)" : "rgba(5,150,105,0.7)"} fontFamily="monospace" fontWeight="bold">☕ RECHARGE BAY</text>
+      {/* Counter */}
+      <rect x={280} y={410} width={160} height={12} rx={2} fill={dk ? "#0a1a14" : "#ecfdf5"} stroke={dk ? "rgba(16,185,129,0.15)" : "rgba(16,185,129,0.2)"} strokeWidth={0.5} />
+      {/* Coffee machine */}
+      <rect x={310} y={400} width={16} height={18} rx={2} fill={dk ? "#0c1a14" : "#d1fae5"} stroke={dk ? "rgba(16,185,129,0.2)" : "rgba(16,185,129,0.3)"} strokeWidth={0.5} />
       <motion.circle cx={318} cy={403} r={2} fill="#22c55e"
         animate={{ opacity: [0.3, 1, 0.3], r: [1.5, 2.5, 1.5] }} transition={{ duration: 2, repeat: Infinity }} />
-      {/* Fridge with LED strip */}
-      <rect x={380} y={396} width={24} height={28} rx={2} fill="#0a1018" stroke="rgba(59,130,246,0.15)" strokeWidth={0.5} />
-      <motion.rect x={380} y={396} width={24} height={2} rx={1} fill="#3b82f6" opacity={0.3}
-        animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2.5, repeat: Infinity }} />
+      {/* Fridge */}
+      <rect x={380} y={396} width={24} height={28} rx={2} fill={dk ? "#0a1018" : "#eff6ff"} stroke={dk ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.2)"} strokeWidth={0.5} />
+      <motion.rect x={380} y={396} width={24} height={2} rx={1} fill="#3b82f6" opacity={dk ? 0.3 : 0.15}
+        animate={{ opacity: dk ? [0.2, 0.5, 0.2] : [0.1, 0.25, 0.1] }} transition={{ duration: 2.5, repeat: Infinity }} />
 
-      {/* ── Data Center (cyan neon, heavy glow) ── */}
-      <rect x={660} y={200} width={150} height={120} rx={2} fill="#030810" />
-      <rect x={660} y={200} width={150} height={120} rx={2} fill="none" stroke="#00f0ff" strokeWidth={1.5} opacity={0.3} />
-      <motion.rect x={660} y={200} width={150} height={120} rx={2} fill="none" stroke="#00f0ff" strokeWidth={0.5}
-        animate={{ opacity: [0.1, 0.4, 0.1] }} transition={{ duration: 2.5, repeat: Infinity }} />
-      <text x={735} y={218} textAnchor="middle" fontSize={8} fill="rgba(0,240,255,0.5)" fontFamily="monospace" fontWeight="bold">💾 NEURAL CORE</text>
-      {/* Server racks with aggressive LEDs */}
+      {/* ── Data Center ── */}
+      <rect x={660} y={200} width={150} height={120} rx={2} fill={roomBg4} />
+      <rect x={660} y={200} width={150} height={120} rx={2} fill="none" stroke={dk ? "#00f0ff" : "#6366f1"} strokeWidth={1.5} opacity={dk ? 0.3 : 0.4} />
+      <motion.rect x={660} y={200} width={150} height={120} rx={2} fill="none" stroke={dk ? "#00f0ff" : "#6366f1"} strokeWidth={0.5}
+        animate={{ opacity: dk ? [0.1, 0.4, 0.1] : [0.05, 0.2, 0.05] }} transition={{ duration: 2.5, repeat: Infinity }} />
+      <text x={735} y={218} textAnchor="middle" fontSize={8} fill={dk ? "rgba(0,240,255,0.5)" : "rgba(79,70,229,0.7)"} fontFamily="monospace" fontWeight="bold">💾 NEURAL CORE</text>
+      {/* Server racks */}
       {[0, 1, 2].map((i) => (
         <g key={`srv-${i}`}>
-          <rect x={760} y={230 + i * 26} width={30} height={20} rx={1} fill="#050a18" stroke="rgba(0,240,255,0.1)" strokeWidth={0.5} />
+          <rect x={760} y={230 + i * 26} width={30} height={20} rx={1} fill={dk ? "#050a18" : "#e0e7ff"} stroke={dk ? "rgba(0,240,255,0.1)" : "rgba(99,102,241,0.2)"} strokeWidth={0.5} />
           {[0, 1, 2, 3, 4, 5].map((j) => (
             <motion.circle
               key={`led-${i}-${j}`}
@@ -209,7 +206,7 @@ function OfficeLayout() {
             />
           ))}
           {/* Data transfer line */}
-          <motion.rect x={762} y={243 + i * 26} width={26} height={1} fill="#00f0ff" opacity={0.15}
+          <motion.rect x={762} y={243 + i * 26} width={26} height={1} fill={dk ? "#00f0ff" : "#6366f1"} opacity={0.15}
             animate={{ opacity: [0, 0.3, 0] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.4 }} />
         </g>
       ))}
@@ -217,79 +214,74 @@ function OfficeLayout() {
       {[0, 1, 2, 3].map((i) => (
         <motion.circle
           key={`data-${i}`}
-          cx={680}
-          cy={250 + i * 15}
-          r={1}
-          fill="#00f0ff"
-          animate={{ cx: [680, 750, 680], opacity: [0, 0.8, 0] }}
+          cx={680} cy={250 + i * 15} r={1}
+          fill={dk ? "#00f0ff" : "#6366f1"}
+          animate={{ cx: [680, 750, 680], opacity: [0, dk ? 0.8 : 0.4, 0] }}
           transition={{ duration: 2 + i * 0.5, repeat: Infinity, delay: i * 0.8 }}
         />
       ))}
 
-      {/* ── Reception (pink neon) ── */}
-      <rect x={660} y={70} width={150} height={110} rx={2} fill="#0a0514" />
-      <rect x={660} y={70} width={150} height={110} rx={2} fill="none" stroke="#ec4899" strokeWidth={1} opacity={0.3} />
-      <text x={735} y={88} textAnchor="middle" fontSize={8} fill="rgba(236,72,153,0.5)" fontFamily="monospace" fontWeight="bold">📡 SIGNAL HUB</text>
+      {/* ── Reception ── */}
+      <rect x={660} y={70} width={150} height={110} rx={2} fill={roomBg5} />
+      <rect x={660} y={70} width={150} height={110} rx={2} fill="none" stroke="#ec4899" strokeWidth={1} opacity={dk ? 0.3 : 0.4} />
+      <text x={735} y={88} textAnchor="middle" fontSize={8} fill={dk ? "rgba(236,72,153,0.5)" : "rgba(190,24,93,0.7)"} fontFamily="monospace" fontWeight="bold">📡 SIGNAL HUB</text>
 
-      {/* ── QA Lab (green neon) ── */}
-      <rect x={660} y={345} width={150} height={100} rx={2} fill="#040a08" />
-      <rect x={660} y={345} width={150} height={100} rx={2} fill="none" stroke="#22c55e" strokeWidth={1} opacity={0.3} />
-      <text x={735} y={363} textAnchor="middle" fontSize={8} fill="rgba(34,197,94,0.5)" fontFamily="monospace" fontWeight="bold">🔎 VALIDATION LAB</text>
+      {/* ── QA Lab ── */}
+      <rect x={660} y={345} width={150} height={100} rx={2} fill={dk ? "#040a08" : "#f0fdf4"} />
+      <rect x={660} y={345} width={150} height={100} rx={2} fill="none" stroke="#22c55e" strokeWidth={1} opacity={dk ? 0.3 : 0.4} />
+      <text x={735} y={363} textAnchor="middle" fontSize={8} fill={dk ? "rgba(34,197,94,0.5)" : "rgba(21,128,61,0.7)"} fontFamily="monospace" fontWeight="bold">🔎 VALIDATION LAB</text>
 
-      {/* ── Neon Floor Lines (pathways) ── */}
-      {/* Main corridor horizontal */}
+      {/* ── Floor Pathways ── */}
       <motion.line x1={230} y1={220} x2={660} y2={220} stroke="url(#neonCyan)" strokeWidth={1}
-        animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 4, repeat: Infinity }} />
-      {/* Corridor vertical */}
+        animate={{ opacity: dk ? [0.2, 0.5, 0.2] : [0.1, 0.25, 0.1] }} transition={{ duration: 4, repeat: Infinity }} />
       <motion.line x1={310} y1={100} x2={310} y2={380} stroke="url(#neonAmber)" strokeWidth={0.8}
-        animate={{ opacity: [0.15, 0.4, 0.15] }} transition={{ duration: 5, repeat: Infinity }} />
+        animate={{ opacity: dk ? [0.15, 0.4, 0.15] : [0.08, 0.2, 0.08] }} transition={{ duration: 5, repeat: Infinity }} />
       <motion.line x1={470} y1={100} x2={470} y2={380} stroke="url(#neonAmber)" strokeWidth={0.8}
-        animate={{ opacity: [0.15, 0.4, 0.15] }} transition={{ duration: 5, repeat: Infinity, delay: 1 }} />
-      {/* Cross corridors */}
+        animate={{ opacity: dk ? [0.15, 0.4, 0.15] : [0.08, 0.2, 0.08] }} transition={{ duration: 5, repeat: Infinity, delay: 1 }} />
       <motion.line x1={630} y1={100} x2={630} y2={445} stroke="url(#neonMagenta)" strokeWidth={0.8}
-        animate={{ opacity: [0.1, 0.35, 0.1] }} transition={{ duration: 6, repeat: Infinity }} />
+        animate={{ opacity: dk ? [0.1, 0.35, 0.1] : [0.05, 0.15, 0.05] }} transition={{ duration: 6, repeat: Infinity }} />
 
-      {/* Moving light pulses along corridors */}
-      <motion.circle r={3} fill="#00f0ff" opacity={0.4} filter="url(#softGlow)"
-        animate={{ cx: [230, 660], cy: [220, 220], opacity: [0, 0.6, 0] }}
+      {/* Moving light pulses */}
+      <motion.circle r={3} fill={dk ? "#00f0ff" : "#6366f1"} opacity={0.4} filter="url(#softGlow)"
+        animate={{ cx: [230, 660], cy: [220, 220], opacity: [0, dk ? 0.6 : 0.3, 0] }}
         transition={{ duration: 4, repeat: Infinity, ease: "linear" }} />
-      <motion.circle r={2} fill="#ff00ff" opacity={0.3} filter="url(#softGlow)"
-        animate={{ cx: [630, 630], cy: [100, 445], opacity: [0, 0.5, 0] }}
+      <motion.circle r={2} fill={dk ? "#ff00ff" : "#ec4899"} opacity={0.3} filter="url(#softGlow)"
+        animate={{ cx: [630, 630], cy: [100, 445], opacity: [0, dk ? 0.5 : 0.25, 0] }}
         transition={{ duration: 5, repeat: Infinity, ease: "linear", delay: 2 }} />
       <motion.circle r={2} fill="#f59e0b" opacity={0.3} filter="url(#softGlow)"
-        animate={{ cx: [310, 310], cy: [380, 100], opacity: [0, 0.5, 0] }}
+        animate={{ cx: [310, 310], cy: [380, 100], opacity: [0, dk ? 0.5 : 0.25, 0] }}
         transition={{ duration: 4.5, repeat: Infinity, ease: "linear", delay: 1 }} />
 
-      {/* ── Divider lines (dotted neon) ── */}
-      <line x1={310} y1={100} x2={310} y2={200} stroke="rgba(0,240,255,0.08)" strokeWidth={0.5} strokeDasharray="3 5" />
-      <line x1={470} y1={100} x2={470} y2={200} stroke="rgba(0,240,255,0.08)" strokeWidth={0.5} strokeDasharray="3 5" />
+      {/* ── Divider lines ── */}
+      <line x1={310} y1={100} x2={310} y2={200} stroke={dk ? "rgba(0,240,255,0.08)" : "rgba(99,102,241,0.1)"} strokeWidth={0.5} strokeDasharray="3 5" />
+      <line x1={470} y1={100} x2={470} y2={200} stroke={dk ? "rgba(0,240,255,0.08)" : "rgba(99,102,241,0.1)"} strokeWidth={0.5} strokeDasharray="3 5" />
 
-      {/* ── Holographic Plants ── */}
+      {/* ── Plants ── */}
       {[
-        { x: 250, y: 80, color: "#00f0ff" }, { x: 630, y: 80, color: "#ff00ff" },
+        { x: 250, y: 80, color: dk ? "#00f0ff" : "#6366f1" }, { x: 630, y: 80, color: dk ? "#ff00ff" : "#ec4899" },
         { x: 250, y: 460, color: "#22c55e" }, { x: 630, y: 460, color: "#f59e0b" },
-        { x: 80, y: 240, color: "#a855f7" }, { x: 240, y: 440, color: "#10b981" },
+        { x: 80, y: 240, color: dk ? "#a855f7" : "#7c3aed" }, { x: 240, y: 440, color: "#10b981" },
       ].map((p, i) => (
         <g key={`plant-${i}`}>
-          <rect x={p.x - 5} y={p.y - 2} width={10} height={8} rx={1} fill="#0a0a18" stroke={p.color} strokeWidth={0.3} opacity={0.4} />
-          <motion.circle cx={p.x} cy={p.y - 8} r={7} fill={p.color} opacity={0.06}
-            animate={{ opacity: [0.04, 0.1, 0.04], r: [6, 8, 6] }}
+          <rect x={p.x - 5} y={p.y - 2} width={10} height={8} rx={1} fill={dk ? "#0a0a18" : "#f8fafc"} stroke={p.color} strokeWidth={0.3} opacity={dk ? 0.4 : 0.5} />
+          <motion.circle cx={p.x} cy={p.y - 8} r={7} fill={p.color} opacity={dk ? 0.06 : 0.08}
+            animate={{ opacity: dk ? [0.04, 0.1, 0.04] : [0.06, 0.12, 0.06], r: [6, 8, 6] }}
             transition={{ duration: 3 + i * 0.5, repeat: Infinity }} />
-          <circle cx={p.x} cy={p.y - 8} r={5} fill="none" stroke={p.color} strokeWidth={0.5} opacity={0.2} />
+          <circle cx={p.x} cy={p.y - 8} r={5} fill={dk ? "none" : p.color} fillOpacity={dk ? 0 : 0.08} stroke={p.color} strokeWidth={0.5} opacity={dk ? 0.2 : 0.3} />
         </g>
       ))}
 
-      {/* ── Holographic Whiteboard (meeting room) ── */}
-      <rect x={76} y={278} width={4} height={50} fill="rgba(0,240,255,0.1)" rx={1} />
-      <motion.rect x={76} y={278} width={4} height={50} fill="none" stroke="#00f0ff" strokeWidth={0.5} rx={1}
-        animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2, repeat: Infinity }} />
+      {/* ── Whiteboard ── */}
+      <rect x={76} y={278} width={4} height={50} fill={dk ? "rgba(0,240,255,0.1)" : "rgba(99,102,241,0.08)"} rx={1} />
+      <motion.rect x={76} y={278} width={4} height={50} fill="none" stroke={dk ? "#00f0ff" : "#6366f1"} strokeWidth={0.5} rx={1}
+        animate={{ opacity: dk ? [0.2, 0.5, 0.2] : [0.1, 0.25, 0.1] }} transition={{ duration: 2, repeat: Infinity }} />
 
-      {/* ── Window indicators (neon strips) ── */}
+      {/* ── Windows ── */}
       {[100, 200, 350, 500, 650, 750].map((wx, i) => (
         <g key={`win-${wx}`}>
-          <rect x={wx} y={60} width={30} height={3} fill={i % 2 === 0 ? "rgba(0,240,255,0.1)" : "rgba(255,0,255,0.08)"} rx={1} />
-          <motion.rect x={wx + 2} y={60} width={26} height={1} fill={i % 2 === 0 ? "#00f0ff" : "#ff00ff"} opacity={0.15} rx={0.5}
-            animate={{ opacity: [0.05, 0.2, 0.05] }} transition={{ duration: 3 + i * 0.3, repeat: Infinity }} />
+          <rect x={wx} y={60} width={30} height={3} fill={dk ? (i % 2 === 0 ? "rgba(0,240,255,0.1)" : "rgba(255,0,255,0.08)") : (i % 2 === 0 ? "rgba(99,102,241,0.08)" : "rgba(236,72,153,0.06)")} rx={1} />
+          <motion.rect x={wx + 2} y={60} width={26} height={1} fill={dk ? (i % 2 === 0 ? "#00f0ff" : "#ff00ff") : (i % 2 === 0 ? "#6366f1" : "#ec4899")} opacity={dk ? 0.15 : 0.1} rx={0.5}
+            animate={{ opacity: dk ? [0.05, 0.2, 0.05] : [0.03, 0.1, 0.03] }} transition={{ duration: 3 + i * 0.3, repeat: Infinity }} />
         </g>
       ))}
     </g>
@@ -300,14 +292,19 @@ function OfficeLayout() {
 function DeskWithComputer({ x, y, isActive, agentColor, neonColor }: {
   x: number; y: number; facing: string; isActive: boolean; agentColor: string; neonColor: string;
 }) {
+  const dk = useContext(OfficeThemeCtx);
   const dw = 60;
   const dh = 30;
+  const deskFill = dk ? "#0a0a18" : "#f1f5f9";
+  const inactiveStroke = dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.08)";
+  const monitorFill = dk ? "#050510" : "#e2e8f0";
+  const kbFill = dk ? "#0a0a18" : "#e2e8f0";
 
   return (
     <g>
-      {/* Desk surface — dark with neon edge glow */}
+      {/* Desk surface */}
       <rect x={x - dw / 2} y={y - dh / 2} width={dw} height={dh} rx={3}
-        fill="#0a0a18" stroke={isActive ? neonColor : "rgba(255,255,255,0.05)"} strokeWidth={isActive ? 1 : 0.5} />
+        fill={deskFill} stroke={isActive ? neonColor : inactiveStroke} strokeWidth={isActive ? 1 : 0.5} />
       {/* Desk neon underglow */}
       {isActive && (
         <motion.rect x={x - dw / 2 + 2} y={y + dh / 2 - 1} width={dw - 4} height={2} rx={1}
@@ -315,12 +312,12 @@ function DeskWithComputer({ x, y, isActive, agentColor, neonColor }: {
           animate={{ opacity: [0.15, 0.4, 0.15] }} transition={{ duration: 2, repeat: Infinity }} />
       )}
 
-      {/* Holographic Monitor */}
+      {/* Monitor */}
       <rect x={x - 14} y={y - dh / 2 - 20} width={28} height={18} rx={2}
-        fill="#050510" stroke={isActive ? neonColor : "rgba(255,255,255,0.06)"} strokeWidth={isActive ? 1 : 0.5} />
+        fill={monitorFill} stroke={isActive ? neonColor : inactiveStroke} strokeWidth={isActive ? 1 : 0.5} />
       {/* Screen content */}
       <rect x={x - 12} y={y - dh / 2 - 18} width={24} height={14} rx={1}
-        fill={isActive ? `${neonColor}08` : "#030308"} />
+        fill={isActive ? (dk ? `${neonColor}08` : `${neonColor}15`) : (dk ? "#030308" : "#f8fafc")} />
       {/* Screen lines */}
       {isActive && [0, 1, 2, 3].map((i) => (
         <motion.rect
@@ -340,20 +337,20 @@ function DeskWithComputer({ x, y, isActive, agentColor, neonColor }: {
           animate={{ opacity: [0, 0.06, 0] }} transition={{ duration: 0.1, repeat: Infinity, repeatDelay: 3 + Math.random() * 5 }} />
       )}
       {/* Monitor stand */}
-      <rect x={x - 2} y={y - dh / 2 - 2} width={4} height={4} fill="#0a0a18" stroke="rgba(255,255,255,0.05)" strokeWidth={0.3} />
+      <rect x={x - 2} y={y - dh / 2 - 2} width={4} height={4} fill={deskFill} stroke={inactiveStroke} strokeWidth={0.3} />
 
-      {/* Keyboard (backlit) */}
-      <rect x={x - 10} y={y - 4} width={20} height={6} rx={1} fill="#0a0a18" stroke={isActive ? `${neonColor}40` : "rgba(255,255,255,0.04)"} strokeWidth={0.3} />
+      {/* Keyboard */}
+      <rect x={x - 10} y={y - 4} width={20} height={6} rx={1} fill={kbFill} stroke={isActive ? `${neonColor}40` : inactiveStroke} strokeWidth={0.3} />
       {isActive && (
         <motion.rect x={x - 9} y={y - 3} width={18} height={4} rx={0.5} fill={neonColor} opacity={0.05}
           animate={{ opacity: [0.03, 0.08, 0.03] }} transition={{ duration: 1, repeat: Infinity }} />
       )}
 
       {/* Mouse */}
-      <ellipse cx={x + 18} cy={y - 1} rx={4} ry={3} fill="#0a0a18" stroke={isActive ? `${neonColor}30` : "rgba(255,255,255,0.04)"} strokeWidth={0.3} />
+      <ellipse cx={x + 18} cy={y - 1} rx={4} ry={3} fill={kbFill} stroke={isActive ? `${neonColor}30` : inactiveStroke} strokeWidth={0.3} />
 
-      {/* Coffee mug with glow ring */}
-      <circle cx={x + 22} cy={y - 10} r={3.5} fill="#0a0a12" stroke={isActive ? neonColor : "rgba(255,255,255,0.06)"} strokeWidth={0.5} opacity={0.7} />
+      {/* Coffee mug */}
+      <circle cx={x + 22} cy={y - 10} r={3.5} fill={dk ? "#0a0a12" : "#fef3c7"} stroke={isActive ? neonColor : inactiveStroke} strokeWidth={0.5} opacity={0.7} />
       {isActive && (
         <motion.path
           d={`M${x + 20},${y - 16} Q${x + 22},${y - 20} ${x + 24},${y - 16}`}
@@ -363,11 +360,11 @@ function DeskWithComputer({ x, y, isActive, agentColor, neonColor }: {
         />
       )}
 
-      {/* Chair with neon trim */}
-      <circle cx={x} cy={y + dh / 2 + 12} r={10} fill="#0a0a18"
-        stroke={isActive ? `${neonColor}40` : "rgba(255,255,255,0.04)"} strokeWidth={0.5} />
+      {/* Chair */}
+      <circle cx={x} cy={y + dh / 2 + 12} r={10} fill={dk ? "#0a0a18" : "#e2e8f0"}
+        stroke={isActive ? `${neonColor}40` : inactiveStroke} strokeWidth={0.5} />
       <rect x={x - 8} y={y + dh / 2 + 18} width={16} height={6} rx={3}
-        fill="#0a0a18" stroke={isActive ? `${neonColor}30` : "rgba(255,255,255,0.03)"} strokeWidth={0.3} />
+        fill={dk ? "#0a0a18" : "#e2e8f0"} stroke={isActive ? `${neonColor}30` : inactiveStroke} strokeWidth={0.3} />
     </g>
   );
 }
@@ -388,6 +385,7 @@ function PersonCharacter({
   onClick: () => void;
   walkTarget?: { x: number; y: number } | null;
 }) {
+  const dk = useContext(OfficeThemeCtx);
   const desk = DESK_POSITIONS[agent.desk];
   if (!desk) return null;
 
@@ -425,8 +423,8 @@ function PersonCharacter({
         {/* Head */}
         <circle cx={homeX} cy={homeY - 6} r={7} fill={agent.skinColor} />
         
-        {/* Cyberpunk visor/glasses */}
-        <rect x={homeX - 6} y={homeY - 8.5} width={12} height={4} rx={2} fill="#0a0a18" stroke={agent.neonColor} strokeWidth={0.6} opacity={0.8} />
+        {/* Visor/glasses */}
+        <rect x={homeX - 6} y={homeY - 8.5} width={12} height={4} rx={2} fill={dk ? "#0a0a18" : "#1e293b"} stroke={agent.neonColor} strokeWidth={0.6} opacity={0.8} />
         <motion.rect x={homeX - 5} y={homeY - 8} width={10} height={3} rx={1.5} fill={agent.neonColor} opacity={isActive ? 0.3 : 0.1}
           animate={isActive ? { opacity: [0.15, 0.35, 0.15] } : {}} transition={{ duration: 1.5, repeat: Infinity }} />
 
@@ -445,11 +443,11 @@ function PersonCharacter({
         )}
       </motion.g>
 
-      {/* Status dot — neon */}
+      {/* Status dot */}
       <motion.circle
         cx={homeX + 12} cy={homeY - 14} r={3.5}
-        fill={isActive ? agent.neonColor : status === "completed" ? "#3b82f6" : "#1e1e2e"}
-        stroke="#050510" strokeWidth={1}
+        fill={isActive ? agent.neonColor : status === "completed" ? "#3b82f6" : (dk ? "#1e1e2e" : "#cbd5e1")}
+        stroke={dk ? "#050510" : "#f8fafc"} strokeWidth={1}
         animate={isActive ? { scale: [1, 1.3, 1] } : {}}
         transition={isActive ? { duration: 1.2, repeat: Infinity } : {}}
       />
@@ -461,14 +459,13 @@ function PersonCharacter({
           transition={{ duration: 1.5, repeat: Infinity }} />
       )}
 
-      {/* Name label — cyberpunk style */}
+      {/* Name label */}
       <g>
         <rect x={homeX - 24} y={homeY - 24} width={48} height={13} rx={2}
-          fill="rgba(5,5,16,0.9)" stroke={isSelected ? agent.neonColor : "rgba(255,255,255,0.06)"} strokeWidth={isSelected ? 1.5 : 0.5} />
-        {/* Neon accent line */}
+          fill={dk ? "rgba(5,5,16,0.9)" : "rgba(255,255,255,0.92)"} stroke={isSelected ? agent.neonColor : (dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)")} strokeWidth={isSelected ? 1.5 : 0.5} />
         <rect x={homeX - 24} y={homeY - 12} width={48} height={1} fill={agent.neonColor} opacity={isSelected ? 0.4 : 0.1} rx={0.5} />
         <text x={homeX} y={homeY - 15} textAnchor="middle" fontSize={7} fontWeight="bold"
-          fill={isActive ? agent.neonColor : "#4a5568"} fontFamily="monospace">
+          fill={isActive ? agent.neonColor : (dk ? "#4a5568" : "#64748b")} fontFamily="monospace">
           {agent.name}
         </text>
       </g>
@@ -482,10 +479,10 @@ function PersonCharacter({
             exit={{ opacity: 0, y: 3 }}
           >
             <rect x={homeX - 52} y={homeY - 42} width={104} height={15} rx={3}
-              fill="rgba(5,5,16,0.92)" stroke={agent.neonColor} strokeWidth={0.5} opacity={0.8} />
-            {/* Scan line effect */}
+              fill={dk ? "rgba(5,5,16,0.92)" : "rgba(255,255,255,0.95)"} stroke={agent.neonColor} strokeWidth={0.5} opacity={0.8} />
+            {/* Scan line */}
             <motion.rect x={homeX - 52} y={homeY - 42} width={104} height={1} rx={0.5}
-              fill={agent.neonColor} opacity={0.1}
+              fill={agent.neonColor} opacity={dk ? 0.1 : 0.05}
               animate={{ y: [homeY - 42, homeY - 28, homeY - 42] }}
               transition={{ duration: 2, repeat: Infinity }} />
             <text x={homeX} y={homeY - 32} textAnchor="middle" fontSize={6.5}
@@ -493,7 +490,7 @@ function PersonCharacter({
               {speechText.slice(0, 30)}{speechText.length > 30 ? "…" : ""}
             </text>
             <polygon points={`${homeX - 3},${homeY - 27} ${homeX + 3},${homeY - 27} ${homeX},${homeY - 23}`}
-              fill="rgba(5,5,16,0.92)" />
+              fill={dk ? "rgba(5,5,16,0.92)" : "rgba(255,255,255,0.95)"} />
           </motion.g>
         )}
       </AnimatePresence>
@@ -514,6 +511,7 @@ const TOM_SPOTS = [
 ];
 
 function OfficeCat() {
+  const dk = useContext(OfficeThemeCtx);
   const [spotIndex, setSpotIndex] = useState(0);
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -623,7 +621,7 @@ function OfficeCat() {
       <AnimatePresence>
         {showTooltip && (
           <motion.g initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <rect x={-22} y={-28} width={44} height={13} rx={3} fill="rgba(5,5,16,0.9)" stroke="rgba(251,146,60,0.4)" strokeWidth={0.5} />
+            <rect x={-22} y={-28} width={44} height={13} rx={3} fill={dk ? "rgba(5,5,16,0.9)" : "rgba(255,255,255,0.95)"} stroke="rgba(251,146,60,0.4)" strokeWidth={0.5} />
             <text x={0} y={-19} textAnchor="middle" fontSize={7} fill="#fb923c" fontFamily="monospace">🐱 Tom</text>
           </motion.g>
         )}
@@ -675,6 +673,7 @@ export function IsometricOffice({
   onSelectAgent: (id: string | null) => void;
   selectedAgent: string | null;
 }) {
+  const { isDark } = useTheme();
   const [walkingAgents, setWalkingAgents] = useState<Record<string, { x: number; y: number } | null>>({});
 
   function getAgentStatus(agentId: string): AgentStatus {
@@ -719,6 +718,7 @@ export function IsometricOffice({
   const timeLabel = hour >= 21 || hour < 6 ? "🌙 NIGHT_OPS" : hour >= 18 ? "🌅 EVE_SHIFT" : "⚡ LIVE";
 
   return (
+    <OfficeThemeCtx.Provider value={isDark}>
     <div className="relative w-full overflow-x-auto">
       <svg
         viewBox="0 0 880 520"
@@ -727,9 +727,8 @@ export function IsometricOffice({
       >
         <SvgDefs />
 
-        {/* Background — deep space black */}
-        <rect x={0} y={0} width={880} height={520} fill="#020208" />
-        {/* Vignette edges */}
+        {/* Background */}
+        <rect x={0} y={0} width={880} height={520} fill={isDark ? "#020208" : "#f8fafc"} />
         <rect x={0} y={0} width={880} height={520} fill="url(#spotlightCenter)" />
 
         {/* Office layout */}
@@ -770,23 +769,23 @@ export function IsometricOffice({
         {/* Tom the cyber cat 🐱 */}
         <OfficeCat />
 
-        {/* Header — cyberpunk style */}
-        <text x={440} y={28} textAnchor="middle" fontSize={14} fontWeight="bold" fill="rgba(0,240,255,0.6)" fontFamily="monospace" letterSpacing="4">
+        {/* Header */}
+        <text x={440} y={28} textAnchor="middle" fontSize={14} fontWeight="bold" fill={isDark ? "rgba(0,240,255,0.6)" : "rgba(79,70,229,0.7)"} fontFamily="monospace" letterSpacing="4">
           2FLY DIGITAL HQ
         </text>
-        <motion.text x={440} y={28} textAnchor="middle" fontSize={14} fontWeight="bold" fill="#00f0ff" fontFamily="monospace" letterSpacing="4" opacity={0.1}
+        <motion.text x={440} y={28} textAnchor="middle" fontSize={14} fontWeight="bold" fill={isDark ? "#00f0ff" : "#6366f1"} fontFamily="monospace" letterSpacing="4" opacity={0.1}
           animate={{ opacity: [0.05, 0.15, 0.05] }} transition={{ duration: 3, repeat: Infinity }}>
           2FLY DIGITAL HQ
         </motion.text>
-        <text x={440} y={44} textAnchor="middle" fontSize={8} fill="rgba(0,240,255,0.3)" fontFamily="monospace">
+        <text x={440} y={44} textAnchor="middle" fontSize={8} fill={isDark ? "rgba(0,240,255,0.3)" : "rgba(79,70,229,0.4)"} fontFamily="monospace">
           {timeLabel} · {activeCount} AGENT{activeCount !== 1 ? "S" : ""} ONLINE · SYS_OK
         </text>
-        {/* Decorative lines under title */}
-        <line x1={340} y1={48} x2={540} y2={48} stroke="rgba(0,240,255,0.1)" strokeWidth={0.5} />
-        <motion.rect x={340} y={47} width={30} height={2} fill="#00f0ff" opacity={0.3} rx={1}
+        <line x1={340} y1={48} x2={540} y2={48} stroke={isDark ? "rgba(0,240,255,0.1)" : "rgba(99,102,241,0.1)"} strokeWidth={0.5} />
+        <motion.rect x={340} y={47} width={30} height={2} fill={isDark ? "#00f0ff" : "#6366f1"} opacity={isDark ? 0.3 : 0.2} rx={1}
           animate={{ x: [340, 510, 340] }}
           transition={{ duration: 6, repeat: Infinity, ease: "linear" }} />
       </svg>
     </div>
+    </OfficeThemeCtx.Provider>
   );
 }
