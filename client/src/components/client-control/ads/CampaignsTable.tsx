@@ -368,9 +368,12 @@ function CampaignRow({
   );
 }
 
+type StatusFilter = "all" | "active" | "paused";
+
 export function CampaignsTable({ campaigns, clientId, clientName, adAccountId, onRefresh }: Props) {
   const { isDark } = useTheme();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const toggle = (id: string) => {
     setExpandedIds((s) => {
@@ -381,13 +384,52 @@ export function CampaignsTable({ campaigns, clientId, clientName, adAccountId, o
     });
   };
 
+  // Filter campaigns by status
+  const filteredCampaigns = statusFilter === "all"
+    ? campaigns
+    : campaigns.filter((c) => {
+        if (statusFilter === "active") return c.status === "active" || c.status === "learning";
+        return c.status === "paused";
+      });
+
+  const activeCount = campaigns.filter((c) => c.status === "active" || c.status === "learning").length;
+  const pausedCount = campaigns.filter((c) => c.status === "paused").length;
+
   const panelCls = isDark ? "bg-[#0a0a0e] border-[#1a1810]" : "bg-white border-gray-200";
   const headerCls = isDark ? "bg-[#08080c] text-[#8a7e6d]" : "bg-gray-50 text-gray-600";
 
+  const pillBase = "px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border";
+  const pillActive = (isSelected: boolean, color: string) =>
+    isSelected
+      ? `${color} border-transparent`
+      : isDark
+        ? "bg-transparent border-white/10 text-gray-400 hover:border-white/20"
+        : "bg-transparent border-gray-200 text-gray-500 hover:border-gray-300";
+
   return (
     <section className={`rounded-xl border overflow-visible ${panelCls}`}>
-      <div className={`px-4 py-3 border-b ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
+      <div className={`px-4 py-3 border-b flex items-center justify-between ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
         <h2 className={`text-xs font-semibold uppercase tracking-wider ${headerCls}`}>Campaigns</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setStatusFilter("all")}
+            className={`${pillBase} ${pillActive(statusFilter === "all", isDark ? "bg-white/10 text-white" : "bg-gray-900 text-white")}`}
+          >
+            All ({campaigns.length})
+          </button>
+          <button
+            onClick={() => setStatusFilter("active")}
+            className={`${pillBase} ${pillActive(statusFilter === "active", "bg-emerald-500/20 text-emerald-400")}`}
+          >
+            🟢 Active ({activeCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter("paused")}
+            className={`${pillBase} ${pillActive(statusFilter === "paused", isDark ? "bg-gray-500/20 text-gray-400" : "bg-gray-200 text-gray-600")}`}
+          >
+            ⏸️ Paused ({pausedCount})
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto overflow-y-visible">
         <table className="w-full text-sm">
@@ -406,7 +448,7 @@ export function CampaignsTable({ campaigns, clientId, clientName, adAccountId, o
             </tr>
           </thead>
           <tbody>
-            {campaigns.map((c) => (
+            {filteredCampaigns.map((c) => (
               <CampaignRow
                 key={c.id}
                 campaign={c}
