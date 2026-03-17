@@ -64,21 +64,72 @@ function ConnectMetaAdsEmptyState({
   isDark: boolean;
   onConnecting?: (v: boolean) => void;
 }) {
+  const [adAccountId, setAdAccountId] = useState("");
+  const [adAccounts, setAdAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+
   const cardCls = isDark ? "bg-gray-800" : "bg-white";
   const titleCls = isDark ? "text-gray-100" : "text-gray-900";
   const subtitleCls = isDark ? "text-gray-300" : "text-gray-600";
   const hintCls = isDark ? "text-gray-500" : "text-gray-500";
+  const inputCls = isDark
+    ? "bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
+    : "bg-white border-gray-300 text-gray-900 placeholder-gray-500";
 
-  const handleConnect = async () => {
+  // Load available ad accounts from Meta API
+  const loadAdAccounts = async () => {
+    setLoadingAccounts(true);
     try {
-      onConnecting?.(true);
-      const { url } = await api.getMetaAuthUrl(clientId);
-      window.open(url, "_blank");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to start Meta connection");
+      const res = await fetch(`/api/meta/ad-accounts?clientId=${clientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAdAccounts(data.accounts || []);
+      }
+    } catch {
+      // Silent — will show manual input
     } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAdAccounts();
+  }, [clientId]);
+
+  const handleQuickConnect = async (accountId: string, accountName: string) => {
+    setLoading(true);
+    onConnecting?.(true);
+    try {
+      // Create MetaConnection first
+      const createRes = await fetch(`/api/meta/quick-connect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, adAccountId: accountId, adAccountName: accountName }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json();
+        throw new Error(err.error || "Failed to connect");
+      }
+      toast.success(`Connected to ${accountName}`);
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to connect");
+    } finally {
+      setLoading(false);
       onConnecting?.(false);
     }
+  };
+
+  const handleManualConnect = () => {
+    const id = adAccountId.trim();
+    if (!id) {
+      toast.error("Enter an ad account ID");
+      return;
+    }
+    const formatted = id.startsWith("act_") ? id : `act_${id}`;
+    handleQuickConnect(formatted, formatted);
   };
 
   return (
@@ -87,24 +138,74 @@ function ConnectMetaAdsEmptyState({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className={`flex flex-col items-center max-w-md rounded-xl border p-8 text-center shadow-sm ${
+        className={`flex flex-col items-center max-w-lg rounded-xl border p-8 text-center shadow-sm ${
           isDark ? "border-gray-700" : "border-gray-200"
         } ${cardCls}`}
       >
         <span className="text-4xl mb-4" aria-hidden>📊</span>
-        <h2 className={`text-xl font-semibold mb-2 ${titleCls}`}>No Meta Ads Connected</h2>
+        <h2 className={`text-xl font-semibold mb-2 ${titleCls}`}>Connect Meta Ads</h2>
         <p className={`text-sm mb-6 ${subtitleCls}`}>
-          Connect this client&apos;s Meta Business account to see ad performance, campaigns, and AI-powered optimization.
+          Select an ad account to see performance, campaigns, and AI-powered optimization.
         </p>
-        <button
-          type="button"
-          onClick={handleConnect}
-          className="bg-[#013E99] text-white rounded-lg px-6 py-3 font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
-        >
-          Connect Meta Ads
-        </button>
-        <p className={`text-xs mt-4 ${hintCls}`}>
-          Requires Meta Business Suite access for this client
+
+        {/* Available ad accounts from Meta API */}
+        {loadingAccounts ? (
+          <div className={`text-sm ${subtitleCls}`}>Loading ad accounts...</div>
+        ) : adAccounts.length > 0 ? (
+          <div className="w-full space-y-2 mb-4">
+            <p className={`text-xs font-medium ${hintCls} text-left`}>Available Ad Accounts:</p>
+            {adAccounts.map((acc) => (
+              <button
+                key={acc.id}
+                onClick={() => handleQuickConnect(acc.id, acc.name)}
+                disabled={loading}
+                className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
+                  isDark
+                    ? "border-gray-600 hover:border-blue-500 hover:bg-gray-700"
+                    : "border-gray-200 hover:border-blue-500 hover:bg-blue-50"
+                } disabled:opacity-50`}
+              >
+                <div className={`font-medium text-sm ${titleCls}`}>{acc.name}</div>
+                <div className={`text-xs ${hintCls}`}>{acc.id}</div>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Manual input */}
+        {!showManual && adAccounts.length > 0 ? (
+          <button
+            onClick={() => setShowManual(true)}
+            className={`text-xs ${hintCls} hover:underline mb-2`}
+          >
+            Or enter ad account ID manually
+          </button>
+        ) : (
+          <div className="w-full mb-4">
+            <p className={`text-xs font-medium ${hintCls} text-left mb-2`}>
+              {adAccounts.length === 0 ? "Enter Ad Account ID:" : "Manual Entry:"}
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={adAccountId}
+                onChange={(e) => setAdAccountId(e.target.value)}
+                placeholder="act_123456789"
+                className={`flex-1 px-3 py-2 rounded-lg border text-sm ${inputCls}`}
+              />
+              <button
+                onClick={handleManualConnect}
+                disabled={loading || !adAccountId.trim()}
+                className="bg-[#013E99] text-white rounded-lg px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                {loading ? "..." : "Connect"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <p className={`text-xs mt-2 ${hintCls}`}>
+          Find your Ad Account ID in Meta Business Suite → Settings → Ad Accounts
         </p>
       </motion.div>
     </div>

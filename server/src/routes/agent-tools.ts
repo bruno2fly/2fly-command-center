@@ -1268,22 +1268,28 @@ router.post('/meta/disconnect/:clientId', async (req: Request, res: Response) =>
   }
 });
 
-// GET /meta/ad-accounts?clientId=XXX — Lists ad accounts after connection
+// GET /meta/ad-accounts?clientId=XXX — Lists ad accounts (uses global token if no connection)
 router.get('/meta/ad-accounts', async (req: Request, res: Response) => {
   try {
     const clientId = req.query.clientId as string;
     if (!clientId) return res.status(400).json({ error: 'clientId is required' });
 
+    // Use existing connection token OR fall back to global token
+    let token = process.env.META_ACCESS_TOKEN || '';
     const conn = await prisma.metaConnection.findUnique({
       where: { clientId },
     });
-    if (!conn) return res.status(404).json({ error: 'Not connected' });
+    if (conn?.accessToken) {
+      token = conn.accessToken;
+    }
+    if (!token) return res.status(500).json({ error: 'No Meta access token available' });
 
     const res2 = await fetch(
-      `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&access_token=${encodeURIComponent(conn.accessToken)}`
+      `https://graph.facebook.com/v25.0/me/adaccounts?fields=id,name,account_status&access_token=${encodeURIComponent(token)}`
     );
     const data = (await res2.json()) as { data?: Array<{ id: string; name: string; account_status: number }> };
 
+    // Filter to active accounts only (status 1 = ACTIVE)
     const accounts = (data.data || []).map((a) => ({
       id: a.id,
       name: a.name,
@@ -1291,6 +1297,57 @@ router.get('/meta/ad-accounts', async (req: Request, res: Response) => {
     }));
 
     res.json({ accounts });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /meta/quick-connect — { clientId, adAccountId, adAccountName } → creates MetaConnection (no OAuth needed)
+router.post('/meta/quick-connect', async (req: Request, res: Response) => {
+  try {
+    const { clientId, adAccountId, adAccountName } = req.body;
+    if (!clientId || !adAccountId) {
+      return res.status(400).json({ error: 'clientId and adAccountId are required' });
+    }
+
+    // Verify the ad account is accessible with our global token
+    const token = process.env.META_ACCESS_TOKEN;
+    if (!token) {
+      return res.status(500).json({ error: 'META_ACCESS_TOKEN not configured' });
+    }
+
+    const verifyRes = await fetch(
+      `https://graph.facebook.com/v25.0/${adAccountId}?fields=name,account_status&access_token=${token}`
+    );
+    const verifyData = await verifyRes.json() as Record<string, unknown>;
+    if ((verifyData as Record<string, unknown>).error) {
+      return res.status(400).json({ error: `Cannot access ad account: ${((verifyData as Record<string, unknown>).error as Record<string, unknown>)?.message || 'Unknown error'}` });
+    }
+
+    const accountName = adAccountName || (verifyData as Record<string, string>).name || adAccountId;
+
+    // Upsert MetaConnection
+    await prisma.metaConnection.upsert({
+      where: { clientId },
+      create: {
+        clientId,
+        adAccountId,
+        adAccountName: accountName,
+        accessToken: token,
+        tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
+        status: 'active',
+      },
+      update: {
+        adAccountId,
+        adAccountName: accountName,
+        accessToken: token,
+        tokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+        status: 'active',
+      },
+    });
+
+    res.json({ success: true, adAccountId, adAccountName: accountName });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
