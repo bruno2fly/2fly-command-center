@@ -82,7 +82,8 @@ function ConnectMetaAdsEmptyState({
   const loadAdAccounts = async () => {
     setLoadingAccounts(true);
     try {
-      const res = await fetch(`/api/meta/ad-accounts?clientId=${clientId}`);
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const res = await fetch(`${API}/api/meta/ad-accounts?clientId=${clientId}`);
       if (res.ok) {
         const data = await res.json();
         setAdAccounts(data.accounts || []);
@@ -103,7 +104,8 @@ function ConnectMetaAdsEmptyState({
     onConnecting?.(true);
     try {
       // Create MetaConnection first
-      const createRes = await fetch(`/api/meta/quick-connect`, {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const createRes = await fetch(`${API}/api/meta/quick-connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId, adAccountId: accountId, adAccountName: accountName }),
