@@ -8,15 +8,48 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const TOKEN = process.env.META_ACCESS_TOKEN;
-const API_VERSION = 'v21.0';
+const API_VERSION = 'v25.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
-const AD_ACCOUNTS = [
+// Hardcoded fallback accounts (legacy)
+const STATIC_AD_ACCOUNTS = [
   { accountId: 'act_1595667451424210', clientId: 'cmml1eoiv000112dhgab4sa2f', label: 'Shape SPA Miami' },
   { accountId: 'act_862498366234569', clientId: 'cmml1eoiw000212dh9pbvfqig', label: 'Shape Spa FLL' },
   { accountId: 'act_2118394678903177', clientId: 'cmml1eoj0000812dhaqydcbuw', label: 'Super Crisp' },
   { accountId: 'act_694395333492835', clientId: 'cmml1eoiz000612dhumvxv3e4', label: 'Ardan Med Spa' },
 ];
+
+// Build full account list: static + all MetaConnections from DB
+async function getAdAccounts() {
+  const connections = await prisma.metaConnection.findMany({
+    where: { status: 'active' },
+    include: { client: { select: { name: true } } },
+  });
+  
+  // Start with static accounts
+  const seen = new Set();
+  const accounts = [];
+  
+  // Add static accounts first
+  for (const sa of STATIC_AD_ACCOUNTS) {
+    seen.add(sa.accountId);
+    accounts.push(sa);
+  }
+  
+  // Add any MetaConnection accounts not already in static list
+  for (const conn of connections) {
+    if (!seen.has(conn.adAccountId)) {
+      seen.add(conn.adAccountId);
+      accounts.push({
+        accountId: conn.adAccountId,
+        clientId: conn.clientId,
+        label: conn.adAccountName || conn.client?.name || conn.adAccountId,
+      });
+    }
+  }
+  
+  return accounts;
+}
 
 async function fetchJSON(url) {
   const res = await fetch(url);
@@ -137,6 +170,9 @@ async function syncAccount({ accountId, clientId, label }) {
 async function main() {
   console.log('🔄 Meta Ads Sync\n');
   if (!TOKEN) { console.error('❌ META_ACCESS_TOKEN not set'); process.exit(1); }
+
+  const AD_ACCOUNTS = await getAdAccounts();
+  console.log(`📋 ${AD_ACCOUNTS.length} ad accounts to sync\n`);
 
   const results = [];
   for (const acct of AD_ACCOUNTS) {
