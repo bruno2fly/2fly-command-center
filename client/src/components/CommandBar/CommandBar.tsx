@@ -152,7 +152,7 @@ export function CommandBar() {
             <span>Search</span>
             <kbd className={`ml-auto px-1.5 py-0.5 text-xs rounded ${isDark ? "bg-[#1a1810] text-[#5a5040]" : "bg-gray-200"}`}>⌘K</kbd>
           </button>
-          <CriticalAlertChip />
+          {/* CriticalAlertChip removed */}
         </div>
 
         {/* CENTER ZONE: Main nav */}

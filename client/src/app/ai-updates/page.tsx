@@ -103,7 +103,7 @@ export default function AiUpdatesPage() {
 
   return (
     <div className={`min-h-screen ${pageBg}`}>
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="w-full px-6 py-8">
         <h1 className={`text-2xl font-bold mb-6 ${titleCls}`}>AI Updates</h1>
 
         {loading && <div className={`text-sm ${subtleCls}`}>Loading...</div>}
