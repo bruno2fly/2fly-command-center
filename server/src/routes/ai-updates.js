@@ -16,10 +16,15 @@ function cleanAgentOutput(text) {
   return text.trim();
 }
 
-// GET /api/ai-updates — list all, newest first
+// GET /api/ai-updates — list by status (default: all non-deleted), newest first
 router.get("/", async (req, res) => {
   try {
+    const { status } = req.query;
+    const where = status
+      ? { status: String(status) }
+      : { status: { not: "deleted" } };
     const updates = await prisma.aiUpdate.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take: 100,
     });
@@ -75,6 +80,36 @@ router.post("/bulk", async (req, res) => {
     res.status(201).json({ created: created.length, updates: created });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/ai-updates/:id/status — transition status with validation
+const ALLOWED_TRANSITIONS = {
+  inbox:    ["for_2fly", "archived", "deleted"],
+  for_2fly: ["archived"],
+  archived: ["for_2fly", "deleted"],
+};
+
+router.patch("/:id/status", async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: "status required" });
+
+    const item = await prisma.aiUpdate.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ error: "Not found" });
+
+    const allowed = ALLOWED_TRANSITIONS[item.status] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: `Cannot transition from "${item.status}" to "${status}"` });
+    }
+
+    const updated = await prisma.aiUpdate.update({
+      where: { id: req.params.id },
+      data: { status },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

@@ -454,6 +454,7 @@ model AiUpdate {
   source        String?  // URL
   category      String   @default("update") // update | relevant
   relevance     String   @default("medium") // high | medium | low
+  status        String   @default("inbox") // inbox | for_2fly | archived | deleted
   deepResearch  String?  // full deep research content (markdown)
   deepStatus    String   @default("none") // none | loading | done
   strategyPlan  String?  // step-by-step strategy plan (markdown)

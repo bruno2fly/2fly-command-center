@@ -4,20 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import ReactMarkdown from "react-markdown";
 
-/** Strip agent preamble lines (e.g. "Now I'll write...", "Saved to ...") before the real content */
-function cleanAgentOutput(text: string): string {
-  // Find the first markdown heading or horizontal rule — that's where real content starts
-  const lines = text.split("\n");
-  let startIdx = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.startsWith("# ") || line.startsWith("## ") || line === "---") {
-      startIdx = i;
-      break;
-    }
-  }
-  return lines.slice(startIdx).join("\n").trim();
-}
+/* ─── Types ─── */
+type Status = "inbox" | "for_2fly" | "archived" | "deleted";
+type Relevance = "high" | "medium" | "low";
+type Tab = "inbox" | "for_2fly" | "archived";
 
 type AiUpdate = {
   id: string;
@@ -27,7 +17,8 @@ type AiUpdate = {
   action: string | null;
   source: string | null;
   category: string;
-  relevance: string;
+  relevance: Relevance;
+  status: Status;
   deepResearch: string | null;
   deepStatus: string;
   strategyPlan: string | null;
@@ -37,6 +28,7 @@ type AiUpdate = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+/* ─── Helpers ─── */
 function timeAgo(date: string) {
   const diff = Date.now() - new Date(date).getTime();
   const hours = Math.floor(diff / 3600000);
@@ -46,13 +38,28 @@ function timeAgo(date: string) {
   return `${days}d ago`;
 }
 
+function cleanAgentOutput(text: string): string {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith("# ") || line.startsWith("## ") || line === "---") {
+      return lines.slice(i).join("\n").trim();
+    }
+  }
+  return text.trim();
+}
+
+/* ─── Main Page ─── */
 export default function AiUpdatesPage() {
   const { isDark } = useTheme();
   const [updates, setUpdates] = useState<AiUpdate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>("inbox");
+  const [relevanceFilter, setRelevanceFilter] = useState<Relevance | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [strategyId, setStrategyId] = useState<string | null>(null);
 
+  /* ─── Fetch ─── */
   const fetchUpdates = useCallback(() => {
     fetch(`${API}/api/ai-updates`)
       .then((r) => r.json())
@@ -73,6 +80,21 @@ export default function AiUpdatesPage() {
     return () => clearInterval(interval);
   }, [updates, fetchUpdates]);
 
+  /* ─── Actions ─── */
+  const changeStatus = async (id: string, newStatus: Status) => {
+    // Optimistic update — remove from current view immediately
+    setUpdates((prev) => prev.map((u) => u.id === id ? { ...u, status: newStatus } : u));
+    try {
+      await fetch(`${API}/api/ai-updates/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch {
+      fetchUpdates(); // revert on error
+    }
+  };
+
   const handleGoDeep = async (id: string) => {
     await fetch(`${API}/api/ai-updates/${id}/go-deep`, { method: "POST" });
     setUpdates((prev) => prev.map((u) => u.id === id ? { ...u, deepStatus: "loading" } : u));
@@ -83,16 +105,35 @@ export default function AiUpdatesPage() {
     setUpdates((prev) => prev.map((u) => u.id === id ? { ...u, strategyStatus: "loading" } : u));
   };
 
-  const relevant = updates.filter((u) => u.category === "relevant");
-  const general = updates.filter((u) => u.category !== "relevant");
+  const handleDelete = async (id: string) => {
+    setUpdates((prev) => prev.filter((u) => u.id !== id));
+    try {
+      await fetch(`${API}/api/ai-updates/${id}`, { method: "DELETE" });
+    } catch {
+      fetchUpdates();
+    }
+  };
 
+  /* ─── Filtered Data ─── */
+  const filtered = updates.filter((u) => {
+    if (u.status !== activeTab) return false;
+    if (activeTab === "inbox" && relevanceFilter !== "all" && u.relevance !== relevanceFilter) return false;
+    return true;
+  });
+
+  const counts = {
+    inbox: updates.filter((u) => u.status === "inbox").length,
+    for_2fly: updates.filter((u) => u.status === "for_2fly").length,
+    archived: updates.filter((u) => u.status === "archived").length,
+  };
+
+  /* ─── Styles ─── */
   const cardCls = isDark
     ? "bg-[#0a0a0e] border border-white/5 rounded-xl p-4"
-    : "bg-white border border-gray-200 rounded-xl p-4";
+    : "bg-white border border-gray-200 rounded-xl p-4 shadow-sm";
   const titleCls = isDark ? "text-gray-100" : "text-gray-900";
   const subtleCls = isDark ? "text-gray-400" : "text-gray-500";
   const pageBg = isDark ? "bg-[#06060a]" : "bg-gray-50";
-  const sectionTitleCls = `text-sm font-semibold uppercase tracking-wider ${subtleCls}`;
 
   const relevanceBadge = (r: string) => {
     if (r === "high")
@@ -108,13 +149,34 @@ export default function AiUpdatesPage() {
       : "bg-blue-50 text-blue-600 border border-blue-200";
   };
 
-  const btnCls = (variant: "primary" | "secondary" | "success") => {
-    const base = "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors";
+  const btnCls = (variant: "primary" | "secondary" | "success" | "danger" | "ghost") => {
+    const base = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer";
     if (variant === "primary")
       return `${base} ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`;
     if (variant === "success")
       return `${base} ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`;
-    return `${base} ${isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-50 text-amber-600 hover:bg-amber-100"}`;
+    if (variant === "secondary")
+      return `${base} ${isDark ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30" : "bg-amber-50 text-amber-600 hover:bg-amber-100"}`;
+    if (variant === "danger")
+      return `${base} ${isDark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-500 hover:bg-red-100"}`;
+    return `${base} ${isDark ? "text-gray-500 hover:text-gray-300 hover:bg-white/5" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`;
+  };
+
+  const tabCls = (tab: Tab) => {
+    const isActive = activeTab === tab;
+    const base = "px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer";
+    if (isActive) {
+      return `${base} ${isDark ? "bg-white/10 text-white" : "bg-white text-gray-900 shadow-sm"}`;
+    }
+    return `${base} ${isDark ? "text-gray-500 hover:text-gray-300 hover:bg-white/5" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`;
+  };
+
+  const pillCls = (active: boolean) => {
+    const base = "px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer";
+    if (active) {
+      return `${base} ${isDark ? "bg-white/10 text-white" : "bg-gray-900 text-white"}`;
+    }
+    return `${base} ${isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`;
   };
 
   const loadingDots = (
@@ -125,7 +187,7 @@ export default function AiUpdatesPage() {
     </span>
   );
 
-  // Strategy detail view
+  /* ─── Strategy Detail View ─── */
   if (strategyId) {
     const item = updates.find((u) => u.id === strategyId);
     if (!item) { setStrategyId(null); return null; }
@@ -166,11 +228,13 @@ export default function AiUpdatesPage() {
     );
   }
 
-  const renderUpdate = (u: AiUpdate) => {
+  /* ─── Card Component ─── */
+  const renderCard = (u: AiUpdate) => {
     const isExpanded = expandedId === u.id;
 
     return (
-      <div key={u.id} className={cardCls}>
+      <div key={u.id} className={`${cardCls} group`}>
+        {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-2">
           <h3 className={`text-sm font-semibold ${titleCls}`}>{u.title}</h3>
           <div className="flex items-center gap-2 shrink-0">
@@ -180,7 +244,10 @@ export default function AiUpdatesPage() {
             <span className={`text-xs ${subtleCls}`}>{timeAgo(u.createdAt)}</span>
           </div>
         </div>
+
+        {/* Summary */}
         <p className={`text-sm ${subtleCls} mb-2`}>{u.summary}</p>
+
         {u.impact && (
           <div className={`text-sm mb-1 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
             💡 {u.impact}
@@ -192,34 +259,50 @@ export default function AiUpdatesPage() {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+        {/* Actions — vary by tab */}
+        <div className={`flex items-center gap-2 mt-3 pt-3 border-t ${isDark ? "border-white/5" : "border-gray-100"} flex-wrap`}>
           {u.source && (
             <a href={u.source} target="_blank" rel="noopener noreferrer" className={`text-xs ${isDark ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-500"}`}>
               🔗 Source
             </a>
           )}
 
-          {/* Go Deep / Open Research */}
-          {u.deepStatus === "none" && (
-            <button onClick={() => handleGoDeep(u.id)} className={btnCls("primary")}>
-              🔍 Go Deep
-            </button>
-          )}
-          {u.deepStatus === "loading" && (
-            <span className={`text-xs ${isDark ? "text-blue-400" : "text-blue-600"}`}>
-              🔍 Researching {loadingDots}
-            </span>
-          )}
-          {u.deepStatus === "done" && (
-            <button onClick={() => setExpandedId(isExpanded ? null : u.id)} className={btnCls("primary")}>
-              {isExpanded ? "📖 Close Research" : "📖 Open Full Research"}
-            </button>
+          {/* ─── INBOX actions ─── */}
+          {activeTab === "inbox" && (
+            <>
+              <button onClick={() => changeStatus(u.id, "for_2fly")} className={btnCls("success")}>
+                ⭐ Send to AI for 2Fly
+              </button>
+              <button onClick={() => changeStatus(u.id, "archived")} className={btnCls("ghost")}>
+                📦 Archive
+              </button>
+              <button onClick={() => handleDelete(u.id)} className={btnCls("danger")}>
+                ✕ Delete
+              </button>
+            </>
           )}
 
-          {/* Act on This / Open Strategy */}
-          {u.category === "relevant" && (
+          {/* ─── FOR_2FLY actions ─── */}
+          {activeTab === "for_2fly" && (
             <>
+              {/* Go Deep */}
+              {u.deepStatus === "none" && (
+                <button onClick={() => handleGoDeep(u.id)} className={btnCls("primary")}>
+                  🔍 Go Deep
+                </button>
+              )}
+              {u.deepStatus === "loading" && (
+                <span className={`text-xs ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                  🔍 Researching {loadingDots}
+                </span>
+              )}
+              {u.deepStatus === "done" && (
+                <button onClick={() => setExpandedId(isExpanded ? null : u.id)} className={btnCls("primary")}>
+                  {isExpanded ? "📖 Close Research" : "📖 Open Research"}
+                </button>
+              )}
+
+              {/* Strategy */}
               {u.strategyStatus === "none" && (
                 <button onClick={() => handleStrategize(u.id)} className={btnCls("secondary")}>
                   🎯 Act on This
@@ -235,6 +318,22 @@ export default function AiUpdatesPage() {
                   🎯 Open Strategy Plan
                 </button>
               )}
+
+              <button onClick={() => changeStatus(u.id, "archived")} className={btnCls("ghost")}>
+                📦 Archive
+              </button>
+            </>
+          )}
+
+          {/* ─── ARCHIVED actions ─── */}
+          {activeTab === "archived" && (
+            <>
+              <button onClick={() => changeStatus(u.id, "for_2fly")} className={btnCls("success")}>
+                ⭐ Restore to AI for 2Fly
+              </button>
+              <button onClick={() => handleDelete(u.id)} className={btnCls("danger")}>
+                ✕ Delete
+              </button>
             </>
           )}
         </div>
@@ -246,7 +345,7 @@ export default function AiUpdatesPage() {
               📖 Deep Research
             </h4>
             <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
-              <ReactMarkdown>{cleanAgentOutput(u.deepResearch!)}</ReactMarkdown>
+              <ReactMarkdown>{cleanAgentOutput(u.deepResearch)}</ReactMarkdown>
             </div>
           </div>
         )}
@@ -254,34 +353,60 @@ export default function AiUpdatesPage() {
     );
   };
 
+  /* ─── Page Layout ─── */
   return (
     <div className={`min-h-screen ${pageBg}`}>
       <div className="w-full px-6 py-8">
-        <h1 className={`text-2xl font-bold mb-6 ${titleCls}`}>AI Updates</h1>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className={`text-2xl font-bold ${titleCls}`}>AI Updates</h1>
+        </div>
 
+        {/* Tabs */}
+        <div className={`inline-flex gap-1 p-1 rounded-xl mb-6 ${isDark ? "bg-white/5" : "bg-gray-100"}`}>
+          <button onClick={() => { setActiveTab("inbox"); setRelevanceFilter("all"); }} className={tabCls("inbox")}>
+            📥 AI Updates {counts.inbox > 0 && <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600"}`}>{counts.inbox}</span>}
+          </button>
+          <button onClick={() => setActiveTab("for_2fly")} className={tabCls("for_2fly")}>
+            ⭐ AI for 2Fly {counts.for_2fly > 0 && <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-600"}`}>{counts.for_2fly}</span>}
+          </button>
+          <button onClick={() => setActiveTab("archived")} className={tabCls("archived")}>
+            📦 Archive {counts.archived > 0 && <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${isDark ? "bg-gray-500/20 text-gray-500" : "bg-gray-200 text-gray-500"}`}>{counts.archived}</span>}
+          </button>
+        </div>
+
+        {/* Relevance sub-filter (inbox only) */}
+        {activeTab === "inbox" && (
+          <div className="flex gap-1 mb-4">
+            {(["all", "high", "medium", "low"] as const).map((r) => (
+              <button key={r} onClick={() => setRelevanceFilter(r)} className={pillCls(relevanceFilter === r)}>
+                {r === "all" ? "All" : r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Loading */}
         {loading && <div className={`text-sm ${subtleCls}`}>Loading...</div>}
 
-        {!loading && updates.length === 0 && (
-          <div className={cardCls}>
-            <div className={`text-sm ${subtleCls} text-center py-8`}>
-              No updates yet. Research Intel agent will bring updates here automatically.
+        {/* Empty States */}
+        {!loading && filtered.length === 0 && (
+          <div className={`${cardCls} text-center py-12`}>
+            <div className="text-3xl mb-3">
+              {activeTab === "inbox" ? "📥" : activeTab === "for_2fly" ? "⭐" : "📦"}
+            </div>
+            <div className={`text-sm ${subtleCls}`}>
+              {activeTab === "inbox" && "Inbox clear. New updates from Research Intel will appear here."}
+              {activeTab === "for_2fly" && "No items yet. Send relevant updates here from the inbox."}
+              {activeTab === "archived" && "Nothing archived yet."}
             </div>
           </div>
         )}
 
-        {relevant.length > 0 && (
-          <div className="mb-8">
-            <h2 className={`${sectionTitleCls} mb-4`}>⭐ Relevant for 2FLY</h2>
-            <div className="space-y-3">{relevant.map(renderUpdate)}</div>
-          </div>
-        )}
-
-        {general.length > 0 && (
-          <div>
-            <h2 className={`${sectionTitleCls} mb-4`}>📡 Updates</h2>
-            <div className="space-y-3">{general.map(renderUpdate)}</div>
-          </div>
-        )}
+        {/* Cards */}
+        <div className="space-y-3">
+          {filtered.map(renderCard)}
+        </div>
       </div>
     </div>
   );
