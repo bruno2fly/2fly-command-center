@@ -70,7 +70,21 @@ export function SidebarClientList() {
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
           }`}
         >
-          💰 Payments
+          Payments
+        </Link>
+        <Link
+          href="/ai-updates"
+          className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
+            pathname === "/ai-updates"
+              ? isDark
+                ? "bg-slate-800 text-emerald-400"
+                : "bg-blue-100 text-blue-700"
+              : isDark
+                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          }`}
+        >
+          AI Updates
         </Link>
         <Link
           href="/settings"

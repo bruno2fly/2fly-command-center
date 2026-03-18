@@ -34,6 +34,7 @@ app.use("/api/agent-actions", require("./routes/agent-actions"));
 app.use("/api/tasks", taskExecuteRoutes);
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/invoices", require("./routes/invoices"));
+app.use("/api/ai-updates", require("./routes/ai-updates"));
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {

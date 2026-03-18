@@ -444,3 +444,15 @@ model AdActionLog {
   checkedAt3d     DateTime?
   checkedAt7d     DateTime?
 }
+
+model AiUpdate {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String
+  impact      String?  // how it impacts 2FLY
+  action      String?  // next step
+  source      String?  // URL
+  category    String   @default("update") // update | relevant
+  relevance   String   @default("medium") // high | medium | low
+  createdAt   DateTime @default(now())
+}
