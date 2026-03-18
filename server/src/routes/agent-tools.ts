@@ -1515,4 +1515,342 @@ router.post('/meta/sync/:clientId', async (req: Request, res: Response) => {
   }
 });
 
+// ================================================================
+// GOOGLE BUSINESS PROFILE OAUTH — Connect client Google accounts
+// ================================================================
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:4000/api/agent-tools/google/callback';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/business.manage';
+
+// Helper: refresh Google access token if expired
+async function getValidGoogleToken(clientId: string): Promise<string> {
+  const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+  if (!conn) throw new Error('No Google connection found');
+
+  const now = new Date();
+  const isExpired = conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) < now;
+
+  if (!isExpired) return conn.accessToken;
+
+  if (!conn.refreshToken) throw new Error('Token expired and no refresh token available');
+
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      refresh_token: conn.refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  const tokenData = (await tokenRes.json()) as { access_token?: string; expires_in?: number; error?: string };
+  if (!tokenData.access_token) throw new Error(`Token refresh failed: ${tokenData.error || 'unknown'}`);
+
+  const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000);
+
+  await prisma.googleConnection.update({
+    where: { clientId },
+    data: { accessToken: tokenData.access_token, tokenExpiresAt },
+  });
+
+  return tokenData.access_token;
+}
+
+// GET /google/auth-url?clientId=XXX — Returns Google OAuth URL with state=clientId
+router.get('/google/auth-url', async (req: Request, res: Response) => {
+  try {
+    const clientId = req.query.clientId as string;
+    if (!clientId) return res.status(400).json({ error: 'clientId is required' });
+    if (!GOOGLE_CLIENT_ID) return res.status(500).json({ error: 'GOOGLE_CLIENT_ID not configured' });
+
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    url.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+    url.searchParams.set('redirect_uri', GOOGLE_REDIRECT_URI);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', GOOGLE_SCOPES);
+    url.searchParams.set('access_type', 'offline');
+    url.searchParams.set('prompt', 'consent');
+    url.searchParams.set('state', clientId);
+
+    res.json({ url: url.toString() });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /google/callback?code=XXX&state=XXX — Exchanges code for token, saves GoogleConnection
+router.get('/google/callback', async (req: Request, res: Response) => {
+  try {
+    const code = req.query.code as string;
+    const state = req.query.state as string; // clientId
+    const error = req.query.error as string;
+
+    if (error) {
+      return res.redirect(`http://localhost:3001/google-reviews?error=${encodeURIComponent(error)}`);
+    }
+
+    if (!code || !state) {
+      return res.redirect(`http://localhost:3001/google-reviews?error=missing_params`);
+    }
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return res.redirect(`http://localhost:3001/google-reviews?error=server_config`);
+    }
+
+    // Exchange code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: GOOGLE_REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = (await tokenRes.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+      error?: string;
+    };
+
+    if (!tokenData.access_token) {
+      return res.redirect(`http://localhost:3001/google-reviews?error=token_exchange`);
+    }
+
+    const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000);
+
+    // Fetch user info
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const userData = (await userRes.json()) as { id?: string; email?: string };
+
+    await prisma.googleConnection.upsert({
+      where: { clientId: state },
+      create: {
+        clientId: state,
+        googleAccountId: userData.id || null,
+        accountEmail: userData.email || null,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token || null,
+        tokenExpiresAt,
+        status: 'active',
+      },
+      update: {
+        googleAccountId: userData.id || undefined,
+        accountEmail: userData.email || undefined,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token || undefined,
+        tokenExpiresAt,
+        status: 'active',
+      },
+    });
+
+    res.redirect(`http://localhost:3001/google-reviews?connected=true&clientId=${state}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.redirect(`http://localhost:3001/google-reviews?error=${encodeURIComponent(message)}`);
+  }
+});
+
+// GET /google/status/:clientId — Returns connection status
+router.get('/google/status/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+
+    if (!conn) {
+      return res.json({ connected: false, status: 'not_connected' });
+    }
+
+    const isExpired = conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) < new Date();
+
+    return res.json({
+      connected: conn.status === 'active' && !isExpired,
+      status: isExpired ? 'expired' : conn.status,
+      accountEmail: conn.accountEmail || undefined,
+      locationId: conn.locationId || undefined,
+      locationName: conn.locationName || undefined,
+      placeId: conn.placeId || undefined,
+      connectedAt: conn.connectedAt?.toISOString?.(),
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /google/disconnect/:clientId — Removes connection
+router.post('/google/disconnect/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    await prisma.googleConnection.deleteMany({ where: { clientId } });
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /google/locations/:clientId — List GBP locations for connected account
+router.get('/google/locations/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const accessToken = await getValidGoogleToken(clientId);
+
+    // List accounts first
+    const accountsRes = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const accountsData = (await accountsRes.json()) as { accounts?: Array<{ name: string; accountName: string }> };
+
+    if (!accountsData.accounts || accountsData.accounts.length === 0) {
+      return res.json({ locations: [] });
+    }
+
+    // Fetch locations for each account
+    const allLocations: Array<{ locationId: string; locationName: string; address: string }> = [];
+
+    for (const account of accountsData.accounts) {
+      const locRes = await fetch(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations?readMask=name,title,storefrontAddress`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const locData = (await locRes.json()) as {
+        locations?: Array<{
+          name: string;
+          title: string;
+          storefrontAddress?: { addressLines?: string[]; locality?: string; administrativeArea?: string };
+        }>;
+      };
+
+      if (locData.locations) {
+        for (const loc of locData.locations) {
+          const addr = loc.storefrontAddress;
+          const addressStr = addr
+            ? [addr.addressLines?.join(', '), addr.locality, addr.administrativeArea].filter(Boolean).join(', ')
+            : '';
+          allLocations.push({
+            locationId: loc.name,
+            locationName: loc.title,
+            address: addressStr,
+          });
+        }
+      }
+    }
+
+    res.json({ locations: allLocations });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /google/select-location/:clientId — Save selected location
+router.post('/google/select-location/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const { locationId, locationName, placeId } = req.body;
+
+    if (!locationId) return res.status(400).json({ error: 'locationId is required' });
+
+    await prisma.googleConnection.update({
+      where: { clientId },
+      data: { locationId, locationName: locationName || null, placeId: placeId || null },
+    });
+
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /google/reviews/:clientId — Fetch reviews from GBP API
+router.get('/google/reviews/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected. Connect Google and select a location first.' });
+    }
+
+    const accessToken = await getValidGoogleToken(clientId);
+
+    const reviewsRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/reviews`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const reviewsData = (await reviewsRes.json()) as {
+      reviews?: Array<{
+        reviewId: string;
+        reviewer: { displayName: string; profilePhotoUrl?: string };
+        starRating: string;
+        comment?: string;
+        createTime: string;
+        updateTime: string;
+        reviewReply?: { comment: string; updateTime: string };
+      }>;
+      averageRating?: number;
+      totalReviewCount?: number;
+    };
+
+    res.json({
+      reviews: reviewsData.reviews || [],
+      averageRating: reviewsData.averageRating || 0,
+      totalReviewCount: reviewsData.totalReviewCount || 0,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /google/reviews/:clientId/reply — Reply to a review
+router.post('/google/reviews/:clientId/reply', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const { reviewId, comment } = req.body;
+
+    if (!reviewId || !comment) {
+      return res.status(400).json({ error: 'reviewId and comment are required' });
+    }
+
+    const accessToken = await getValidGoogleToken(clientId);
+
+    const replyRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${reviewId}/reply`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ comment }),
+      }
+    );
+
+    const replyData = await replyRes.json();
+
+    if (!replyRes.ok) {
+      return res.status(replyRes.status).json({ error: (replyData as { error?: { message?: string } }).error?.message || 'Failed to reply' });
+    }
+
+    res.json({ success: true, reply: replyData });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 export default router;
