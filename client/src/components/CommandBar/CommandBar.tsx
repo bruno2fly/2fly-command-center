@@ -160,14 +160,12 @@ export function CommandBar() {
           {navLink("/dashboard", "Dashboard")}
           {navLink("/clients", "Clients")}
           {navLink("/office", "🏢 AI Office")}
-          {navLink("/payments", "Payments")}
           {navLink("/content", "Content Calendar")}
           {/* WhatsApp removed */}
         </nav>
 
         {/* RIGHT ZONE: Briefings + Counters + Agents + User */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <BriefNotificationBell />
           <button
             onClick={() => setDrawerOpen(true)}
             className={`relative p-2.5 rounded-lg ${
@@ -184,42 +182,6 @@ export function CommandBar() {
               </span>
             )}
           </button>
-
-          <div className="flex items-center gap-1.5">
-            {urgentCount > 0 && (
-              <button
-                onClick={() => setDrawerOpen(true)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${
-                  isDark ? "text-red-400 bg-red-500/20 hover:bg-red-500/30" : "text-red-600 bg-red-50 hover:bg-red-100"
-                }`}
-                title="Urgent"
-              >
-                🔥 {urgentCount} urgent
-              </button>
-            )}
-            {waitingCount > 0 && (
-              <button
-                onClick={() => setDrawerOpen(true)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${
-                  isDark ? "text-amber-400 bg-amber-500/20 hover:bg-amber-500/30" : "text-amber-600 bg-amber-50 hover:bg-amber-100"
-                }`}
-                title="Waiting"
-              >
-                ⏳ {waitingCount} waiting
-              </button>
-            )}
-            {dueAmount > 0 && (
-              <button
-                onClick={() => setDrawerOpen(true)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 ${
-                  isDark ? "text-red-400 bg-red-500/20 hover:bg-red-500/30" : "text-red-600 bg-red-50 hover:bg-red-100"
-                }`}
-                title="Overdue"
-              >
-                💰 ${(dueAmount / 1000).toFixed(0)}k due
-              </button>
-            )}
-          </div>
 
           <button
             onClick={toggleAgentChat}
