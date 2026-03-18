@@ -1853,4 +1853,341 @@ router.post('/google/reviews/:clientId/reply', async (req: Request, res: Respons
   }
 });
 
+// ── Google Business: Local Posts ──
+
+// GET /google/posts/:clientId — List local posts
+router.get('/google/posts/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const postsRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/localPosts`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const postsData = (await postsRes.json()) as { localPosts?: unknown[] };
+    res.json({ posts: postsData.localPosts || [] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /google/posts/:clientId — Create a local post
+router.post('/google/posts/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const { summary, callToAction, media, topicType } = req.body;
+    if (!summary) return res.status(400).json({ error: 'summary is required' });
+
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+
+    const postBody: Record<string, unknown> = {
+      summary,
+      topicType: topicType || 'STANDARD',
+    };
+    if (callToAction) postBody.callToAction = callToAction;
+    if (media) postBody.media = media;
+
+    const createRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/localPosts`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postBody),
+      }
+    );
+    const createData = await createRes.json();
+    if (!createRes.ok) {
+      return res.status(createRes.status).json({ error: (createData as { error?: { message?: string } }).error?.message || 'Failed to create post' });
+    }
+    res.json({ success: true, post: createData });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// DELETE /google/posts/:clientId/:postId — Delete a local post
+router.delete('/google/posts/:clientId/:postId', async (req: Request, res: Response) => {
+  try {
+    const { clientId, postId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const delRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/localPosts/${postId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!delRes.ok) {
+      const errData = (await delRes.json()) as { error?: { message?: string } };
+      return res.status(delRes.status).json({ error: errData.error?.message || 'Failed to delete post' });
+    }
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ── Google Business: Insights / Performance ──
+
+// GET /google/insights/:clientId — Get performance metrics (last 30 days)
+router.get('/google/insights/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+
+    const endTime = new Date().toISOString();
+    const startTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const insightsRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}:reportInsights`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          locationNames: [conn.locationId],
+          basicRequest: {
+            metricRequests: [{ metric: 'ALL' }],
+            timeRange: { startTime, endTime },
+          },
+        }),
+      }
+    );
+    const insightsData = await insightsRes.json();
+    if (!insightsRes.ok) {
+      return res.status(insightsRes.status).json({ error: (insightsData as { error?: { message?: string } }).error?.message || 'Failed to fetch insights' });
+    }
+    res.json(insightsData);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ── Google Business: Q&A ──
+
+// GET /google/questions/:clientId — List questions
+router.get('/google/questions/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const qRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/questions`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const qData = (await qRes.json()) as { questions?: unknown[] };
+    res.json({ questions: qData.questions || [] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /google/questions/:clientId/answer — Answer a question
+router.post('/google/questions/:clientId/answer', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const { questionId, text } = req.body;
+    if (!questionId || !text) {
+      return res.status(400).json({ error: 'questionId and text are required' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const ansRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${questionId}/answers`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
+    const ansData = await ansRes.json();
+    if (!ansRes.ok) {
+      return res.status(ansRes.status).json({ error: (ansData as { error?: { message?: string } }).error?.message || 'Failed to answer' });
+    }
+    res.json({ success: true, answer: ansData });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ── Google Business: Photos / Media ──
+
+// GET /google/media/:clientId — List media items
+router.get('/google/media/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const mediaRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/media`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const mediaData = (await mediaRes.json()) as { mediaItems?: unknown[] };
+    res.json({ media: mediaData.mediaItems || [] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /google/media/:clientId — Upload photo (by URL)
+router.post('/google/media/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const { sourceUrl, mediaFormat, locationAssociation } = req.body;
+    if (!sourceUrl) return res.status(400).json({ error: 'sourceUrl is required' });
+
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const uploadRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/media`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mediaFormat: mediaFormat || 'PHOTO',
+          locationAssociation: locationAssociation || { category: 'ADDITIONAL' },
+          sourceUrl,
+        }),
+      }
+    );
+    const uploadData = await uploadRes.json();
+    if (!uploadRes.ok) {
+      return res.status(uploadRes.status).json({ error: (uploadData as { error?: { message?: string } }).error?.message || 'Failed to upload' });
+    }
+    res.json({ success: true, media: uploadData });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// DELETE /google/media/:clientId/:mediaId — Delete media
+router.delete('/google/media/:clientId/:mediaId', async (req: Request, res: Response) => {
+  try {
+    const { clientId, mediaId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const delRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}/media/${mediaId}`,
+      {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (!delRes.ok) {
+      const errData = (await delRes.json()) as { error?: { message?: string } };
+      return res.status(delRes.status).json({ error: errData.error?.message || 'Failed to delete media' });
+    }
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// ── Google Business: Info ──
+
+// GET /google/info/:clientId — Get location details
+router.get('/google/info/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+    const infoRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}?fields=name,locationName,primaryPhone,address,websiteUrl,regularHours,primaryCategory,profile`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const infoData = await infoRes.json();
+    if (!infoRes.ok) {
+      return res.status(infoRes.status).json({ error: (infoData as { error?: { message?: string } }).error?.message || 'Failed to fetch info' });
+    }
+    res.json(infoData);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// PATCH /google/info/:clientId — Update location details
+router.patch('/google/info/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const updates = req.body;
+    const conn = await prisma.googleConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.locationId) {
+      return res.status(400).json({ error: 'No location selected' });
+    }
+    const accessToken = await getValidGoogleToken(clientId);
+
+    const updateMask = Object.keys(updates).join(',');
+    const patchRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${conn.locationId}?updateMask=${updateMask}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      }
+    );
+    const patchData = await patchRes.json();
+    if (!patchRes.ok) {
+      return res.status(patchRes.status).json({ error: (patchData as { error?: { message?: string } }).error?.message || 'Failed to update' });
+    }
+    res.json({ success: true, location: patchData });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 export default router;
