@@ -436,7 +436,7 @@ router.get("/:clientId/2flyflow", async (req, res) => {
     const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     // Content pipeline
-    const allContent = await prisma.content.findMany({ where: { clientId } });
+    const allContent = await prisma.contentItem.findMany({ where: { clientId } });
     const contentByStatus = { requested: 0, in_progress: 0, pending_approval: 0, approved: 0, scheduled: 0, posted: 0 };
     const statusMap = { draft: "requested", idea: "requested", review: "pending_approval", approved: "approved", scheduled: "scheduled", published: "posted" };
     for (const c of allContent) {
