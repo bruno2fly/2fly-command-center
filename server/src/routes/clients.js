@@ -491,6 +491,19 @@ router.get("/:clientId/2flyflow", async (req, res) => {
       avgApprovalDelay = Math.round(totalDelay / approvalTasks.length / 3600000);
     }
 
+    // Client Requests (from ClientRequest model)
+    const allRequests = await prisma.clientRequest.findMany({ where: { clientId } });
+    const requestsThisWeekList = allRequests.filter(r => new Date(r.createdAt) >= weekAgo);
+    const requestsByStatus = { new: 0, acknowledged: 0, in_progress: 0, review: 0, completed: 0, closed: 0 };
+    for (const r of allRequests) {
+      requestsByStatus[r.status] = (requestsByStatus[r.status] || 0) + 1;
+    }
+    const activeRequests = allRequests.filter(r => !["completed", "closed"].includes(r.status));
+    const recentRequests = allRequests
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5)
+      .map(r => ({ id: r.id, title: r.title, type: r.type, status: r.status, priority: r.priority, assignedTo: r.assignedTo, createdAt: r.createdAt, slaBreach: r.slaBreach }));
+
     // Delivery gap reasons
     const deliveryGapReasons = [];
     const postsPlanned = tasksThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length;
@@ -523,6 +536,13 @@ router.get("/:clientId/2flyflow", async (req, res) => {
     const withDeliverable = tasksThisWeek.filter(t => t.status === "completed" && (t.type?.includes("instagram") || t.type?.includes("post") || t.type?.includes("design"))).length;
 
     res.json({
+      client_requests: {
+        by_status: requestsByStatus,
+        active_count: activeRequests.length,
+        this_week: requestsThisWeekList.length,
+        sla_breaches: allRequests.filter(r => r.slaBreach).length,
+        recent: recentRequests,
+      },
       content: contentByStatus,
       delivery: {
         posts_planned_this_week: postsPlanned,
