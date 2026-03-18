@@ -446,13 +446,17 @@ model AdActionLog {
 }
 
 model AiUpdate {
-  id          String   @id @default(cuid())
-  title       String
-  summary     String
-  impact      String?  // how it impacts 2FLY
-  action      String?  // next step
-  source      String?  // URL
-  category    String   @default("update") // update | relevant
-  relevance   String   @default("medium") // high | medium | low
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  title         String
+  summary       String
+  impact        String?  // how it impacts 2FLY
+  action        String?  // next step
+  source        String?  // URL
+  category      String   @default("update") // update | relevant
+  relevance     String   @default("medium") // high | medium | low
+  deepResearch  String?  // full deep research content (markdown)
+  deepStatus    String   @default("none") // none | loading | done
+  strategyPlan  String?  // step-by-step strategy plan (markdown)
+  strategyStatus String  @default("none") // none | loading | done
+  createdAt     DateTime @default(now())
 }
