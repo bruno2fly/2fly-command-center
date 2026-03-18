@@ -4,6 +4,21 @@ import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import ReactMarkdown from "react-markdown";
 
+/** Strip agent preamble lines (e.g. "Now I'll write...", "Saved to ...") before the real content */
+function cleanAgentOutput(text: string): string {
+  // Find the first markdown heading or horizontal rule — that's where real content starts
+  const lines = text.split("\n");
+  let startIdx = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith("# ") || line.startsWith("## ") || line === "---") {
+      startIdx = i;
+      break;
+    }
+  }
+  return lines.slice(startIdx).join("\n").trim();
+}
+
 type AiUpdate = {
   id: string;
   title: string;
@@ -133,7 +148,7 @@ export default function AiUpdatesPage() {
           {item.strategyStatus === "done" && item.strategyPlan && (
             <div className={cardCls}>
               <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
-                <ReactMarkdown>{item.strategyPlan}</ReactMarkdown>
+                <ReactMarkdown>{cleanAgentOutput(item.strategyPlan)}</ReactMarkdown>
               </div>
             </div>
           )}
@@ -231,7 +246,7 @@ export default function AiUpdatesPage() {
               📖 Deep Research
             </h4>
             <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
-              <ReactMarkdown>{u.deepResearch}</ReactMarkdown>
+              <ReactMarkdown>{cleanAgentOutput(u.deepResearch!)}</ReactMarkdown>
             </div>
           </div>
         )}

@@ -4,6 +4,18 @@ const { PrismaClient } = require("@prisma/client");
 const router = Router();
 const prisma = new PrismaClient();
 
+/** Strip agent preamble — find first markdown heading or --- */
+function cleanAgentOutput(text) {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith("# ") || line.startsWith("## ") || line === "---") {
+      return lines.slice(i).join("\n").trim();
+    }
+  }
+  return text.trim();
+}
+
 // GET /api/ai-updates — list all, newest first
 router.get("/", async (req, res) => {
   try {
@@ -131,7 +143,7 @@ Be thorough but concise. Use headers and bullet points.`;
           }
           await prisma.aiUpdate.update({
             where: { id: req.params.id },
-            data: { deepResearch: research, deepStatus: "done" },
+            data: { deepResearch: cleanAgentOutput(research), deepStatus: "done" },
           });
         } catch (e) {
           console.error("Deep research save error:", e);
@@ -203,7 +215,7 @@ Revenue context: Agency $9,300 MRR, building 2FLY Flow SaaS + Estoqui. Goal: $30
           }
           await prisma.aiUpdate.update({
             where: { id: req.params.id },
-            data: { strategyPlan: strategy, strategyStatus: "done" },
+            data: { strategyPlan: cleanAgentOutput(strategy), strategyStatus: "done" },
           });
         } catch (e) {
           console.error("Strategy save error:", e);
