@@ -346,6 +346,40 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
+// DELETE /api/clients/:id — delete client and all related data
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Verify client exists
+    const client = await prisma.client.findUnique({ where: { id } });
+    if (!client) return res.status(404).json({ error: "Client not found" });
+
+    // Delete all related records (no cascade in schema)
+    await prisma.task.deleteMany({ where: { clientId: id } });
+    await prisma.contentItem.deleteMany({ where: { clientId: id } });
+    await prisma.contentStrategy.deleteMany({ where: { clientId: id } });
+    await prisma.clientRequest.deleteMany({ where: { clientId: id } });
+    await prisma.invoice.deleteMany({ where: { clientId: id } });
+    await prisma.dailyReport.deleteMany({ where: { clientId: id } });
+    await prisma.healthLog.deleteMany({ where: { clientId: id } });
+    await prisma.directive.deleteMany({ where: { clientId: id } });
+    await prisma.agentAction.deleteMany({ where: { clientId: id } });
+    await prisma.adCampaign.deleteMany({ where: { clientId: id } });
+    await prisma.adReport.deleteMany({ where: { clientId: id } });
+    await prisma.adActionLog.deleteMany({ where: { clientId: id } });
+    await prisma.metaConnection.deleteMany({ where: { clientId: id } });
+
+    // Delete the client
+    await prisma.client.delete({ where: { id } });
+
+    console.log(`[DELETE] Client "${client.name}" (${id}) and all related data removed`);
+    res.json({ deleted: true, name: client.name });
+  } catch (err) {
+    console.error("[DELETE] Client error:", err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /api/clients/recompute — force recompute all health
 // ─── Content Strategy (AI-generated strategy docs) ─────────────────────
 // GET /api/clients/:clientId/strategy — list all for client
