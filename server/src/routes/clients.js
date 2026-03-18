@@ -427,4 +427,141 @@ router.post("/recompute", async (_req, res) => {
   }
 });
 
+// GET /api/clients/:clientId/2flyflow — 2FlyFlow metrics
+router.get("/:clientId/2flyflow", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // Content pipeline
+    const allContent = await prisma.content.findMany({ where: { clientId } });
+    const contentByStatus = { requested: 0, in_progress: 0, pending_approval: 0, approved: 0, scheduled: 0, posted: 0 };
+    const statusMap = { draft: "requested", idea: "requested", review: "pending_approval", approved: "approved", scheduled: "scheduled", published: "posted" };
+    for (const c of allContent) {
+      const mapped = statusMap[c.status] || "requested";
+      contentByStatus[mapped] = (contentByStatus[mapped] || 0) + 1;
+    }
+
+    // Tasks
+    const allTasks = await prisma.task.findMany({ where: { clientId } });
+    const tasksThisWeek = allTasks.filter(t => new Date(t.createdAt) >= weekAgo);
+    const completedThisWeek = allTasks.filter(t => t.status === "completed" && t.completedAt && new Date(t.completedAt) >= weekAgo);
+    const overdue = allTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "completed");
+
+    // Avg completion time
+    const completedWithTime = allTasks.filter(t => t.status === "completed" && t.completedAt);
+    let avgCompletionHours = 0;
+    if (completedWithTime.length > 0) {
+      const totalMs = completedWithTime.reduce((sum, t) => sum + (new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime()), 0);
+      avgCompletionHours = Math.round(totalMs / completedWithTime.length / 3600000);
+    }
+
+    // Team workload
+    const teamLoad = {};
+    for (const t of allTasks.filter(t => t.assignedTo && t.status !== "completed")) {
+      teamLoad[t.assignedTo] = (teamLoad[t.assignedTo] || 0) + 1;
+    }
+
+    // Bottlenecks
+    const bottlenecks = [];
+    // Stuck tasks by owner
+    const stuckByOwner = {};
+    for (const t of allTasks.filter(t => t.status === "pending" && new Date(t.createdAt) < dayAgo && t.assignedTo)) {
+      stuckByOwner[t.assignedTo] = (stuckByOwner[t.assignedTo] || 0) + 1;
+    }
+    for (const [owner, count] of Object.entries(stuckByOwner)) {
+      if (count >= 1) bottlenecks.push({ type: "blocked", message: `Blocked at ${owner} (${count} tasks, >24h)` });
+    }
+    // Pending approval
+    const pendingApproval = allTasks.filter(t => t.status === "review" || contentByStatus.pending_approval > 2);
+    if (contentByStatus.pending_approval > 2) bottlenecks.push({ type: "approval", message: `Waiting client approval (${contentByStatus.pending_approval} items)` });
+    // Overloaded
+    for (const [person, count] of Object.entries(teamLoad)) {
+      if (count > 5) bottlenecks.push({ type: "overload", message: `${person} overloaded (${count} active tasks)` });
+    }
+
+    // Client activity
+    const requestsThisWeek = tasksThisWeek.length;
+    const approvalTasks = allTasks.filter(t => t.status === "approved" && t.updatedAt);
+    let avgApprovalDelay = 0;
+    if (approvalTasks.length > 0) {
+      const totalDelay = approvalTasks.reduce((sum, t) => sum + (new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime()), 0);
+      avgApprovalDelay = Math.round(totalDelay / approvalTasks.length / 3600000);
+    }
+
+    res.json({
+      content: contentByStatus,
+      delivery: {
+        posts_planned_this_week: tasksThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length,
+        posts_delivered_this_week: completedThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length,
+        overdue_items: overdue.length,
+        avg_completion_hours: avgCompletionHours,
+      },
+      bottlenecks: bottlenecks.slice(0, 3),
+      team: teamLoad,
+      client_activity: {
+        new_requests_this_week: requestsThisWeek,
+        avg_approval_delay_hours: avgApprovalDelay,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/clients/agency/2flyflow-overview — Agency-wide 2FlyFlow metrics
+router.get("/agency/2flyflow-overview", async (req, res) => {
+  try {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const clients = await prisma.client.findMany({ where: { status: "active", workspace: "agency" } });
+    const allTasks = await prisma.task.findMany();
+    const tasksThisWeek = allTasks.filter(t => new Date(t.createdAt) >= weekAgo);
+    const completedThisWeek = allTasks.filter(t => t.status === "completed" && t.completedAt && new Date(t.completedAt) >= weekAgo);
+
+    // Problems
+    const problems = [];
+    for (const client of clients) {
+      const clientTasks = allTasks.filter(t => t.clientId === client.id);
+      const overdue = clientTasks.filter(t => t.dueDate && new Date(t.dueDate) < now && t.status !== "completed");
+      if (overdue.length > 0) problems.push({ type: "delayed", message: `${client.name}: ${overdue.length} overdue tasks`, clientId: client.id });
+      const stuck = clientTasks.filter(t => t.status === "pending" && new Date(t.createdAt) < dayAgo);
+      if (stuck.length >= 3) problems.push({ type: "stuck", message: `${client.name}: ${stuck.length} tasks stuck >24h`, clientId: client.id });
+    }
+
+    // Team load
+    const teamLoad = {};
+    for (const t of allTasks.filter(t => t.assignedTo && t.status !== "completed")) {
+      teamLoad[t.assignedTo] = (teamLoad[t.assignedTo] || 0) + 1;
+    }
+    for (const [person, count] of Object.entries(teamLoad)) {
+      if (count > 8) problems.push({ type: "overload", message: `${person} overloaded (${count} active tasks)` });
+    }
+
+    // Avg completion
+    const completedWithTime = completedThisWeek.filter(t => t.completedAt);
+    let avgHours = 0;
+    if (completedWithTime.length > 0) {
+      const totalMs = completedWithTime.reduce((sum, t) => sum + (new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime()), 0);
+      avgHours = Math.round(totalMs / completedWithTime.length / 3600000);
+    }
+
+    res.json({
+      problems: problems.slice(0, 5),
+      throughput: {
+        tasks_created_this_week: tasksThisWeek.length,
+        tasks_completed_this_week: completedThisWeek.length,
+        avg_completion_hours: avgHours,
+      },
+      team: teamLoad,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

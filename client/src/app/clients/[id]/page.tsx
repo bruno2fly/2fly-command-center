@@ -20,6 +20,7 @@ import { ClientReportsTab } from "@/components/client-control/tabs/ClientReports
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
 import { SaasOverviewTab } from "@/components/client-control/tabs/SaasOverviewTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
+import { TwoFlyFlowSection } from "@/components/client-control/tabs/TwoFlyFlowSection";
 import { TaskDetailModal, CreateTaskModal, type TaskDetailTask } from "@/components/tasks";
 
 function parseTabFromUrl(searchParams: ReturnType<typeof useSearchParams> | null): ClientTabId {
@@ -251,6 +252,7 @@ export default function ClientControlRoomPage() {
         {activeTab === "reports" && <ClientReportsTab clientId={id} />}
         {activeTab === "content" && <ClientContentTab clientId={id} />}
         {activeTab === "socialMedia" && <ClientSocialMediaTab clientId={id} />}
+        {activeTab === "2flyflow" && <TwoFlyFlowSection clientId={id} />}
       </div>
       <ClientFormModal
         isOpen={!!editClient}
