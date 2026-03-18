@@ -1440,4 +1440,79 @@ router.post('/invoices/auto-generate', async (_req: Request, res: Response) => {
   }
 });
 
+// POST /meta/sync/:clientId — Pull live campaigns from Meta API into DB
+router.post('/meta/sync/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const conn = await prisma.metaConnection.findUnique({ where: { clientId } });
+    if (!conn || !conn.accessToken || !conn.adAccountId) {
+      return res.status(400).json({ error: 'No active Meta connection for this client' });
+    }
+
+    const token = conn.accessToken;
+    const adAccountId = conn.adAccountId;
+
+    // Fetch campaigns from Meta
+    const campaignsRes = await fetch(
+      `https://graph.facebook.com/v21.0/${adAccountId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time&limit=50&access_token=${encodeURIComponent(token)}`
+    );
+    const campaignsData = await campaignsRes.json() as { data?: Array<{ id: string; name: string; status: string; objective: string; daily_budget?: string; lifetime_budget?: string; start_time?: string; stop_time?: string }>; error?: { message: string } };
+    if (campaignsData.error) {
+      return res.status(400).json({ error: `Meta API: ${campaignsData.error.message}` });
+    }
+
+    const campaigns = campaignsData.data || [];
+    const synced = [];
+
+    for (const camp of campaigns) {
+      // Map Meta status to our status
+      let status = 'draft';
+      if (camp.status === 'ACTIVE') status = 'active';
+      else if (camp.status === 'PAUSED') status = 'paused';
+      else if (camp.status === 'ARCHIVED' || camp.status === 'DELETED') status = 'completed';
+
+      // Check if campaign already exists in DB by metaCampaignId
+      const existing = await prisma.adCampaign.findFirst({
+        where: { metaCampaignId: camp.id, clientId },
+      });
+
+      if (existing) {
+        // Update status and budgets
+        await prisma.adCampaign.update({
+          where: { id: existing.id },
+          data: {
+            status,
+            name: camp.name,
+            dailyBudget: camp.daily_budget ? parseInt(camp.daily_budget) / 100 : existing.dailyBudget,
+            lifetimeBudget: camp.lifetime_budget ? parseInt(camp.lifetime_budget) / 100 : existing.lifetimeBudget,
+          },
+        });
+        synced.push({ action: 'updated', metaId: camp.id, name: camp.name, status });
+      } else {
+        // Create new campaign record
+        await prisma.adCampaign.create({
+          data: {
+            clientId,
+            metaCampaignId: camp.id,
+            name: camp.name,
+            objective: camp.objective || 'UNKNOWN',
+            status,
+            dailyBudget: camp.daily_budget ? parseInt(camp.daily_budget) / 100 : null,
+            lifetimeBudget: camp.lifetime_budget ? parseInt(camp.lifetime_budget) / 100 : null,
+            startDate: camp.start_time ? new Date(camp.start_time) : null,
+            endDate: camp.stop_time ? new Date(camp.stop_time) : null,
+            createdBy: 'meta-sync',
+          },
+        });
+        synced.push({ action: 'created', metaId: camp.id, name: camp.name, status });
+      }
+    }
+
+    res.json({ success: true, total: campaigns.length, synced });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 export default router;
