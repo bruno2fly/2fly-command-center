@@ -491,19 +491,57 @@ router.get("/:clientId/2flyflow", async (req, res) => {
       avgApprovalDelay = Math.round(totalDelay / approvalTasks.length / 3600000);
     }
 
+    // Delivery gap reasons
+    const deliveryGapReasons = [];
+    const postsPlanned = tasksThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length;
+    const postsDelivered = completedThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length;
+    if (postsPlanned > postsDelivered) {
+      const inProgressContent = allTasks.filter(t => t.status === "in_progress" && (t.type?.includes("instagram") || t.type?.includes("post")));
+      const pendingContent = allTasks.filter(t => t.status === "pending" && (t.type?.includes("instagram") || t.type?.includes("post")));
+      const reviewContent = allTasks.filter(t => t.status === "review" && (t.type?.includes("instagram") || t.type?.includes("post")));
+      if (inProgressContent.length > 0) deliveryGapReasons.push(`${inProgressContent.length} stuck in production`);
+      if (reviewContent.length > 0 || contentByStatus.pending_approval > 0) deliveryGapReasons.push(`${reviewContent.length + contentByStatus.pending_approval} waiting approval`);
+      if (pendingContent.length > 0) deliveryGapReasons.push(`${pendingContent.length} not started`);
+      if (deliveryGapReasons.length === 0) deliveryGapReasons.push("No content ready");
+    }
+
+    // Owner load — real names only
+    const ownerLoad = {};
+    const knownTeam = ["Milena", "Guilherme", "Igor", "Bruno"];
+    for (const t of allTasks.filter(t => t.assignedTo && t.status !== "completed")) {
+      const owner = t.assignedTo;
+      if (!ownerLoad[owner]) ownerLoad[owner] = { active: 0, overloaded: false };
+      ownerLoad[owner].active++;
+    }
+    for (const [owner, data] of Object.entries(ownerLoad)) {
+      data.overloaded = data.active > 5;
+    }
+
+    // Requests quality
+    const openThisWeek = tasksThisWeek.filter(t => t.status !== "completed").length;
+    const completedThisWeekCount = tasksThisWeek.filter(t => t.status === "completed").length;
+    const withDeliverable = tasksThisWeek.filter(t => t.status === "completed" && (t.type?.includes("instagram") || t.type?.includes("post") || t.type?.includes("design"))).length;
+
     res.json({
       content: contentByStatus,
       delivery: {
-        posts_planned_this_week: tasksThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length,
-        posts_delivered_this_week: completedThisWeek.filter(t => t.type?.includes("instagram") || t.type?.includes("post")).length,
+        posts_planned_this_week: postsPlanned,
+        posts_delivered_this_week: postsDelivered,
         overdue_items: overdue.length,
         avg_completion_hours: avgCompletionHours,
+        gap_reasons: deliveryGapReasons,
       },
       bottlenecks: bottlenecks.slice(0, 3),
       team: teamLoad,
+      owner_load: ownerLoad,
       client_activity: {
         new_requests_this_week: requestsThisWeek,
         avg_approval_delay_hours: avgApprovalDelay,
+      },
+      requests_quality: {
+        open: openThisWeek,
+        completed: completedThisWeekCount,
+        turned_into_deliverables: withDeliverable,
       },
     });
   } catch (err) {

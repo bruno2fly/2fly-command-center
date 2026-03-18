@@ -10,12 +10,19 @@ type FlowMetrics = {
     posts_delivered_this_week: number;
     overdue_items: number;
     avg_completion_hours: number;
+    gap_reasons: string[];
   };
   bottlenecks: { type: string; message: string }[];
   team: Record<string, number>;
+  owner_load: Record<string, { active: number; overloaded: boolean }>;
   client_activity: {
     new_requests_this_week: number;
     avg_approval_delay_hours: number;
+  };
+  requests_quality: {
+    open: number;
+    completed: number;
+    turned_into_deliverables: number;
   };
 };
 
@@ -47,6 +54,9 @@ export function TwoFlyFlowSection({ clientId }: { clientId: string }) {
   const warnCls = isDark
     ? "bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-amber-400 text-sm"
     : "bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-600 text-sm";
+  const metricCls = isDark
+    ? "bg-white/5 rounded-lg px-3 py-2 text-center"
+    : "bg-gray-50 rounded-lg px-3 py-2 text-center";
 
   const pipelineStatuses = [
     { key: "requested", label: "Requested", color: "bg-gray-500" },
@@ -59,6 +69,7 @@ export function TwoFlyFlowSection({ clientId }: { clientId: string }) {
 
   const deliveryWarning = data.delivery.posts_delivered_this_week < data.delivery.posts_planned_this_week;
   const hasOverdue = data.delivery.overdue_items > 0;
+  const ownerEntries = Object.entries(data.owner_load || {}).sort((a, b) => b[1].active - a[1].active);
 
   return (
     <div className="space-y-4">
@@ -66,8 +77,24 @@ export function TwoFlyFlowSection({ clientId }: { clientId: string }) {
         2FlyFlow
       </h3>
 
+      {/* BOTTLENECKS — TOP (problems first) */}
+      {data.bottlenecks.length > 0 && (
+        <div className={cardCls}>
+          <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
+            ⚡ Bottlenecks
+          </h4>
+          <div className="space-y-2">
+            {data.bottlenecks.map((b, i) => (
+              <div key={i} className={b.type === "overload" ? alertCls : warnCls}>
+                {b.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1 — Content Pipeline */}
+        {/* Content Pipeline */}
         <div className={cardCls}>
           <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
             Content Pipeline
@@ -90,7 +117,7 @@ export function TwoFlyFlowSection({ clientId }: { clientId: string }) {
           </div>
         </div>
 
-        {/* Card 2 — Delivery Health */}
+        {/* Delivery Health + Gap Reason */}
         <div className={cardCls}>
           <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
             Delivery Health
@@ -107,9 +134,10 @@ export function TwoFlyFlowSection({ clientId }: { clientId: string }) {
                 ⚠️ {data.delivery.overdue_items} overdue item{data.delivery.overdue_items > 1 ? "s" : ""}
               </div>
             )}
-            {deliveryWarning && !hasOverdue && (
+            {deliveryWarning && data.delivery.gap_reasons.length > 0 && (
               <div className={warnCls}>
-                ⚠️ Behind on delivery this week
+                <span className="font-medium">Gap:</span>{" "}
+                {data.delivery.gap_reasons.join(" · ")}
               </div>
             )}
             <div className={`flex justify-between text-sm ${subtleCls}`}>
@@ -119,23 +147,49 @@ export function TwoFlyFlowSection({ clientId }: { clientId: string }) {
           </div>
         </div>
 
-        {/* Card 3 — Bottlenecks */}
-        {data.bottlenecks.length > 0 && (
-          <div className={cardCls}>
-            <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
-              ⚡ Bottlenecks
-            </h4>
+        {/* Owner Load */}
+        <div className={cardCls}>
+          <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
+            👤 Owner Load
+          </h4>
+          {ownerEntries.length === 0 ? (
+            <div className={`text-sm ${subtleCls}`}>No assigned tasks</div>
+          ) : (
             <div className="space-y-2">
-              {data.bottlenecks.map((b, i) => (
-                <div key={i} className={b.type === "overload" ? alertCls : warnCls}>
-                  {b.message}
+              {ownerEntries.map(([owner, info]) => (
+                <div key={owner} className="flex justify-between items-center text-sm">
+                  <span className={subtleCls}>{owner}</span>
+                  <span className={`font-bold ${info.overloaded ? "text-red-400" : titleCls}`}>
+                    {info.active} active {info.overloaded && "⚠️"}
+                  </span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Card 4 — Client Activity */}
+        {/* Requests Quality */}
+        <div className={cardCls}>
+          <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
+            📋 Requests This Week
+          </h4>
+          <div className="grid grid-cols-3 gap-2">
+            <div className={metricCls}>
+              <div className={`text-lg font-bold ${titleCls}`}>{data.requests_quality?.open ?? 0}</div>
+              <div className={`text-xs ${subtleCls}`}>Open</div>
+            </div>
+            <div className={metricCls}>
+              <div className={`text-lg font-bold ${titleCls}`}>{data.requests_quality?.completed ?? 0}</div>
+              <div className={`text-xs ${subtleCls}`}>Completed</div>
+            </div>
+            <div className={metricCls}>
+              <div className={`text-lg font-bold ${titleCls}`}>{data.requests_quality?.turned_into_deliverables ?? 0}</div>
+              <div className={`text-xs ${subtleCls}`}>Deliverables</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Client Activity */}
         {(data.client_activity.new_requests_this_week > 0 || data.client_activity.avg_approval_delay_hours > 0) && (
           <div className={cardCls}>
             <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
