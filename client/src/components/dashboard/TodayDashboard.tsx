@@ -12,6 +12,7 @@ import { AgentsHandlingSection } from "./AgentsHandlingSection";
 import { YourTasksSection } from "./YourTasksSection";
 import { RecentActivityFeed } from "./RecentActivityFeed";
 import { SaasPlatformsSection } from "./SaasPlatformsSection";
+import { TwoFlyFlowOverview } from "./TwoFlyFlowOverview";
 
 const container = {
   hidden: { opacity: 0 },
@@ -113,6 +114,10 @@ export function TodayDashboard() {
 
         <motion.div variants={item}>
           <SaasPlatformsSection />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <TwoFlyFlowOverview />
         </motion.div>
 
         <motion.div variants={item}>
