@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import ReactMarkdown from "react-markdown";
 
 type AiUpdate = {
   id: string;
@@ -132,9 +133,7 @@ export default function AiUpdatesPage() {
           {item.strategyStatus === "done" && item.strategyPlan && (
             <div className={cardCls}>
               <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
-                <div className={`whitespace-pre-wrap text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                  {item.strategyPlan}
-                </div>
+                <ReactMarkdown>{item.strategyPlan}</ReactMarkdown>
               </div>
             </div>
           )}
@@ -231,8 +230,8 @@ export default function AiUpdatesPage() {
             <h4 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subtleCls}`}>
               📖 Deep Research
             </h4>
-            <div className={`whitespace-pre-wrap text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-              {u.deepResearch}
+            <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
+              <ReactMarkdown>{u.deepResearch}</ReactMarkdown>
             </div>
           </div>
         )}

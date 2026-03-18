@@ -119,7 +119,12 @@ Be thorough but concise. Use headers and bullet points.`;
           } else {
             try {
               const parsed = JSON.parse(stdout);
-              research = parsed.response || parsed.message || stdout;
+              // openclaw agent --json returns { result: { payloads: [{ text }] } }
+              if (parsed.result?.payloads?.length) {
+                research = parsed.result.payloads.map(p => p.text).filter(Boolean).join("\n\n");
+              } else {
+                research = parsed.response || parsed.message || stdout;
+              }
             } catch {
               research = stdout;
             }
@@ -186,7 +191,12 @@ Revenue context: Agency $9,300 MRR, building 2FLY Flow SaaS + Estoqui. Goal: $30
           } else {
             try {
               const parsed = JSON.parse(stdout);
-              strategy = parsed.response || parsed.message || stdout;
+              // openclaw agent --json returns { result: { payloads: [{ text }] } }
+              if (parsed.result?.payloads?.length) {
+                strategy = parsed.result.payloads.map(p => p.text).filter(Boolean).join("\n\n");
+              } else {
+                strategy = parsed.response || parsed.message || stdout;
+              }
             } catch {
               strategy = stdout;
             }
