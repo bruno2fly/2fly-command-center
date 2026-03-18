@@ -87,20 +87,6 @@ export function SidebarClientList() {
           AI Updates
         </Link>
         <Link
-          href="/google-reviews"
-          className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
-            pathname === "/google-reviews"
-              ? isDark
-                ? "bg-slate-800 text-emerald-400"
-                : "bg-blue-100 text-blue-700"
-              : isDark
-                ? "text-slate-400 hover:bg-slate-800 hover:text-white"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          }`}
-        >
-          Google Reviews
-        </Link>
-        <Link
           href="/settings"
           className={`text-sm font-medium rounded-lg px-3 py-2 transition-colors ${
             pathname === "/settings"
