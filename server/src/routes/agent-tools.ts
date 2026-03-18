@@ -143,12 +143,25 @@ router.patch('/clients/:id', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/agent-tools/clients/:id — Delete client
+// DELETE /api/agent-tools/clients/:id — Delete client + all related data
 router.delete('/clients/:id', async (req: Request, res: Response) => {
   try {
-    await prisma.client.delete({
-      where: { id: req.params.id },
-    });
+    const id = req.params.id;
+    // Cascade delete all related records
+    await prisma.task.deleteMany({ where: { clientId: id } });
+    await prisma.contentItem.deleteMany({ where: { clientId: id } });
+    await prisma.contentStrategy.deleteMany({ where: { clientId: id } });
+    await prisma.clientRequest.deleteMany({ where: { clientId: id } });
+    await prisma.invoice.deleteMany({ where: { clientId: id } });
+    await prisma.dailyReport.deleteMany({ where: { clientId: id } });
+    await prisma.healthLog.deleteMany({ where: { clientId: id } });
+    await prisma.directive.deleteMany({ where: { clientId: id } });
+    await prisma.agentAction.deleteMany({ where: { clientId: id } });
+    await prisma.adCampaign.deleteMany({ where: { clientId: id } });
+    await prisma.adReport.deleteMany({ where: { clientId: id } });
+    await prisma.adActionLog.deleteMany({ where: { clientId: id } });
+    await prisma.metaConnection.deleteMany({ where: { clientId: id } });
+    await prisma.client.delete({ where: { id } });
     res.status(204).send();
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

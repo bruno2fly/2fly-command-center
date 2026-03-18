@@ -183,9 +183,14 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteClient = useCallback(
-    (id: string) => {
-      persist(clients.filter((c) => c.id !== id));
-      // API doesn't have DELETE endpoint yet — only local
+    async (id: string) => {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/clients/${id}`, { method: "DELETE" });
+        persist(clients.filter((c) => c.id !== id));
+      } catch (err) {
+        console.error("Delete client failed:", err);
+        throw err;
+      }
     },
     [clients, persist]
   );
