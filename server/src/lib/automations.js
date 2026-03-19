@@ -214,12 +214,85 @@ Start with the clients that have the most urgent needs (RED or YELLOW health sta
     }
   });
 
+  // ─── 6. Meta Ads sync — every 4 hours ────────────────────
+  // Pulls live campaign data from Meta for all connected clients.
+  cron.schedule("0 */4 * * *", async () => {
+    console.log("[CRON] Syncing Meta Ads campaigns...");
+    try {
+      const connections = await prisma.metaConnection.findMany({
+        where: { status: "active" },
+        include: { client: { select: { id: true, name: true } } },
+      });
+
+      let totalSynced = 0;
+      for (const conn of connections) {
+        if (!conn.accessToken || !conn.adAccountId) continue;
+        try {
+          const res = await fetch(
+            `https://graph.facebook.com/v21.0/${conn.adAccountId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget,start_time,stop_time&limit=50&access_token=${encodeURIComponent(conn.accessToken)}`
+          );
+          const data = await res.json();
+          if (data.error || !data.data) {
+            console.warn(`[META-SYNC] ${conn.client.name}: API error — ${data.error?.message || "no data"}`);
+            continue;
+          }
+
+          for (const camp of data.data) {
+            let status = "draft";
+            if (camp.status === "ACTIVE") status = "active";
+            else if (camp.status === "PAUSED") status = "paused";
+            else if (camp.status === "ARCHIVED" || camp.status === "DELETED") status = "completed";
+
+            const existing = await prisma.adCampaign.findFirst({
+              where: { metaCampaignId: camp.id, clientId: conn.client.id },
+            });
+
+            if (existing) {
+              await prisma.adCampaign.update({
+                where: { id: existing.id },
+                data: {
+                  status,
+                  name: camp.name,
+                  dailyBudget: camp.daily_budget ? parseInt(camp.daily_budget) / 100 : existing.dailyBudget,
+                  lifetimeBudget: camp.lifetime_budget ? parseInt(camp.lifetime_budget) / 100 : existing.lifetimeBudget,
+                },
+              });
+            } else {
+              await prisma.adCampaign.create({
+                data: {
+                  clientId: conn.client.id,
+                  metaCampaignId: camp.id,
+                  name: camp.name,
+                  objective: camp.objective || "UNKNOWN",
+                  status,
+                  dailyBudget: camp.daily_budget ? parseInt(camp.daily_budget) / 100 : null,
+                  lifetimeBudget: camp.lifetime_budget ? parseInt(camp.lifetime_budget) / 100 : null,
+                  startDate: camp.start_time ? new Date(camp.start_time) : null,
+                  endDate: camp.stop_time ? new Date(camp.stop_time) : null,
+                  createdBy: "meta-sync",
+                },
+              });
+            }
+            totalSynced++;
+          }
+          console.log(`[META-SYNC] ${conn.client.name}: ${data.data.length} campaigns synced`);
+        } catch (err) {
+          console.warn(`[META-SYNC] ${conn.client.name}: failed — ${err.message}`);
+        }
+      }
+      console.log(`[CRON] Meta sync complete: ${totalSynced} campaigns across ${connections.length} clients`);
+    } catch (err) {
+      console.error("[CRON] Meta sync failed:", err);
+    }
+  });
+
   console.log("✅ Automations registered (with agent integration):");
   console.log("   • Health recompute — every 2h → alerts founder-boss on RED");
   console.log("   • SLA breach check — every 1h → alerts project-manager");
   console.log("   • Content auto-publish — daily 6 AM → notifies content-system");
   console.log("   • Monday morning report — Mon 8 AM → analyzed by founder-boss");
   console.log("   • Weekly research — Sun 8 PM → triggers research-intel");
+  console.log("   • Meta Ads sync — every 4h → pulls live campaigns from Meta");
 }
 
 module.exports = { registerAutomations };
