@@ -1254,9 +1254,25 @@ router.get('/meta/status/:clientId', async (req: Request, res: Response) => {
 
     const isExpired = conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) < new Date();
 
+    // Also validate the token actually works (catch revoked tokens — error 190)
+    let isRevoked = false;
+    if (conn.accessToken && !isExpired) {
+      try {
+        const testRes = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${encodeURIComponent(conn.accessToken)}`);
+        const testData = await testRes.json() as { error?: { code?: number } };
+        if (testData.error) {
+          isRevoked = true;
+        }
+      } catch {
+        // Network error — don't mark as revoked, might be temporary
+      }
+    }
+
+    const tokenInvalid = isExpired || isRevoked;
+
     return res.json({
-      connected: conn.status === 'active' && !isExpired,
-      status: isExpired ? 'expired' : conn.status,
+      connected: conn.status === 'active' && !tokenInvalid,
+      status: tokenInvalid ? 'expired' : conn.status,
       adAccountName: conn.adAccountName || undefined,
       adAccountId: conn.adAccountId || undefined,
       connectedAt: conn.connectedAt?.toISOString?.(),
