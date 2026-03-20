@@ -8,7 +8,17 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 type Diagnosis = { issue: string; severity: "critical" | "high" | "medium" | "low"; detail: string };
 type Goal = { goal: string; metric: string; target: string };
-type Action = { action: string; owner: string; deadline: string; status: "pending" | "in_progress" | "done"; priority: "urgent" | "high" | "normal" };
+type Action = {
+  action: string;
+  owner: string;
+  deadline: string;
+  status: "pending" | "in_progress" | "done";
+  priority: "urgent" | "high" | "normal";
+  detail?: string;
+  steps?: { text: string; done: boolean }[];
+  links?: { label: string; url: string }[];
+  notes?: string;
+};
 type Campaign = { name: string; platform: string; budget: string; offer: string; audience: string; status: "planned" | "live" | "paused" | "completed" };
 
 type Strategy = {
@@ -103,6 +113,9 @@ export function ClientStrategyTab({ clientId }: Props) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["diagnosis", "goals", "actions", "campaigns", "notes"]));
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState("");
+  const [expandedActions, setExpandedActions] = useState<Set<number>>(new Set());
+  const [editingActionNotes, setEditingActionNotes] = useState<number | null>(null);
+  const [actionNoteText, setActionNoteText] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newMonth, setNewMonth] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -135,6 +148,69 @@ export function ClientStrategyTab({ clientId }: Props) {
       else next.add(id);
       return next;
     });
+  };
+
+  const toggleExpandAction = (idx: number) => {
+    setExpandedActions((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const toggleActionStep = async (actionIdx: number, stepIdx: number) => {
+    if (!selected) return;
+    const updated = [...actions];
+    if (!updated[actionIdx].steps) return;
+    updated[actionIdx].steps![stepIdx].done = !updated[actionIdx].steps![stepIdx].done;
+    // Auto-update action status based on steps
+    const allDone = updated[actionIdx].steps!.every((s) => s.done);
+    const anyDone = updated[actionIdx].steps!.some((s) => s.done);
+    if (allDone) updated[actionIdx].status = "done";
+    else if (anyDone) updated[actionIdx].status = "in_progress";
+    else updated[actionIdx].status = "pending";
+    try {
+      await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actions: updated }),
+      });
+      fetchStrategies();
+    } catch (err) { console.error(err); }
+  };
+
+  const saveActionNotes = async (idx: number) => {
+    if (!selected) return;
+    const updated = [...actions];
+    updated[idx].notes = actionNoteText;
+    try {
+      await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actions: updated }),
+      });
+      setEditingActionNotes(null);
+      fetchStrategies();
+    } catch (err) { console.error(err); }
+  };
+
+  const setActionStatus = async (idx: number, status: "pending" | "in_progress" | "done") => {
+    if (!selected) return;
+    const updated = [...actions];
+    updated[idx].status = status;
+    try {
+      await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actions: updated }),
+      });
+      fetchStrategies();
+    } catch (err) { console.error(err); }
+  };
+
+  const isOverdue = (deadline: string) => {
+    return new Date(deadline + "T23:59:59") < new Date();
   };
 
   const toggleActionStatus = async (idx: number) => {
@@ -398,31 +474,210 @@ export function ClientStrategyTab({ clientId }: Props) {
                 <p className={`text-sm ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>No actions planned.</p>
               ) : (
                 <div className="space-y-2">
-                  {actions.map((a, i) => (
-                    <div
-                      key={i}
-                      onClick={() => toggleActionStatus(i)}
-                      className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                        a.status === "done"
-                          ? isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-green-200 bg-green-50"
-                          : isDark ? "border-[#1a1810] bg-[#08080c] hover:bg-[#0c0c10]" : "border-gray-100 bg-gray-50 hover:bg-gray-100"
-                      }`}
-                    >
-                      <span className="text-base mt-0.5 flex-shrink-0">{actionStatusIcon(a.status)}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-sm ${a.status === "done" ? "line-through" : ""} ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>
-                            {a.action}
-                          </span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${priorityColor(a.priority, isDark)}`}>{a.priority}</span>
+                  {actions.map((a, i) => {
+                    const expanded = expandedActions.has(i);
+                    const overdue = a.status !== "done" && isOverdue(a.deadline);
+                    const stepsTotal = a.steps?.length || 0;
+                    const stepsDone = a.steps?.filter((s) => s.done).length || 0;
+
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-lg border overflow-hidden transition-all ${
+                          a.status === "done"
+                            ? isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-green-200 bg-green-50"
+                            : overdue
+                              ? isDark ? "border-red-500/30 bg-red-500/5" : "border-red-200 bg-red-50"
+                              : isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-100 bg-gray-50"
+                        }`}
+                      >
+                        {/* Action header — click to expand */}
+                        <div
+                          onClick={() => toggleExpandAction(i)}
+                          className={`flex items-start gap-3 p-3 cursor-pointer transition-colors ${
+                            isDark ? "hover:bg-[#0c0c10]" : "hover:bg-gray-100"
+                          }`}
+                        >
+                          <span className="text-base mt-0.5 flex-shrink-0">{actionStatusIcon(a.status)}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-sm font-medium ${a.status === "done" ? "line-through opacity-60" : ""} ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>
+                                {a.action}
+                              </span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded ${priorityColor(a.priority, isDark)}`}>{a.priority}</span>
+                              {overdue && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-600"}`}>overdue</span>
+                              )}
+                            </div>
+                            <div className={`flex items-center gap-3 mt-1 text-xs ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>
+                              <span>👤 {a.owner}</span>
+                              <span className={overdue ? (isDark ? "text-red-400" : "text-red-600") : ""}>📅 {a.deadline}</span>
+                              {stepsTotal > 0 && (
+                                <span>{stepsDone}/{stepsTotal} steps</span>
+                              )}
+                            </div>
+                          </div>
+                          <svg
+                            className={`w-4 h-4 mt-1 flex-shrink-0 transition-transform ${expanded ? "rotate-180" : ""} ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
                         </div>
-                        <div className={`flex items-center gap-3 mt-1 text-xs ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>
-                          <span>👤 {a.owner}</span>
-                          <span>📅 {a.deadline}</span>
-                        </div>
+
+                        {/* Expanded detail panel */}
+                        {expanded && (
+                          <div className={`border-t px-4 py-4 space-y-4 ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
+                            {/* Detail description */}
+                            {a.detail && (
+                              <div>
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-1.5 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>What & Why</h4>
+                                <p className={`text-sm leading-relaxed ${isDark ? "text-[#a89880]" : "text-gray-600"}`}>{a.detail}</p>
+                              </div>
+                            )}
+
+                            {/* Sub-steps checklist */}
+                            {a.steps && a.steps.length > 0 && (
+                              <div>
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Steps</h4>
+                                <div className="space-y-1.5">
+                                  {a.steps.map((step, si) => (
+                                    <div
+                                      key={si}
+                                      onClick={(e) => { e.stopPropagation(); toggleActionStep(i, si); }}
+                                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                                        step.done
+                                          ? isDark ? "bg-emerald-500/10" : "bg-green-50"
+                                          : isDark ? "bg-[#0a0a0e] hover:bg-[#0c0c10]" : "bg-white hover:bg-gray-50"
+                                      }`}
+                                    >
+                                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                        step.done
+                                          ? isDark ? "border-emerald-500 bg-emerald-500" : "border-green-500 bg-green-500"
+                                          : isDark ? "border-[#3a3020]" : "border-gray-300"
+                                      }`}>
+                                        {step.done && (
+                                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        )}
+                                      </div>
+                                      <span className={`text-sm ${step.done ? "line-through opacity-50" : ""} ${isDark ? "text-[#c4b8a8]" : "text-gray-700"}`}>
+                                        {step.text}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Steps progress */}
+                                <div className="mt-2">
+                                  <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-[#1a1810]" : "bg-gray-200"}`}>
+                                    <div
+                                      className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                                      style={{ width: `${stepsTotal > 0 ? (stepsDone / stepsTotal) * 100 : 0}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Links */}
+                            {a.links && a.links.length > 0 && (
+                              <div>
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Quick Links</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {a.links.map((link, li) => (
+                                    <a
+                                      key={li}
+                                      href={link.url}
+                                      target={link.url.startsWith("http") ? "_blank" : "_self"}
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                                        isDark
+                                          ? "bg-[#1a1810] text-emerald-400 hover:bg-[#2a2018] hover:text-emerald-300"
+                                          : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                      }`}
+                                    >
+                                      <span>🔗</span>
+                                      {link.label}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action notes */}
+                            <div>
+                              <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Notes</h4>
+                              {editingActionNotes === i ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={actionNoteText}
+                                    onChange={(e) => setActionNoteText(e.target.value)}
+                                    rows={3}
+                                    placeholder="Add notes, context, blockers..."
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={`w-full text-sm rounded-lg p-2.5 border ${
+                                      isDark
+                                        ? "bg-[#08080c] border-[#1a1810] text-[#c4b8a8] placeholder-[#3a3020]"
+                                        : "bg-white border-gray-200 text-gray-800 placeholder-gray-400"
+                                    }`}
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); saveActionNotes(i); }}
+                                      className={`text-xs px-3 py-1 rounded-lg ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-600 text-white"}`}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setEditingActionNotes(null); }}
+                                      className={`text-xs px-3 py-1 rounded-lg ${isDark ? "text-[#8a7e6d]" : "text-gray-500"}`}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={(e) => { e.stopPropagation(); setActionNoteText(a.notes || ""); setEditingActionNotes(i); }}
+                                  className={`text-sm rounded-lg p-2.5 cursor-text min-h-[40px] ${
+                                    a.notes
+                                      ? isDark ? "text-[#a89880]" : "text-gray-600"
+                                      : isDark ? "text-[#3a3020]" : "text-gray-300"
+                                  }`}
+                                >
+                                  {a.notes || "Click to add notes..."}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Status buttons */}
+                            <div className="flex items-center gap-2 pt-1">
+                              <span className={`text-xs ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Set status:</span>
+                              {(["pending", "in_progress", "done"] as const).map((s) => (
+                                <button
+                                  key={s}
+                                  onClick={(e) => { e.stopPropagation(); setActionStatus(i, s); }}
+                                  className={`text-xs px-3 py-1 rounded-lg transition-colors ${
+                                    a.status === s
+                                      ? s === "done"
+                                        ? isDark ? "bg-emerald-500/30 text-emerald-300" : "bg-green-200 text-green-800"
+                                        : s === "in_progress"
+                                          ? isDark ? "bg-blue-500/30 text-blue-300" : "bg-blue-200 text-blue-800"
+                                          : isDark ? "bg-[#2a2018] text-[#c4b8a8]" : "bg-gray-300 text-gray-800"
+                                      : isDark ? "bg-[#1a1810] text-[#5a5040] hover:text-[#8a7e6d]" : "bg-gray-100 text-gray-400 hover:text-gray-600"
+                                  }`}
+                                >
+                                  {s === "pending" ? "⬜ Pending" : s === "in_progress" ? "🔄 In Progress" : "✅ Done"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {/* Progress bar */}
                   <div className="pt-2">
                     <div className="flex items-center justify-between mb-1">
