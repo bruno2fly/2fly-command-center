@@ -173,7 +173,6 @@ export function ClientStrategyTab({ clientId }: Props) {
 
   const handleAcceptResponse = useCallback(async (content: string) => {
     if (!selected) return;
-    // Append accepted agent response to strategy notes with timestamp
     const timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const newNote = `\n\n---\n### 🤖 Agent Response (${timestamp}) — ✅ Accepted\n${content}`;
     const updatedNotes = (selected.notes || '') + newNote;
@@ -188,6 +187,87 @@ export function ClientStrategyTab({ clientId }: Props) {
       console.error("Failed to save accepted response:", err);
     }
   }, [selected, clientId, fetchStrategies]);
+
+  const handleCreateAction = useCallback(async (content: string) => {
+    if (!selected) return;
+
+    // Ask the agent to convert the insight into structured actions
+    const res = await fetch(`${API}/api/agents/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        agent: "founder-boss",
+        message: `Convert this insight into structured action items for the strategy plan. Return ONLY valid JSON — no markdown, no explanation, just a JSON array.
+
+Each action should have: action (title), detail (what & why), owner (who does it), deadline (YYYY-MM-DD, within next 7 days), priority ("urgent" or "high" or "normal"), steps (array of instruction strings), executor ("manual" or "comet" or "agent").
+
+The insight to convert:
+${content}`,
+        clientId,
+        pageContext: buildStrategyContext(),
+      }),
+    });
+
+    if (!res.ok) throw new Error("Agent call failed");
+    const data = await res.json();
+
+    // Handle async job
+    let responseText = data.response;
+    if (data.jobId && !responseText) {
+      let attempts = 0;
+      const poll = async (): Promise<string> => {
+        const r = await fetch(`${API}/api/agents/job/${data.jobId}`);
+        const d = await r.json();
+        if (d.status === "done") return d.response || "";
+        if (d.status === "error") throw new Error(d.error);
+        if (attempts++ > 60) throw new Error("Timeout");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        return poll();
+      };
+      responseText = await poll();
+    }
+
+    // Parse JSON actions from the response
+    let newActions: Action[] = [];
+    try {
+      // Try to extract JSON from the response (agent might wrap it in markdown)
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        newActions = JSON.parse(jsonMatch[0]);
+      }
+    } catch (err) {
+      console.error("Failed to parse actions:", err);
+      // Fallback: create a single action from the content
+      newActions = [{
+        action: content.split('\n')[0].replace(/^[#*\s]+/, '').slice(0, 100),
+        detail: content.slice(0, 500),
+        owner: 'Bruno',
+        deadline: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        priority: 'high',
+        status: 'pending',
+        steps: ['Review the insight', 'Plan the approach', 'Execute'],
+        executor: 'manual',
+      }];
+    }
+
+    // Add status to each new action
+    newActions = newActions.map(a => ({
+      ...a,
+      status: 'pending' as const,
+    }));
+
+    // Merge with existing actions
+    const existingActions = parseJSON<Action>(selected.actions ?? null);
+    const merged = [...existingActions, ...newActions];
+
+    await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actions: merged }),
+    });
+
+    fetchStrategies();
+  }, [selected, clientId, buildStrategyContext, fetchStrategies]);
   const diagnosis = parseJSON<Diagnosis>(selected?.diagnosis ?? null);
   const goals = parseJSON<Goal>(selected?.goals ?? null);
   const actions = parseJSON<Action>(selected?.actions ?? null);
@@ -482,6 +562,7 @@ export function ClientStrategyTab({ clientId }: Props) {
             agent={{ id: "founder-boss", label: "Strategy Agent", emoji: "🎯" }}
             context={buildStrategyContext()}
             onAccept={handleAcceptResponse}
+            onCreateAction={handleCreateAction}
             placeholder="Ask about strategy, request changes, analyze competitors..."
             emptyHint="Ask me anything about this strategy."
           />

@@ -25,6 +25,7 @@ type Props = {
   agent: AgentDef;
   context: string;
   onAccept: (content: string) => void;
+  onCreateAction?: (content: string) => Promise<void>;
   placeholder?: string;
   emptyHint?: string;
 };
@@ -32,11 +33,12 @@ type Props = {
 let counter = 0;
 function msgId() { return `smsg-${Date.now()}-${++counter}`; }
 
-export function InlineAgentChat({ clientId, agent, context, onAccept, placeholder, emptyHint }: Props) {
+export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAction, placeholder, emptyHint }: Props) {
   const { isDark } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [creatingAction, setCreatingAction] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -186,9 +188,9 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, placeholde
                 )}
               </div>
 
-              {/* Accept / Reject buttons for assistant messages */}
+              {/* Accept / Reject / Action buttons for assistant messages */}
               {msg.role === "assistant" && msg.status === "pending" && (
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <button
                     onClick={() => handleAccept(msg)}
                     className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
@@ -197,7 +199,42 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, placeholde
                         : "bg-green-100 text-green-700 hover:bg-green-200"
                     }`}
                   >
-                    ✅ Accept & Add to Plan
+                    ✅ Save to Notes
+                  </button>
+                  {onCreateAction && (
+                    <button
+                      onClick={async () => {
+                        setCreatingAction(msg.id);
+                        try {
+                          await onCreateAction(msg.content);
+                          setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, status: "accepted" as const } : m));
+                        } catch (err) {
+                          console.error(err);
+                        } finally {
+                          setCreatingAction(null);
+                        }
+                      }}
+                      disabled={creatingAction === msg.id}
+                      className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all ${
+                        creatingAction === msg.id
+                          ? isDark ? "bg-[#1a1810] text-[#3a3020] cursor-wait" : "bg-gray-100 text-gray-300 cursor-wait"
+                          : isDark
+                            ? "bg-gradient-to-r from-orange-500/20 to-amber-500/20 text-orange-300 hover:from-orange-500/30 hover:to-amber-500/30"
+                            : "bg-gradient-to-r from-orange-50 to-amber-50 text-orange-700 hover:from-orange-100 hover:to-amber-100"
+                      }`}
+                    >
+                      {creatingAction === msg.id ? "⏳ Creating..." : "⚡ Turn into Action"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setInput("Refine this further: "); inputRef.current?.focus(); }}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                      isDark
+                        ? "bg-[#1a1810] text-[#5a5040] hover:text-[#8a7e6d]"
+                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    🔄 Refine
                   </button>
                   <button
                     onClick={() => handleReject(msg.id)}
@@ -208,16 +245,6 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, placeholde
                     }`}
                   >
                     ❌ Reject
-                  </button>
-                  <button
-                    onClick={() => { setInput("Refine this further: "); inputRef.current?.focus(); }}
-                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                      isDark
-                        ? "bg-[#1a1810] text-[#5a5040] hover:text-[#8a7e6d]"
-                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    🔄 Refine
                   </button>
                 </div>
               )}
