@@ -105,6 +105,7 @@ export function TabChatWrapper({
         <div className="shrink-0 px-4 pb-3">
           <InlineAgentChat
             clientId={clientId}
+            tab={tab}
             agent={{ id: agentId, label: agentLabel, emoji: agentEmoji }}
             context={context}
             onAccept={onAccept || defaultOnAccept}

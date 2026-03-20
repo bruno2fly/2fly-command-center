@@ -377,6 +377,7 @@ router.delete("/:id", async (req, res) => {
     await prisma.adReport.deleteMany({ where: { clientId: id } });
     await prisma.adActionLog.deleteMany({ where: { clientId: id } });
     await prisma.metaConnection.deleteMany({ where: { clientId: id } });
+    await prisma.agentChat.deleteMany({ where: { clientId: id } });
 
     // Delete the client
     await prisma.client.delete({ where: { id } });

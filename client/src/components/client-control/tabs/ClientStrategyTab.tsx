@@ -559,6 +559,7 @@ ${content}`,
         {showChat && selected && (
           <InlineAgentChat
             clientId={clientId}
+            tab="strategy"
             agent={{ id: "founder-boss", label: "Strategy Agent", emoji: "🎯" }}
             context={buildStrategyContext()}
             onAccept={handleAcceptResponse}

@@ -22,6 +22,7 @@ type AgentDef = {
 
 type Props = {
   clientId: string;
+  tab: string;
   agent: AgentDef;
   context: string;
   onAccept: (content: string) => void;
@@ -33,7 +34,7 @@ type Props = {
 let counter = 0;
 function msgId() { return `smsg-${Date.now()}-${++counter}`; }
 
-export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAction, placeholder, emptyHint }: Props) {
+export function InlineAgentChat({ clientId, tab, agent, context, onAccept, onCreateAction, placeholder, emptyHint }: Props) {
   const { isDark } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -41,6 +42,51 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAc
   const [creatingAction, setCreatingAction] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load saved messages on mount
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (loaded) return;
+    fetch(`${API}/api/agents/chat-history/${clientId}/${tab}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.messages?.length) {
+          setMessages(data.messages.map((m: { id: string; role: string; content: string; status: string; createdAt: string }) => ({
+            id: m.id,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            status: m.status as "pending" | "accepted" | "rejected",
+            timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          })));
+        }
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, [clientId, tab, loaded]);
+
+  // Save a message to the DB
+  const saveMessage = useCallback(async (role: string, content: string, status: string = "pending") => {
+    try {
+      const res = await fetch(`${API}/api/agents/chat-history/${clientId}/${tab}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, content, status }),
+      });
+      const saved = await res.json();
+      return saved.id as string;
+    } catch { return null; }
+  }, [clientId, tab]);
+
+  // Update message status in DB
+  const updateMessageStatus = useCallback(async (id: string, status: string) => {
+    try {
+      await fetch(`${API}/api/agents/chat-history/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    } catch { /* silent */ }
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -57,14 +103,21 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAc
     const text = input.trim();
     setInput("");
 
+    const tempId = msgId();
     const userMsg: Message = {
-      id: msgId(),
+      id: tempId,
       role: "user",
       content: text,
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
+
+    // Save user message to DB
+    const savedUserId = await saveMessage("user", text, "pending");
+    if (savedUserId) {
+      setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: savedUserId } : m));
+    }
 
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
@@ -84,6 +137,8 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAc
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
+      let responseText = "";
+
       // Handle async job polling
       if (data.jobId && !data.response) {
         const jobId = data.jobId;
@@ -97,23 +152,20 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAc
           await new Promise((r) => setTimeout(r, 2000));
           return poll();
         };
-        const response = await poll();
-        setMessages((prev) => [...prev, {
-          id: msgId(),
-          role: "assistant",
-          content: response,
-          timestamp: new Date().toISOString(),
-          status: "pending",
-        }]);
+        responseText = await poll();
       } else {
-        setMessages((prev) => [...prev, {
-          id: msgId(),
-          role: "assistant",
-          content: data.response || "No response.",
-          timestamp: new Date().toISOString(),
-          status: "pending",
-        }]);
+        responseText = data.response || "No response.";
       }
+
+      // Save assistant message to DB
+      const savedAsstId = await saveMessage("assistant", responseText, "pending");
+      setMessages((prev) => [...prev, {
+        id: savedAsstId || msgId(),
+        role: "assistant",
+        content: responseText,
+        timestamp: new Date().toISOString(),
+        status: "pending",
+      }]);
     } catch (err: unknown) {
       const errorText = err instanceof Error ? err.message : "Unknown error";
       setMessages((prev) => [...prev, {
@@ -125,15 +177,17 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAc
     } finally {
       setSending(false);
     }
-  }, [input, sending, messages, clientId, context]);
+  }, [input, sending, messages, clientId, context, saveMessage]);
 
   const handleAccept = (msg: Message) => {
     setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, status: "accepted" } : m));
+    updateMessageStatus(msg.id, "accepted");
     onAccept(msg.content);
   };
 
-  const handleReject = (msgId: string) => {
-    setMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: "rejected" } : m));
+  const handleReject = (id: string) => {
+    setMessages((prev) => prev.map((m) => m.id === id ? { ...m, status: "rejected" } : m));
+    updateMessageStatus(id, "rejected");
   };
 
   return (

@@ -71,6 +71,7 @@ model Client {
   tasks              Task[]
   dailyReports       DailyReport[]
   strategies         ClientStrategy[]
+  agentChats         AgentChat[]
 }
 
 // AI-generated content strategy (brand profile, pillars, hooks, etc.)
@@ -484,6 +485,25 @@ model AdActionLog {
   createdAt       DateTime @default(now())
   checkedAt3d     DateTime?
   checkedAt7d     DateTime?
+}
+
+// ─────────────────────────────────────────────────
+// MODULE: AGENT CHAT HISTORY
+// ─────────────────────────────────────────────────
+// Persists inline agent chat conversations per client per tab.
+
+model AgentChat {
+  id        String   @id @default(cuid())
+  clientId  String
+  tab       String   // "strategy" | "ads" | "content" | "overview" | etc.
+  role      String   // "user" | "assistant"
+  content   String
+  status    String   @default("pending") // pending | accepted | rejected
+  createdAt DateTime @default(now())
+
+  client    Client   @relation(fields: [clientId], references: [id])
+
+  @@index([clientId, tab])
 }
 
 model AiUpdate {

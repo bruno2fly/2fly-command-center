@@ -17,6 +17,9 @@ import {
   type ToolCallInfo,
 } from '../lib/openclawClient.js';
 
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
 const router = Router();
 
 // ─── In-memory store for async agent jobs ─────────────────
@@ -497,6 +500,75 @@ router.get('/status', async (_req: Request, res: Response) => {
 // ================================================================
 router.get('/list', (_req: Request, res: Response) => {
   res.json({ agents: AGENTS });
+});
+
+// ─────────────────────────────────────────────────
+// CHAT PERSISTENCE
+// ─────────────────────────────────────────────────
+
+// GET /api/agents/chat-history/:clientId/:tab — Load saved chat messages
+router.get('/chat-history/:clientId/:tab', async (req: Request, res: Response) => {
+  try {
+    const { clientId, tab } = req.params;
+    const messages = await prisma.agentChat.findMany({
+      where: { clientId, tab },
+      orderBy: { createdAt: 'asc' },
+      take: 100, // cap at 100 messages per tab
+    });
+    res.json({ messages });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/agents/chat-history/:clientId/:tab — Save a chat message
+router.post('/chat-history/:clientId/:tab', async (req: Request, res: Response) => {
+  try {
+    const { clientId, tab } = req.params;
+    const { role, content, status } = req.body;
+    if (!role || !content) {
+      return res.status(400).json({ error: 'role and content are required' });
+    }
+    const msg = await prisma.agentChat.create({
+      data: { clientId, tab, role, content, status: status || 'pending' },
+    });
+    res.json(msg);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// PATCH /api/agents/chat-history/:id/status — Update message status (accepted/rejected)
+router.patch('/chat-history/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['pending', 'accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    const msg = await prisma.agentChat.update({
+      where: { id },
+      data: { status },
+    });
+    res.json(msg);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// DELETE /api/agents/chat-history/:clientId/:tab — Clear chat history for a tab
+router.delete('/chat-history/:clientId/:tab', async (req: Request, res: Response) => {
+  try {
+    const { clientId, tab } = req.params;
+    await prisma.agentChat.deleteMany({ where: { clientId, tab } });
+    res.json({ cleared: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
 });
 
 export default router;
