@@ -542,6 +542,23 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
   const bgCls = isDark ? "bg-zinc-950" : "bg-gray-50";
 
   // Real API data > mock: show dashboard when we have real Meta connection or mock data
+  // Check expired/disconnected BEFORE showing dashboard
+  if (connectionStatus === "expired") {
+    return (
+      <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
+        <MetaExpiredState clientId={clientId} isDark={isDark} onReconnect={handleReconnect} />
+      </div>
+    );
+  }
+
+  if (connectionStatus === "not_connected") {
+    return (
+      <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
+        <ConnectMetaAdsEmptyState clientId={clientId} isDark={isDark} />
+      </div>
+    );
+  }
+
   if (useRealData || hasMockData) {
     return (
       <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
@@ -609,21 +626,7 @@ export function ClientAdsTab({ clientId, clientName }: Props) {
     );
   }
 
-  if (connectionStatus === "not_connected") {
-    return (
-      <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
-        <ConnectMetaAdsEmptyState clientId={clientId} isDark={isDark} />
-      </div>
-    );
-  }
-
-  if (connectionStatus === "expired") {
-    return (
-      <div className={`flex flex-col min-h-0 overflow-auto ${bgCls}`}>
-        <MetaExpiredState clientId={clientId} isDark={isDark} onReconnect={handleReconnect} />
-      </div>
-    );
-  }
+  // (expired/not_connected checks moved above dashboard block)
 
   if (showAccountPicker && accounts.length > 1) {
     return (
