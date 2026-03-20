@@ -125,7 +125,7 @@ export function InlineAgentChat({ clientId, agent, context, onAccept, onCreateAc
     } finally {
       setSending(false);
     }
-  }, [input, sending, messages, clientId, strategyContext]);
+  }, [input, sending, messages, clientId, context]);
 
   const handleAccept = (msg: Message) => {
     setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, status: "accepted" } : m));
