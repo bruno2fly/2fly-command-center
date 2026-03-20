@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useAgentChat } from "@/contexts/AgentChatContext";
 import ReactMarkdown from "react-markdown";
+import { StrategyAgentChat } from "./StrategyAgentChat";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -111,8 +111,8 @@ type Props = { clientId: string };
 
 export function ClientStrategyTab({ clientId }: Props) {
   const { isDark } = useTheme();
-  const { openWithContext } = useAgentChat();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
+  const [showChat, setShowChat] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["diagnosis", "goals", "actions", "campaigns", "notes"]));
@@ -144,15 +144,16 @@ export function ClientStrategyTab({ clientId }: Props) {
 
   const selected = strategies.find((s) => s.id === selectedId);
 
-  const openStrategyChat = useCallback(() => {
-    if (!selected) return;
-    const d = parseJSON<Diagnosis>(selected.diagnosis);
-    const g = parseJSON<Goal>(selected.goals);
-    const a = parseJSON<Action>(selected.actions);
-    const c = parseJSON<Campaign>(selected.campaigns);
+  const buildStrategyContext = useCallback(() => {
+    if (!selected) return "";
+    const d = parseJSON<Diagnosis>(selected.diagnosis ?? null);
+    const g = parseJSON<Goal>(selected.goals ?? null);
+    const a = parseJSON<Action>(selected.actions ?? null);
+    const c = parseJSON<Campaign>(selected.campaigns ?? null);
 
-    const context = [
+    return [
       `TAB: Strategy | STRATEGY: "${selected.title}" (${formatMonth(selected.month)}) | STATUS: ${selected.status}`,
+      selected.summary ? `SUMMARY: ${selected.summary}` : '',
       ``,
       `DIAGNOSIS:`,
       ...d.map((x) => `- [${x.severity.toUpperCase()}] ${x.issue}: ${x.detail}`),
@@ -168,9 +169,25 @@ export function ClientStrategyTab({ clientId }: Props) {
       ``,
       selected.notes ? `NOTES:\n${selected.notes}` : '',
     ].join('\n');
+  }, [selected]);
 
-    openWithContext("founder-boss", clientId, context);
-  }, [selected, clientId, openWithContext]);
+  const handleAcceptResponse = useCallback(async (content: string) => {
+    if (!selected) return;
+    // Append accepted agent response to strategy notes with timestamp
+    const timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const newNote = `\n\n---\n### 🤖 Agent Response (${timestamp}) — ✅ Accepted\n${content}`;
+    const updatedNotes = (selected.notes || '') + newNote;
+    try {
+      await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: updatedNotes }),
+      });
+      fetchStrategies();
+    } catch (err) {
+      console.error("Failed to save accepted response:", err);
+    }
+  }, [selected, clientId, fetchStrategies]);
   const diagnosis = parseJSON<Diagnosis>(selected?.diagnosis ?? null);
   const goals = parseJSON<Goal>(selected?.goals ?? null);
   const actions = parseJSON<Action>(selected?.actions ?? null);
@@ -400,14 +417,16 @@ export function ClientStrategyTab({ clientId }: Props) {
           <div className="flex items-center gap-2">
             {selected && (
               <button
-                onClick={openStrategyChat}
+                onClick={() => setShowChat((v) => !v)}
                 className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                  isDark
-                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30"
-                    : "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100"
+                  showChat
+                    ? isDark ? "bg-purple-500/30 text-purple-300 ring-1 ring-purple-500/40" : "bg-purple-100 text-purple-700 ring-1 ring-purple-300"
+                    : isDark
+                      ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30"
+                      : "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100"
                 }`}
               >
-                💬 Ask Agent
+                {showChat ? "✕ Close Chat" : "💬 Ask Agent"}
               </button>
             )}
             <button
@@ -454,6 +473,16 @@ export function ClientStrategyTab({ clientId }: Props) {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Inline Agent Chat */}
+        {showChat && selected && (
+          <StrategyAgentChat
+            clientId={clientId}
+            strategyId={selected.id}
+            strategyContext={buildStrategyContext()}
+            onAccept={handleAcceptResponse}
+          />
         )}
 
         {/* Empty state */}
