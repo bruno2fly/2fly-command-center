@@ -336,9 +336,18 @@ router.post("/", async (req, res) => {
 // PATCH /api/clients/:id — update client
 router.patch("/:id", async (req, res) => {
   try {
+    const data = { ...req.body };
+
+    // Handle notes_append: append text to existing notes instead of replacing
+    if (typeof data.notes_append === "string") {
+      const existing = await prisma.client.findUnique({ where: { id: req.params.id }, select: { notes: true } });
+      data.notes = (existing?.notes || "") + data.notes_append;
+      delete data.notes_append;
+    }
+
     const client = await prisma.client.update({
       where: { id: req.params.id },
-      data: req.body,
+      data,
     });
     res.json(client);
   } catch (err) {

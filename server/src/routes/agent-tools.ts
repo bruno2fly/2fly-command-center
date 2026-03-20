@@ -129,6 +129,13 @@ router.patch('/clients/:id', async (req: Request, res: Response) => {
     for (const k of allowed) {
       if (req.body[k] !== undefined) data[k] = req.body[k];
     }
+
+    // Handle notes_append: append text to existing notes
+    if (typeof req.body.notes_append === 'string') {
+      const existing = await prisma.client.findUnique({ where: { id: req.params.id }, select: { notes: true } });
+      data.notes = (existing?.notes || '') + req.body.notes_append;
+    }
+
     if (typeof data.platforms === 'object' && Array.isArray(data.platforms)) {
       data.platforms = JSON.stringify(data.platforms);
     }
