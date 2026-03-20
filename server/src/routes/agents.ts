@@ -274,6 +274,102 @@ router.post('/chat', async (req: Request, res: Response) => {
 });
 
 // ================================================================
+// GET /api/agents/context/:clientId/:tab — Build rich context for a tab
+// ================================================================
+router.get('/context/:clientId/:tab', async (req: Request, res: Response) => {
+  try {
+    const { clientId, tab } = req.params;
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) {
+      await prisma.$disconnect();
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    const lines: string[] = [
+      `CLIENT: ${client.name} (ID: ${client.id})`,
+      `Status: ${client.status} | Health: ${client.healthStatus}`,
+      `Retainer: $${client.monthlyRetainer}/mo | Ad Budget: $${client.adBudget}/mo | ROAS Target: ${client.roasTarget}x`,
+      client.notes ? `Notes: ${client.notes.slice(0, 500)}` : '',
+      ``,
+    ];
+
+    if (tab === 'overview' || tab === 'all') {
+      const requests = await prisma.clientRequest.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 10 });
+      const tasks = await prisma.task.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 10 });
+      lines.push(`TAB: Overview`);
+      lines.push(`Open Requests: ${requests.filter((r: any) => !['completed', 'closed'].includes(r.status)).length}/${requests.length}`);
+      requests.slice(0, 5).forEach((r: any) => lines.push(`  - [${r.status}] ${r.title} (SLA breach: ${r.slaBreach ? 'YES' : 'no'})`));
+      lines.push(`Tasks: ${tasks.length}`);
+      tasks.slice(0, 5).forEach((t: any) => lines.push(`  - [${t.status}] ${t.title} (assigned: ${t.assignedTo || 'unassigned'})`));
+    }
+
+    if (tab === 'ads') {
+      const campaigns = await prisma.adCampaign.findMany({ where: { clientId } });
+      const meta = await prisma.metaConnection.findFirst({ where: { clientId } });
+      lines.push(`TAB: Ads`);
+      lines.push(`Meta Connection: ${meta ? `${meta.status} | Ad Account: ${meta.adAccountId}` : 'NOT CONNECTED'}`);
+      lines.push(`Campaigns: ${campaigns.length}`);
+      campaigns.forEach((c: any) => lines.push(`  - [${c.status}] ${c.name} | Objective: ${c.objective} | Daily: $${c.dailyBudget || '?'} | Lifetime: $${c.lifetimeBudget || '?'}`));
+    }
+
+    if (tab === 'content') {
+      const content = await prisma.contentItem.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 15 });
+      lines.push(`TAB: Content`);
+      lines.push(`Content Items: ${content.length}`);
+      const byStatus: Record<string, number> = {};
+      content.forEach((c: any) => { byStatus[c.status] = (byStatus[c.status] || 0) + 1; });
+      lines.push(`Status breakdown: ${Object.entries(byStatus).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
+      content.slice(0, 10).forEach((c: any) => lines.push(`  - [${c.status}] ${c.title || c.type} | Scheduled: ${c.scheduledDate || 'none'}`));
+    }
+
+    if (tab === 'socialMedia') {
+      const content = await prisma.contentItem.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 10 });
+      lines.push(`TAB: Social Media`);
+      lines.push(`Recent content: ${content.length} items`);
+      content.slice(0, 5).forEach((c: any) => lines.push(`  - [${c.status}] ${c.title || c.type}`));
+    }
+
+    if (tab === 'googleBusiness') {
+      const google = await prisma.googleConnection.findFirst({ where: { clientId } });
+      lines.push(`TAB: Google Business`);
+      lines.push(`Google Connection: ${google ? `${google.status} | Location: ${google.locationId || 'none selected'}` : 'NOT CONNECTED'}`);
+    }
+
+    if (tab === 'reports') {
+      const reports = await prisma.dailyReport.findMany({ where: { clientId }, orderBy: { date: 'desc' }, take: 5 });
+      lines.push(`TAB: Reports`);
+      lines.push(`Recent reports: ${reports.length}`);
+      reports.forEach((r: any) => lines.push(`  - ${r.date} | Health: ${r.healthStatus}`));
+    }
+
+    if (tab === 'clientPlan') {
+      const strategies = await prisma.clientStrategy.findMany({ where: { clientId }, orderBy: { month: 'desc' }, take: 3 });
+      lines.push(`TAB: Client Plan`);
+      lines.push(`Strategies: ${strategies.length}`);
+      strategies.forEach((s: any) => lines.push(`  - ${s.month}: ${s.title} [${s.status}]`));
+    }
+
+    if (tab === 'tasks' || tab === 'tasksRequests') {
+      const tasks = await prisma.task.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 15 });
+      const requests = await prisma.clientRequest.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 10 });
+      lines.push(`TAB: Tasks & Requests`);
+      lines.push(`Tasks: ${tasks.length}`);
+      tasks.slice(0, 10).forEach((t: any) => lines.push(`  - [${t.status}] ${t.title} | Priority: ${t.priority || 'normal'} | Due: ${t.dueDate || 'none'}`));
+      lines.push(`Requests: ${requests.length}`);
+      requests.slice(0, 5).forEach((r: any) => lines.push(`  - [${r.status}] ${r.title} | SLA: ${r.slaBreach ? 'BREACHED' : 'ok'}`));
+    }
+
+    await prisma.$disconnect();
+    res.json({ context: lines.filter(Boolean).join('\n') });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ================================================================
 // GET /api/agents/job/:jobId — Poll async agent job status
 // ================================================================
 router.get('/job/:jobId', (req: Request, res: Response) => {

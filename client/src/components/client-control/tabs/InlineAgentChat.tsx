@@ -14,17 +14,25 @@ type Message = {
   status?: "pending" | "accepted" | "rejected";
 };
 
+type AgentDef = {
+  id: string;
+  label: string;
+  emoji: string;
+};
+
 type Props = {
   clientId: string;
-  strategyId: string;
-  strategyContext: string;
+  agent: AgentDef;
+  context: string;
   onAccept: (content: string) => void;
+  placeholder?: string;
+  emptyHint?: string;
 };
 
 let counter = 0;
 function msgId() { return `smsg-${Date.now()}-${++counter}`; }
 
-export function StrategyAgentChat({ clientId, strategyId, strategyContext, onAccept }: Props) {
+export function InlineAgentChat({ clientId, agent, context, onAccept, placeholder, emptyHint }: Props) {
   const { isDark } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -63,11 +71,11 @@ export function StrategyAgentChat({ clientId, strategyId, strategyContext, onAcc
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          agent: "founder-boss",
+          agent: agent.id,
           message: text,
           history,
           clientId,
-          pageContext: strategyContext,
+          pageContext: context,
         }),
       });
 
@@ -134,8 +142,8 @@ export function StrategyAgentChat({ clientId, strategyId, strategyContext, onAcc
       <div className={`flex items-center gap-2 px-4 py-2.5 border-b ${
         isDark ? "border-[#1a1810] bg-[#08080c]" : "border-gray-100 bg-gray-50"
       }`}>
-        <span className="text-sm">🤖</span>
-        <span className={`text-sm font-medium ${isDark ? "text-[#c4b8a8]" : "text-gray-800"}`}>Strategy Agent</span>
+        <span className="text-sm">{agent.emoji}</span>
+        <span className={`text-sm font-medium ${isDark ? "text-[#c4b8a8]" : "text-gray-800"}`}>{agent.label}</span>
         <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-green-100 text-green-700"}`}>
           Online
         </span>
@@ -149,8 +157,8 @@ export function StrategyAgentChat({ clientId, strategyId, strategyContext, onAcc
         {messages.length === 0 && (
           <div className={`text-center py-8 ${isDark ? "text-[#3a3020]" : "text-gray-300"}`}>
             <div className="text-3xl mb-2">🎯</div>
-            <p className="text-sm">Ask me anything about this strategy.</p>
-            <p className="text-xs mt-1">I can suggest new actions, refine campaigns, analyze competitors...</p>
+            <p className="text-sm">{emptyHint || "Ask me anything. I have full context on this page."}</p>
+            <p className="text-xs mt-1">I can analyze, suggest, create, and refine.</p>
           </div>
         )}
 
@@ -250,7 +258,7 @@ export function StrategyAgentChat({ clientId, strategyId, strategyContext, onAcc
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder="Ask about the strategy, request changes..."
+            placeholder={placeholder || "Ask anything..."}
             disabled={sending}
             className={`flex-1 text-sm rounded-lg px-3 py-2 border ${
               isDark

@@ -23,6 +23,7 @@ import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSoc
 import { TwoFlyFlowSection } from "@/components/client-control/tabs/TwoFlyFlowSection";
 import { ClientGoogleBusinessTab } from "@/components/client-control/tabs/ClientGoogleBusinessTab";
 import { ClientStrategyTab } from "@/components/client-control/tabs/ClientStrategyTab";
+import { TabChatWrapper } from "@/components/client-control/tabs/TabChatWrapper";
 import { TaskDetailModal, CreateTaskModal, type TaskDetailTask } from "@/components/tasks";
 
 function parseTabFromUrl(searchParams: ReturnType<typeof useSearchParams> | null): ClientTabId {
@@ -225,37 +226,69 @@ export default function ClientControlRoomPage() {
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
         {activeTab === "overview" && (
-          client?.workspace === "saas" ? (
-            <SaasOverviewTab
-              clientId={id}
-              clientName={clientDisplayName}
-              onOpenTaskDetail={handleOpenTaskFromOverview}
-            />
-          ) : (
-            <ClientOverviewTab
-              clientId={id}
-              clientName={clientDisplayName}
-              onOpenTaskDetail={handleOpenTaskFromOverview}
-            />
-          )
+          <TabChatWrapper clientId={id} tab="overview" agentId="founder-boss" agentLabel="Boss Agent" agentEmoji="🤖" placeholder="Ask about this client's health, strategy, priorities..." emptyHint="I know everything about this client. Ask me anything.">
+            {client?.workspace === "saas" ? (
+              <SaasOverviewTab
+                clientId={id}
+                clientName={clientDisplayName}
+                onOpenTaskDetail={handleOpenTaskFromOverview}
+              />
+            ) : (
+              <ClientOverviewTab
+                clientId={id}
+                clientName={clientDisplayName}
+                onOpenTaskDetail={handleOpenTaskFromOverview}
+              />
+            )}
+          </TabChatWrapper>
         )}
         {activeTab === "tasks" && (
-          <ClientTasksTab
-            clientId={id}
-            clientName={clientDisplayName}
-            onSelectTask={setSelectedTask}
-            onOpenCreateTask={() => setShowCreateTask(true)}
-            refreshTrigger={taskUpdatedAt}
-          />
+          <TabChatWrapper clientId={id} tab="tasks" agentId="project-manager" agentLabel="Project Manager" agentEmoji="📋" placeholder="Ask about tasks, priorities, assignments..." emptyHint="I can help manage tasks, suggest priorities, and plan sprints.">
+            <ClientTasksTab
+              clientId={id}
+              clientName={clientDisplayName}
+              onSelectTask={setSelectedTask}
+              onOpenCreateTask={() => setShowCreateTask(true)}
+              refreshTrigger={taskUpdatedAt}
+            />
+          </TabChatWrapper>
         )}
-        {activeTab === "tasksRequests" && <ClientTasksRequestsTab clientId={id} />}
-        {activeTab === "clientPlan" && <ClientPlanTab clientId={id} />}
-        {activeTab === "ads" && <ClientAdsTab clientId={id} clientName={mainApiClient?.name ?? client.name} />}
-        {activeTab === "reports" && <ClientReportsTab clientId={id} />}
-        {activeTab === "content" && <ClientContentTab clientId={id} />}
-        {activeTab === "socialMedia" && <ClientSocialMediaTab clientId={id} />}
+        {activeTab === "tasksRequests" && (
+          <TabChatWrapper clientId={id} tab="tasksRequests" agentId="project-manager" agentLabel="Project Manager" agentEmoji="📋" placeholder="Ask about requests, SLA, priorities..." emptyHint="I can help triage requests and manage SLA.">
+            <ClientTasksRequestsTab clientId={id} />
+          </TabChatWrapper>
+        )}
+        {activeTab === "clientPlan" && (
+          <TabChatWrapper clientId={id} tab="clientPlan" agentId="founder-boss" agentLabel="Boss Agent" agentEmoji="🤖" placeholder="Ask about the client plan, strategy..." emptyHint="I can analyze the plan and suggest improvements.">
+            <ClientPlanTab clientId={id} />
+          </TabChatWrapper>
+        )}
+        {activeTab === "ads" && (
+          <TabChatWrapper clientId={id} tab="ads" agentId="meta-traffic" agentLabel="Ads Agent" agentEmoji="🎯" placeholder="Ask about campaigns, performance, budget, creative..." emptyHint="I have full context on this client's ad campaigns.">
+            <ClientAdsTab clientId={id} clientName={mainApiClient?.name ?? client.name} />
+          </TabChatWrapper>
+        )}
+        {activeTab === "reports" && (
+          <TabChatWrapper clientId={id} tab="reports" agentId="founder-boss" agentLabel="Boss Agent" agentEmoji="📊" placeholder="Ask about reports, trends, performance..." emptyHint="I can analyze reports and surface insights.">
+            <ClientReportsTab clientId={id} />
+          </TabChatWrapper>
+        )}
+        {activeTab === "content" && (
+          <TabChatWrapper clientId={id} tab="content" agentId="content-system" agentLabel="Content Agent" agentEmoji="📝" placeholder="Ask about content pipeline, ideas, scheduling..." emptyHint="I can suggest content ideas, analyze gaps, and plan calendars.">
+            <ClientContentTab clientId={id} />
+          </TabChatWrapper>
+        )}
+        {activeTab === "socialMedia" && (
+          <TabChatWrapper clientId={id} tab="socialMedia" agentId="content-system" agentLabel="Social Agent" agentEmoji="📱" placeholder="Ask about social strategy, engagement, posting..." emptyHint="I can analyze social performance and suggest strategy.">
+            <ClientSocialMediaTab clientId={id} />
+          </TabChatWrapper>
+        )}
         {activeTab === "strategy" && <ClientStrategyTab clientId={id} />}
-        {activeTab === "googleBusiness" && <ClientGoogleBusinessTab clientId={id} />}
+        {activeTab === "googleBusiness" && (
+          <TabChatWrapper clientId={id} tab="googleBusiness" agentId="founder-boss" agentLabel="GBP Agent" agentEmoji="📍" placeholder="Ask about reviews, local SEO, Google Business..." emptyHint="I can help with reviews, posts, and local SEO strategy.">
+            <ClientGoogleBusinessTab clientId={id} />
+          </TabChatWrapper>
+        )}
         {activeTab === "2flyflow" && <TwoFlyFlowSection clientId={id} />}
       </div>
       <ClientFormModal

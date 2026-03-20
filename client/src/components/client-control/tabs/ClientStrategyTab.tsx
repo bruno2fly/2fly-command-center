@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import ReactMarkdown from "react-markdown";
-import { StrategyAgentChat } from "./StrategyAgentChat";
+import { InlineAgentChat } from "./InlineAgentChat";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -477,11 +477,13 @@ export function ClientStrategyTab({ clientId }: Props) {
 
         {/* Inline Agent Chat */}
         {showChat && selected && (
-          <StrategyAgentChat
+          <InlineAgentChat
             clientId={clientId}
-            strategyId={selected.id}
-            strategyContext={buildStrategyContext()}
+            agent={{ id: "founder-boss", label: "Strategy Agent", emoji: "🎯" }}
+            context={buildStrategyContext()}
             onAccept={handleAcceptResponse}
+            placeholder="Ask about strategy, request changes, analyze competitors..."
+            emptyHint="Ask me anything about this strategy."
           />
         )}
 
