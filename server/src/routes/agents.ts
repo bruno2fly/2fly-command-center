@@ -180,11 +180,12 @@ async function fetchClientContext(clientId: string): Promise<string | undefined>
 // ================================================================
 router.post('/chat', async (req: Request, res: Response) => {
   try {
-    const { agent, message, history, clientId } = req.body as {
+    const { agent, message, history, clientId, pageContext } = req.body as {
       agent?: string;
       message?: string;
       history?: Array<{ role: 'user' | 'assistant'; content: string }>;
       clientId?: string;
+      pageContext?: string;
     };
 
     if (!agent || !message) {
@@ -218,7 +219,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       soulContext = `\nYou are the ${agent} agent. Follow your SOUL:\n${soul.slice(0, 2000)}`;
     }
 
-    const fullPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}\n\nUser request: ${message}`;
+    const fullPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}${pageContext ? `\n\nPAGE CONTEXT (user is currently viewing this):\n${pageContext}` : ''}\n\nUser request: ${message}`;
 
     console.log(`[agents/chat] Starting async job ${jobId} for agent ${agent}...`);
 

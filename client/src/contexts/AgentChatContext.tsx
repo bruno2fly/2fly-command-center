@@ -92,6 +92,10 @@ type AgentChatContextValue = {
   activeClientId: string | null;
   setActiveClientId: (id: string | null) => void;
 
+  // Context-aware opener: sets agent, client, and injects page context
+  activeContext: string | null;
+  openWithContext: (agent: AgentId, clientId: string, context: string) => void;
+
   messages: ChatMessage[];
   sending: boolean;
   sendMessage: (content: string) => Promise<void>;
@@ -125,6 +129,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [gatewayOnline, setGatewayOnline] = useState(false);
   const [agentStatuses, setAgentStatuses] = useState<AgentStatus[]>([]);
   const [messagesByAgent, setMessagesByAgent] = useState<Record<string, ChatMessage[]>>({});
+  const [activeContext, setActiveContext] = useState<string | null>(null);
 
   const messages = useMemo(
     () => messagesByAgent[activeAgent] || [],
@@ -134,6 +139,16 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const openPanel = useCallback(() => setPanelOpen(true), []);
   const closePanel = useCallback(() => setPanelOpen(false), []);
   const togglePanel = useCallback(() => setPanelOpen((p) => !p), []);
+
+  const openWithContext = useCallback(
+    (agent: AgentId, clientId: string, context: string) => {
+      setActiveAgent(agent);
+      setActiveClientId(clientId);
+      setActiveContext(context);
+      setPanelOpen(true);
+    },
+    []
+  );
 
   // Add a message to the active agent's thread
   const addMessage = useCallback(
@@ -191,6 +206,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
             message: content.trim(),
             history: recentHistory,
             clientId: activeClientId,
+            pageContext: activeContext,
           }),
         });
 
@@ -309,6 +325,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       panelOpen, openPanel, closePanel, togglePanel,
       activeAgent, setActiveAgent,
       activeClientId, setActiveClientId,
+      activeContext, openWithContext,
       messages, sending, sendMessage, clearMessages,
       confirmAction, cancelAction,
       agentStatuses, gatewayOnline, refreshStatus,
@@ -316,6 +333,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     [
       panelOpen, openPanel, closePanel, togglePanel,
       activeAgent, activeClientId,
+      activeContext, openWithContext,
       messages, sending, sendMessage, clearMessages,
       confirmAction, cancelAction,
       agentStatuses, gatewayOnline, refreshStatus,

@@ -31,7 +31,7 @@ function saveChatState(state: ChatState) {
 
 export function FloatingChatWidget() {
   const { isDark } = useTheme();
-  const { panelOpen, openPanel, closePanel, activeAgent, setActiveAgent } = useAgentChat();
+  const { panelOpen, openPanel, closePanel, activeAgent, setActiveAgent, activeContext } = useAgentChat();
   const { clients } = useClients();
 
   const [minimized, setMinimized] = useState(false);
@@ -214,6 +214,11 @@ export function FloatingChatWidget() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+              {activeContext && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${isDark ? "bg-purple-500/20 text-purple-300" : "bg-purple-100 text-purple-700"}`}>
+                  📍 Page context active
+                </span>
+              )}
               {selectedClientId && (
                 <span className="text-[10px] text-gray-500">
                   {clients.find((c) => c.id === selectedClientId)?.name}

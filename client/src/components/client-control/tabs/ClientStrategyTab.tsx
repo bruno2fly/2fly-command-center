@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAgentChat } from "@/contexts/AgentChatContext";
 import ReactMarkdown from "react-markdown";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -110,6 +111,7 @@ type Props = { clientId: string };
 
 export function ClientStrategyTab({ clientId }: Props) {
   const { isDark } = useTheme();
+  const { openWithContext } = useAgentChat();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,6 +143,34 @@ export function ClientStrategyTab({ clientId }: Props) {
   useEffect(() => { fetchStrategies(); }, [fetchStrategies]);
 
   const selected = strategies.find((s) => s.id === selectedId);
+
+  const openStrategyChat = useCallback(() => {
+    if (!selected) return;
+    const d = parseJSON<Diagnosis>(selected.diagnosis);
+    const g = parseJSON<Goal>(selected.goals);
+    const a = parseJSON<Action>(selected.actions);
+    const c = parseJSON<Campaign>(selected.campaigns);
+
+    const context = [
+      `TAB: Strategy | STRATEGY: "${selected.title}" (${formatMonth(selected.month)}) | STATUS: ${selected.status}`,
+      ``,
+      `DIAGNOSIS:`,
+      ...d.map((x) => `- [${x.severity.toUpperCase()}] ${x.issue}: ${x.detail}`),
+      ``,
+      `GOALS:`,
+      ...g.map((x) => `- ${x.goal} | Metric: ${x.metric} | Target: ${x.target}`),
+      ``,
+      `ACTION PLAN:`,
+      ...a.map((x) => `- [${x.status}] ${x.action} (owner: ${x.owner}, deadline: ${x.deadline}, priority: ${x.priority})`),
+      ``,
+      `CAMPAIGNS:`,
+      ...c.map((x) => `- ${x.name} | ${x.platform} | ${x.budget} | ${x.status} | Offer: ${x.offer}`),
+      ``,
+      selected.notes ? `NOTES:\n${selected.notes}` : '',
+    ].join('\n');
+
+    openWithContext("founder-boss", clientId, context);
+  }, [selected, clientId, openWithContext]);
   const diagnosis = parseJSON<Diagnosis>(selected?.diagnosis ?? null);
   const goals = parseJSON<Goal>(selected?.goals ?? null);
   const actions = parseJSON<Action>(selected?.actions ?? null);
@@ -367,16 +397,30 @@ export function ClientStrategyTab({ clientId }: Props) {
               </select>
             )}
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
-              isDark
-                ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            + New Strategy
-          </button>
+          <div className="flex items-center gap-2">
+            {selected && (
+              <button
+                onClick={openStrategyChat}
+                className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${
+                  isDark
+                    ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30"
+                    : "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100"
+                }`}
+              >
+                💬 Ask Agent
+              </button>
+            )}
+            <button
+              onClick={() => setShowCreate(true)}
+              className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
+                isDark
+                  ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              + New Strategy
+            </button>
+          </div>
         </div>
 
         {/* Create modal */}
