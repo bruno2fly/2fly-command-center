@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-export const CLIENT_TABS = ["overview", "tasks", "tasksRequests", "clientPlan", "ads", "reports", "content", "socialMedia", "googleBusiness", "2flyflow"] as const;
+export const CLIENT_TABS = ["overview", "tasks", "tasksRequests", "clientPlan", "ads", "reports", "content", "socialMedia", "strategy", "googleBusiness", "2flyflow"] as const;
 export type ClientTabId = (typeof CLIENT_TABS)[number];
 
 const TAB_LABELS: Record<ClientTabId, string> = {
@@ -16,6 +16,7 @@ const TAB_LABELS: Record<ClientTabId, string> = {
   reports: "Reports",
   content: "Content",
   socialMedia: "Social Media",
+  strategy: "🎯 Strategy",
   googleBusiness: "Google Business",
   "2flyflow": "2FlyFlow",
 };

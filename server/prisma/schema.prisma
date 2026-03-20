@@ -70,6 +70,7 @@ model Client {
   googleConnection   GoogleConnection?
   tasks              Task[]
   dailyReports       DailyReport[]
+  strategies         ClientStrategy[]
 }
 
 // AI-generated content strategy (brand profile, pillars, hooks, etc.)
@@ -85,6 +86,24 @@ model ContentStrategy {
   updatedAt DateTime @updatedAt
 
   @@index([clientId, type])
+}
+
+// Monthly strategy plans built for each client
+model ClientStrategy {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  month       String   // Format: "2026-03" (YYYY-MM)
+  title       String   // e.g. "Spring Recovery Plan"
+  status      String   @default("draft") // draft | active | completed | archived
+  summary     String?  // Quick overview of the strategy
+  diagnosis   String?  // JSON: array of { issue, severity, detail }
+  goals       String?  // JSON: array of { goal, metric, target }
+  actions     String?  // JSON: array of { action, owner, deadline, status, priority }
+  campaigns   String?  // JSON: array of { name, platform, budget, offer, audience, status }
+  notes       String?  // Free-form markdown notes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // Auto-generated daily/weekly reports (cron at 10 PM)

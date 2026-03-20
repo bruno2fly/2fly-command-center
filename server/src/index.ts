@@ -35,6 +35,7 @@ app.use("/api/tasks", taskExecuteRoutes);
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/invoices", require("./routes/invoices"));
 app.use("/api/ai-updates", require("./routes/ai-updates"));
+app.use("/api/strategies", require("./routes/strategies"));
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {
