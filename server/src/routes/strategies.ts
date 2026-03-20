@@ -88,6 +88,37 @@ router.patch("/:clientId/:id", async (req: any, res: any) => {
   }
 });
 
+// Execute action via agent
+router.post("/:clientId/:id/execute", async (req: any, res: any) => {
+  try {
+    const { actionIndex, agentId } = req.body;
+    const strategy = await prisma.clientStrategy.findFirst({
+      where: { id: req.params.id, clientId: req.params.clientId },
+      include: { client: { select: { name: true } } },
+    });
+    if (!strategy) return res.status(404).json({ error: "Strategy not found" });
+
+    const actions = JSON.parse(strategy.actions || "[]");
+    const action = actions[actionIndex];
+    if (!action) return res.status(400).json({ error: "Action not found" });
+
+    // Build message for the agent
+    const message = `[STRATEGY ACTION] Client: ${(strategy as any).client.name}\n\nAction: ${action.action}\n\nDetail: ${action.detail || "N/A"}\n\nSteps:\n${(action.steps || []).map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}\n\nPlease execute this action and report back when done.`;
+
+    // Try to send to agent via OpenClaw
+    try {
+      const { sendToAgent } = require("../lib/openclawClient");
+      await sendToAgent(agentId, message, [], `strategy-${strategy.id}`);
+    } catch (err: any) {
+      console.warn(`[STRATEGY] Could not reach agent ${agentId}:`, err.message);
+    }
+
+    res.json({ ok: true, message: `Sent to ${agentId}` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete strategy
 router.delete("/:clientId/:id", async (req: any, res: any) => {
   try {

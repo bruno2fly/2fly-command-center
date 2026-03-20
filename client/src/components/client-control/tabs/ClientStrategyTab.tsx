@@ -15,9 +15,12 @@ type Action = {
   status: "pending" | "in_progress" | "done";
   priority: "urgent" | "high" | "normal";
   detail?: string;
-  steps?: { text: string; done: boolean }[];
+  steps?: string[];
   links?: { label: string; url: string }[];
   notes?: string;
+  executor?: "comet" | "agent" | "manual";
+  agentId?: string;
+  cometPrompt?: string;
 };
 type Campaign = { name: string; platform: string; budget: string; offer: string; audience: string; status: "planned" | "live" | "paused" | "completed" };
 
@@ -116,6 +119,8 @@ export function ClientStrategyTab({ clientId }: Props) {
   const [expandedActions, setExpandedActions] = useState<Set<number>>(new Set());
   const [editingActionNotes, setEditingActionNotes] = useState<number | null>(null);
   const [actionNoteText, setActionNoteText] = useState("");
+  const [copiedComet, setCopiedComet] = useState<number | null>(null);
+  const [agentSending, setAgentSending] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newMonth, setNewMonth] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -159,25 +164,36 @@ export function ClientStrategyTab({ clientId }: Props) {
     });
   };
 
-  const toggleActionStep = async (actionIdx: number, stepIdx: number) => {
+  const executeAgent = async (idx: number) => {
     if (!selected) return;
-    const updated = [...actions];
-    if (!updated[actionIdx].steps) return;
-    updated[actionIdx].steps![stepIdx].done = !updated[actionIdx].steps![stepIdx].done;
-    // Auto-update action status based on steps
-    const allDone = updated[actionIdx].steps!.every((s) => s.done);
-    const anyDone = updated[actionIdx].steps!.some((s) => s.done);
-    if (allDone) updated[actionIdx].status = "done";
-    else if (anyDone) updated[actionIdx].status = "in_progress";
-    else updated[actionIdx].status = "pending";
+    const a = actions[idx];
+    if (!a.agentId) return;
     try {
-      await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
-        method: "PATCH",
+      const res = await fetch(`${API}/api/strategies/${clientId}/${selected.id}/execute`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actions: updated }),
+        body: JSON.stringify({ actionIndex: idx, agentId: a.agentId }),
       });
-      fetchStrategies();
+      if (res.ok) {
+        // Mark as in_progress
+        const updated = [...actions];
+        updated[idx].status = "in_progress";
+        await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actions: updated }),
+        });
+        fetchStrategies();
+      }
     } catch (err) { console.error(err); }
+  };
+
+  const copyComet = async (idx: number) => {
+    const a = actions[idx];
+    if (!a.cometPrompt) return;
+    await navigator.clipboard.writeText(a.cometPrompt);
+    setCopiedComet(idx);
+    setTimeout(() => setCopiedComet(null), 2000);
   };
 
   const saveActionNotes = async (idx: number) => {
@@ -478,7 +494,6 @@ export function ClientStrategyTab({ clientId }: Props) {
                     const expanded = expandedActions.has(i);
                     const overdue = a.status !== "done" && isOverdue(a.deadline);
                     const stepsTotal = a.steps?.length || 0;
-                    const stepsDone = a.steps?.filter((s) => s.done).length || 0;
 
                     return (
                       <div
@@ -513,7 +528,7 @@ export function ClientStrategyTab({ clientId }: Props) {
                               <span>👤 {a.owner}</span>
                               <span className={overdue ? (isDark ? "text-red-400" : "text-red-600") : ""}>📅 {a.deadline}</span>
                               {stepsTotal > 0 && (
-                                <span>{stepsDone}/{stepsTotal} steps</span>
+                                <span>{stepsTotal} steps</span>
                               )}
                             </div>
                           </div>
@@ -536,46 +551,72 @@ export function ClientStrategyTab({ clientId }: Props) {
                               </div>
                             )}
 
-                            {/* Sub-steps checklist */}
+                            {/* Steps as numbered list */}
                             {a.steps && a.steps.length > 0 && (
                               <div>
                                 <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Steps</h4>
-                                <div className="space-y-1.5">
+                                <ol className={`space-y-1 list-none`}>
                                   {a.steps.map((step, si) => (
-                                    <div
+                                    <li
                                       key={si}
-                                      onClick={(e) => { e.stopPropagation(); toggleActionStep(i, si); }}
-                                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                                        step.done
-                                          ? isDark ? "bg-emerald-500/10" : "bg-green-50"
-                                          : isDark ? "bg-[#0a0a0e] hover:bg-[#0c0c10]" : "bg-white hover:bg-gray-50"
+                                      className={`flex items-start gap-2.5 text-sm leading-relaxed ${isDark ? "text-[#a89880]" : "text-gray-600"}`}
+                                    >
+                                      <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium mt-0.5 ${
+                                        isDark ? "bg-[#1a1810] text-[#5a5040]" : "bg-gray-200 text-gray-500"
+                                      }`}>{si + 1}</span>
+                                      <span>{step}</span>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </div>
+                            )}
+
+                            {/* Execute buttons: Comet Prompt or Send to Agent */}
+                            {(a.executor === "comet" || a.executor === "agent") && (
+                              <div>
+                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Execute</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {a.executor === "comet" && a.cometPrompt && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); copyComet(i); }}
+                                      className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
+                                        copiedComet === i
+                                          ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-green-100 text-green-700"
+                                          : isDark
+                                            ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30"
+                                            : "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100"
                                       }`}
                                     >
-                                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                                        step.done
-                                          ? isDark ? "border-emerald-500 bg-emerald-500" : "border-green-500 bg-green-500"
-                                          : isDark ? "border-[#3a3020]" : "border-gray-300"
-                                      }`}>
-                                        {step.done && (
-                                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        )}
-                                      </div>
-                                      <span className={`text-sm ${step.done ? "line-through opacity-50" : ""} ${isDark ? "text-[#c4b8a8]" : "text-gray-700"}`}>
-                                        {step.text}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                                {/* Steps progress */}
-                                <div className="mt-2">
-                                  <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-[#1a1810]" : "bg-gray-200"}`}>
-                                    <div
-                                      className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                                      style={{ width: `${stepsTotal > 0 ? (stepsDone / stepsTotal) * 100 : 0}%` }}
-                                    />
-                                  </div>
+                                      {copiedComet === i ? (
+                                        <>✅ Copied!</>
+                                      ) : (
+                                        <>🌐 Copy Comet Prompt</>
+                                      )}
+                                    </button>
+                                  )}
+                                  {a.executor === "agent" && a.agentId && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAgentSending(i);
+                                        executeAgent(i).finally(() => setAgentSending(null));
+                                      }}
+                                      disabled={agentSending === i}
+                                      className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
+                                        agentSending === i
+                                          ? isDark ? "bg-[#1a1810] text-[#5a5040] cursor-wait" : "bg-gray-100 text-gray-400 cursor-wait"
+                                          : isDark
+                                            ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 hover:from-emerald-500/30 hover:to-teal-500/30"
+                                            : "bg-gradient-to-r from-green-50 to-teal-50 text-green-700 hover:from-green-100 hover:to-teal-100"
+                                      }`}
+                                    >
+                                      {agentSending === i ? (
+                                        <>⏳ Sending...</>
+                                      ) : (
+                                        <>🤖 Send to {a.agentId}</>
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             )}
