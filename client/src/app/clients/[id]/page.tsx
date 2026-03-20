@@ -13,7 +13,7 @@ import { getClientControlMeta } from "@/lib/client/mockClientControlData";
 import { ClientTabBar, CLIENT_TABS, type ClientTabId } from "@/components/client-control/ClientTabBar";
 import { ClientOverviewTab } from "@/components/client-control/tabs/ClientOverviewTab";
 import { ClientTasksTab } from "@/components/client-control/tabs/ClientTasksTab";
-import { ClientTasksRequestsTab } from "@/components/client-control/tabs/ClientTasksRequestsTab";
+// ClientTasksRequestsTab removed — using standalone Tasks page instead
 import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
 import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
 import { ClientReportsTab } from "@/components/client-control/tabs/ClientReportsTab";
@@ -251,11 +251,6 @@ export default function ClientControlRoomPage() {
               onOpenCreateTask={() => setShowCreateTask(true)}
               refreshTrigger={taskUpdatedAt}
             />
-          </TabChatWrapper>
-        )}
-        {activeTab === "tasksRequests" && (
-          <TabChatWrapper clientId={id} tab="tasksRequests" agentId="project-manager" agentLabel="Project Manager" agentEmoji="📋" placeholder="Ask about requests, SLA, priorities..." emptyHint="I can help triage requests and manage SLA.">
-            <ClientTasksRequestsTab clientId={id} />
           </TabChatWrapper>
         )}
         {activeTab === "clientPlan" && (

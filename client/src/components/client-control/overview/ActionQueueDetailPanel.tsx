@@ -197,7 +197,7 @@ export function ActionQueueDetailPanel({
                       }}
                       className="text-sm text-blue-500 hover:underline"
                     >
-                      Open in Tasks & Requests →
+                      Open in Tasks →
                     </button>
                   </div>
                 </div>
@@ -213,7 +213,7 @@ export function ActionQueueDetailPanel({
                     }}
                     className="text-sm text-blue-500 hover:underline"
                   >
-                    View in Tasks & Requests →
+                    View in Tasks →
                   </button>
                 </div>
               )}
