@@ -509,6 +509,26 @@ ${content}`,
                 {showChat ? "✕ Close Chat" : "💬 Ask Agent"}
               </button>
             )}
+            {selected && (
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`Delete strategy "${selected.title}"? This cannot be undone.`)) return;
+                  try {
+                    await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, { method: "DELETE" });
+                    fetchStrategies();
+                  } catch (err) {
+                    console.error("Failed to delete strategy:", err);
+                  }
+                }}
+                className={`text-sm font-medium px-3 py-2 rounded-lg transition-colors ${
+                  isDark
+                    ? "text-red-400 hover:bg-red-500/20"
+                    : "text-red-500 hover:bg-red-50"
+                }`}
+              >
+                🗑️ Delete
+              </button>
+            )}
             <button
               onClick={() => setShowCreate(true)}
               className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
