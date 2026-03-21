@@ -23,6 +23,13 @@ const TYPE_EMOJI: Record<string, string> = {
   post: "📸", reel: "🎬", story: "📱", carousel: "🎠", campaign: "🎯", blog: "📝", email: "✉️",
 };
 
+interface FlowDesigner {
+  id: string;
+  name: string;
+  email?: string;
+  role: string;
+}
+
 const STATUS_CONFIG: Record<string, { label: string; darkCls: string; lightCls: string }> = {
   idea: { label: "💡 Idea", darkCls: "bg-amber-500/20 text-amber-400", lightCls: "bg-amber-100 text-amber-700" },
   draft: { label: "✏️ Draft", darkCls: "bg-blue-500/20 text-blue-400", lightCls: "bg-blue-100 text-blue-700" },
@@ -70,8 +77,19 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   const [context, setContext] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "idea" | "draft" | "approved" | "sent_to_team">("all");
+  const [designers, setDesigners] = useState<FlowDesigner[]>([]);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendModal, setSendModal] = useState<{ ideaId: string; designerId: string; priority: string; deadline: string } | null>(null);
 
   useEffect(() => { setIdeas(loadIdeas(clientId)); }, [clientId]);
+
+  // Fetch designers from Flow
+  useEffect(() => {
+    fetch(`${API}/api/flow/designers`)
+      .then(r => r.json())
+      .then(d => setDesigners(d.designers || []))
+      .catch(() => {});
+  }, []);
 
   // Fetch tab context for the agent
   useEffect(() => {
@@ -128,6 +146,38 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   const updateField = useCallback((id: string, field: keyof ContentIdea, value: string) => {
     updateIdeas(ideas.map(i => i.id === id ? { ...i, [field]: value } : i));
   }, [ideas, updateIdeas]);
+
+  const sendToTeam = useCallback(async (ideaId: string, designerId: string, priority: string, deadline: string) => {
+    const idea = ideas.find(i => i.id === ideaId);
+    if (!idea) return;
+    setSendingId(ideaId);
+    try {
+      const res = await fetch(`${API}/api/flow/send-to-team/${clientId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: idea.title,
+          caption: idea.copy || "",
+          copyText: idea.copy || "",
+          briefNotes: idea.notes || "",
+          designerId,
+          priority,
+          deadline,
+        }),
+      });
+      const data = await res.json();
+      if (data.success || data.task) {
+        updateStatus(ideaId, "sent_to_team");
+        setSendModal(null);
+      } else {
+        alert(data.error || "Failed to send to team");
+      }
+    } catch (err) {
+      alert("Failed to send to 2FLY Flow");
+    } finally {
+      setSendingId(null);
+    }
+  }, [ideas, clientId, updateStatus]);
 
   const filtered = filter === "all" ? ideas : ideas.filter(i => i.status === filter);
 
@@ -265,7 +315,12 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
                           </button>
                         )}
                         {idea.status !== "sent_to_team" && (
-                          <button onClick={() => updateStatus(idea.id, "sent_to_team")}
+                          <button onClick={() => setSendModal({
+                            ideaId: idea.id,
+                            designerId: designers[0]?.id || "",
+                            priority: "medium",
+                            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+                          })}
                             className={`text-xs font-medium px-3 py-1.5 rounded-lg ${isDark ? "bg-purple-500/20 text-purple-400" : "bg-purple-100 text-purple-700"}`}>
                             🚀 Send to Team
                           </button>
@@ -282,6 +337,80 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
             })}
           </div>
         </div>
+
+        {/* Send to Team Modal */}
+        {sendModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className={`rounded-2xl border p-6 w-[420px] max-w-[90vw] ${cardCls}`}>
+              <h3 className={`text-sm font-semibold mb-4 ${textCls}`}>🚀 Send to 2FLY Flow</h3>
+              <p className={`text-xs mb-4 ${subCls}`}>
+                This will create a production task in 2FLY Flow for your design team.
+              </p>
+
+              {/* Designer Select */}
+              <label className={`text-xs font-medium block mb-1 ${subCls}`}>Assign to Designer</label>
+              <select
+                value={sendModal.designerId}
+                onChange={(e) => setSendModal({ ...sendModal, designerId: e.target.value })}
+                className={`w-full text-sm rounded-lg px-3 py-2 mb-3 border ${
+                  isDark ? "bg-[#08080c] border-[#1a1810] text-[#c4b8a8]" : "bg-white border-gray-200 text-gray-900"
+                }`}
+              >
+                {designers.length === 0 && <option value="">No designers found</option>}
+                {designers.map(d => (
+                  <option key={d.id} value={d.id}>{d.name || d.email || d.id}</option>
+                ))}
+              </select>
+
+              {/* Priority */}
+              <label className={`text-xs font-medium block mb-1 ${subCls}`}>Priority</label>
+              <div className="flex gap-2 mb-3">
+                {["low", "medium", "high", "urgent"].map(p => (
+                  <button key={p} onClick={() => setSendModal({ ...sendModal, priority: p })}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium ${
+                      sendModal.priority === p
+                        ? p === "urgent" ? "bg-red-500/20 text-red-400"
+                          : p === "high" ? "bg-orange-500/20 text-orange-400"
+                          : p === "medium" ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-green-500/20 text-green-400"
+                        : isDark ? "bg-[#1a1810] text-[#5a5040]" : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {p === "urgent" ? "🔴" : p === "high" ? "🟠" : p === "medium" ? "🟡" : "🟢"} {p}
+                  </button>
+                ))}
+              </div>
+
+              {/* Deadline */}
+              <label className={`text-xs font-medium block mb-1 ${subCls}`}>Deadline</label>
+              <input
+                type="date"
+                value={sendModal.deadline}
+                onChange={(e) => setSendModal({ ...sendModal, deadline: e.target.value })}
+                className={`w-full text-sm rounded-lg px-3 py-2 mb-4 border ${
+                  isDark ? "bg-[#08080c] border-[#1a1810] text-[#c4b8a8]" : "bg-white border-gray-200 text-gray-900"
+                }`}
+              />
+
+              {/* Actions */}
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setSendModal(null)}
+                  className={`text-xs font-medium px-4 py-2 rounded-lg ${isDark ? "text-[#8a7e6d] hover:bg-[#1a1810]" : "text-gray-500 hover:bg-gray-100"}`}>
+                  Cancel
+                </button>
+                <button
+                  disabled={!sendModal.designerId || sendingId === sendModal.ideaId}
+                  onClick={() => sendToTeam(sendModal.ideaId, sendModal.designerId, sendModal.priority, sendModal.deadline)}
+                  className={`text-xs font-medium px-4 py-2 rounded-lg ${
+                    isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                  } disabled:opacity-50`}
+                >
+                  {sendingId === sendModal.ideaId ? "Sending..." : "🚀 Send to Flow"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Agent Chat Side Panel */}
         {showChat && (

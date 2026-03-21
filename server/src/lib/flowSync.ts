@@ -79,14 +79,18 @@ async function authenticate(): Promise<string> {
 /**
  * Make an authenticated request to 2FLY Flow API
  */
-async function flowFetch<T>(path: string): Promise<T> {
+async function flowFetch<T>(path: string, options?: { method?: string; body?: unknown }): Promise<T> {
   const token = await authenticate();
-  const res = await fetch(`${FLOW_API}${path}`, {
+  const fetchOpts: RequestInit = {
+    method: options?.method || 'GET',
     headers: {
       'Cookie': `2fly_session=${token}`,
       'Authorization': `Bearer ${token}`,
+      ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
     },
-  });
+    ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
+  };
+  const res = await fetch(`${FLOW_API}${path}`, fetchOpts);
 
   if (!res.ok) {
     // If 401, clear token and retry once
@@ -95,7 +99,9 @@ async function flowFetch<T>(path: string): Promise<T> {
       tokenExpiresAt = 0;
       const retryToken = await authenticate();
       const retryRes = await fetch(`${FLOW_API}${path}`, {
+        ...fetchOpts,
         headers: {
+          ...fetchOpts.headers as Record<string, string>,
           'Cookie': `2fly_session=${retryToken}`,
           'Authorization': `Bearer ${retryToken}`,
         },
@@ -274,4 +280,41 @@ export function clearFlowCache() {
  */
 export function isFlowConfigured(): boolean {
   return !!(FLOW_TOKEN || (FLOW_EMAIL && FLOW_PASSWORD && FLOW_AGENCY_ID));
+}
+
+/**
+ * Create a production task in 2FLY Flow
+ */
+export async function createFlowTask(task: {
+  clientId: string;
+  title: string;
+  caption: string;
+  copyText?: string;
+  briefNotes?: string;
+  designerId: string;
+  priority?: string;
+  deadline?: string;
+}) {
+  return flowFetch<{ success: boolean; task: unknown }>('/api/production/tasks', {
+    method: 'POST',
+    body: task,
+  });
+}
+
+/**
+ * Get Flow designers/users
+ */
+export async function getFlowDesigners() {
+  const cacheKey = 'flow:designers';
+  const cached = getCache<Array<{ id: string; name: string; role: string }>>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const data = await flowFetch<{ users: Array<{ id: string; name: string; email: string; role: string }> }>('/api/users');
+    const designers = (data.users || []).filter(u => u.role === 'DESIGNER');
+    setCache(cacheKey, designers);
+    return designers;
+  } catch {
+    return [];
+  }
 }

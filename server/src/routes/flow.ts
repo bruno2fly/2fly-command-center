@@ -15,6 +15,8 @@ import {
   getFlowScheduledPosts,
   clearFlowCache,
   isFlowConfigured,
+  createFlowTask,
+  getFlowDesigners,
 } from '../lib/flowSync.js';
 
 const prisma = new PrismaClient();
@@ -140,6 +142,48 @@ router.get('/posts/:clientId', async (req: Request, res: Response) => {
     res.json({ connected: true, posts });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /api/flow/designers — Get Flow designers for assignment
+router.get('/designers', async (_req: Request, res: Response) => {
+  try {
+    const designers = await getFlowDesigners();
+    res.json({ designers });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// POST /api/flow/send-to-team/:clientId — Create production task in Flow
+router.post('/send-to-team/:clientId', async (req: Request, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    if (!(client as any).flowClientId) return res.status(400).json({ error: 'Client not connected to Flow' });
+
+    const { title, caption, copyText, briefNotes, designerId, priority, deadline } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!designerId) return res.status(400).json({ error: 'Designer is required' });
+
+    const result = await createFlowTask({
+      clientId: (client as any).flowClientId,
+      title,
+      caption: caption || '',
+      copyText: copyText || '',
+      briefNotes: briefNotes || '',
+      designerId,
+      priority: priority || 'medium',
+      deadline: deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // default 1 week
+    });
+
+    res.json({ success: true, task: result });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[flow/send-to-team] Error:', msg);
     res.status(500).json({ error: msg });
   }
 });
