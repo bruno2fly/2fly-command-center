@@ -18,6 +18,7 @@ import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
 import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
 import { ClientReportsTab } from "@/components/client-control/tabs/ClientReportsTab";
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
+import { ClientContentFlowTab } from "@/components/client-control/tabs/ClientContentFlowTab";
 import { SaasOverviewTab } from "@/components/client-control/tabs/SaasOverviewTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
 import { ClientFlowTab } from "@/components/client-control/tabs/ClientFlowTab";
@@ -269,8 +270,8 @@ export default function ClientControlRoomPage() {
           </TabChatWrapper>
         )}
         {activeTab === "content" && (
-          <TabChatWrapper clientId={id} tab="content" agentId="content-system" agentLabel="Content Agent" agentEmoji="📝" placeholder="Ask about content pipeline, ideas, scheduling..." emptyHint="I can suggest content ideas, analyze gaps, and plan calendars.">
-            <ClientContentTab clientId={id} />
+          <TabChatWrapper clientId={id} tab="content" agentId="founder-boss" agentLabel="Content Agent" agentEmoji="📝" placeholder="Ask about content pipeline, approvals, production..." emptyHint="I can see all content data from 2FLY Flow.">
+            <ClientContentFlowTab clientId={id} />
           </TabChatWrapper>
         )}
         {activeTab === "socialMedia" && (
