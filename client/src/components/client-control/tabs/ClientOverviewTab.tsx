@@ -3,6 +3,7 @@
 import { useTheme } from "@/contexts/ThemeContext";
 import { HealthDashboard, FocusedActionFlow } from "@/components/overview";
 import { DailyClientSummary } from "@/components/client-control/overview/DailyClientSummary";
+import { FlowLiveStrip } from "@/components/client-control/overview/FlowLiveStrip";
 
 type Props = {
   clientId: string;
@@ -20,6 +21,10 @@ export function ClientOverviewTab({ clientId, clientName, onOpenTaskDetail }: Pr
         {/* Daily Summary */}
         <section>
           <DailyClientSummary clientId={clientId} clientName={clientName} />
+        </section>
+        {/* 2FLY Flow Live Data */}
+        <section>
+          <FlowLiveStrip clientId={clientId} />
         </section>
         {/* Client Health */}
         <section>
