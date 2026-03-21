@@ -22,6 +22,65 @@ const prisma = new PrismaClient();
 
 const router = Router();
 
+// ─── Clean agent output ──────────────────────────────────
+function cleanAgentOutput(text: string): string {
+  if (!text) return text;
+
+  // Remove lines that look like raw JSON system metadata
+  const lines = text.split('\n');
+  const cleaned: string[] = [];
+  let inJsonBlock = false;
+  let jsonDepth = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip lines that are clearly system metadata
+    if (trimmed.match(/^"(name|blockChars|listChars|schemaChars|summaryChars|propertiesCount|entries)":/)) continue;
+    if (trimmed.match(/^\{.*"(name|blockChars)":/)) continue;
+    if (trimmed.match(/^"tools":\s*\{/)) continue;
+    if (trimmed.match(/^\},?\s*\{?\s*"name":\s*"(read|edit|write|exec|web_search|web_fetch|browser|message|memory)/)) continue;
+
+    // Detect start of large JSON blobs (system dumps)
+    if (!inJsonBlock && trimmed.startsWith('{') && trimmed.includes('"schema"')) {
+      inJsonBlock = true;
+      jsonDepth = 1;
+      continue;
+    }
+
+    if (inJsonBlock) {
+      for (const ch of trimmed) {
+        if (ch === '{') jsonDepth++;
+        if (ch === '}') jsonDepth--;
+      }
+      if (jsonDepth <= 0) inJsonBlock = false;
+      continue;
+    }
+
+    // Skip lines that are just JSON fragments (brackets, braces with metadata keys)
+    if (trimmed.match(/^[\[\]\{\},]+$/) && trimmed.length < 5) continue;
+
+    cleaned.push(line);
+  }
+
+  let result = cleaned.join('\n').trim();
+
+  // Remove common agent preambles
+  result = result.replace(/^(Here'?s?|I'?ll|Let me|Sure|OK|Okay)[^\n]*\n---\n/i, '');
+  result = result.replace(/^(Based on|Looking at|Analyzing)[^\n]*\n\n/i, '');
+
+  // Remove trailing metadata lines
+  result = result.replace(/\n*(Decision:|Impact:|Source:)\s*N\/A\s*$/gm, '');
+
+  // Remove [BOSS] prefix if present (it's the agent identity, not useful for content)
+  result = result.replace(/^\[BOSS\]\s*/gm, '');
+
+  // Collapse excessive whitespace
+  result = result.replace(/\n{4,}/g, '\n\n\n');
+
+  return result.trim();
+}
+
 // ─── In-memory store for async agent jobs ─────────────────
 interface AgentJob {
   status: 'running' | 'done' | 'error';
@@ -258,6 +317,9 @@ router.post('/chat', async (req: Request, res: Response) => {
             agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
           }
         } catch { /* use raw text */ }
+
+        // Clean agent output — strip system metadata, JSON blobs, preamble
+        agentResponse = cleanAgentOutput(agentResponse);
 
         agentJobs.set(jobId, { status: 'done', agent, response: agentResponse });
         console.log(`[agents/chat] Job ${jobId} completed (${agentResponse.length} chars)`);

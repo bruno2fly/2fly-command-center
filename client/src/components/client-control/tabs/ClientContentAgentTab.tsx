@@ -45,6 +45,24 @@ function saveIdeas(clientId: string, ideas: ContentIdea[]) {
   localStorage.setItem(STORAGE_KEY(clientId), JSON.stringify(ideas));
 }
 
+// Split multi-idea agent responses into separate ideas
+function splitIntoIdeas(content: string): string[] {
+  // Try splitting by ### headers
+  const headerSplit = content.split(/\n(?=###\s)/).filter(s => s.trim());
+  if (headerSplit.length > 1) return headerSplit;
+
+  // Try splitting by numbered items (1. **Title**, 2. **Title**)
+  const numbered = content.split(/\n(?=\d+\.\s+\*\*)/).filter(s => s.trim());
+  if (numbered.length > 1) return numbered;
+
+  // Try splitting by --- or *** dividers
+  const divider = content.split(/\n(?:---|\*\*\*)\n/).filter(s => s.trim());
+  if (divider.length > 1) return divider;
+
+  // Single idea
+  return [content];
+}
+
 export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   const { isDark } = useTheme();
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
@@ -69,18 +87,32 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   }, [clientId]);
 
   const handleAcceptFromChat = useCallback((content: string) => {
-    // Parse agent response into content idea
-    const lines = content.split("\n").filter(l => l.trim());
-    const title = lines[0]?.replace(/^[#*\s]+/, "").slice(0, 120) || "AI Content Idea";
-    const newIdea: ContentIdea = {
-      id: `idea-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      title,
-      type: "post",
-      copy: content,
-      status: "idea",
-      createdAt: new Date().toISOString(),
-    };
-    updateIdeas([newIdea, ...ideas]);
+    // Try to split multi-idea responses (numbered lists, ### headers)
+    const ideaBlocks = splitIntoIdeas(content);
+
+    const newIdeas = ideaBlocks.map((block) => {
+      const lines = block.split("\n").filter(l => l.trim());
+      const titleLine = lines[0]?.replace(/^[#*\d.\-)\s]+/, "").replace(/\*\*/g, "").slice(0, 120) || "AI Content Idea";
+
+      // Detect type from content
+      let type = "post";
+      const lower = block.toLowerCase();
+      if (lower.includes("reel") || lower.includes("video")) type = "reel";
+      else if (lower.includes("story") || lower.includes("stories")) type = "story";
+      else if (lower.includes("carousel") || lower.includes("swipe")) type = "carousel";
+      else if (lower.includes("campaign")) type = "campaign";
+
+      return {
+        id: `idea-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title: titleLine,
+        type,
+        copy: block,
+        status: "idea" as const,
+        createdAt: new Date().toISOString(),
+      };
+    });
+
+    updateIdeas([...newIdeas, ...ideas]);
   }, [ideas, updateIdeas]);
 
   const updateStatus = useCallback((id: string, status: ContentIdea["status"]) => {
