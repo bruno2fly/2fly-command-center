@@ -16,7 +16,7 @@ import {
   clearFlowCache,
   isFlowConfigured,
   createFlowTask,
-  getFlowDesigners,
+  getFlowTeam,
 } from '../lib/flowSync.js';
 
 const prisma = new PrismaClient();
@@ -146,11 +146,11 @@ router.get('/posts/:clientId', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/flow/designers — Get Flow designers for assignment
-router.get('/designers', async (_req: Request, res: Response) => {
+// GET /api/flow/team — Get Flow team members for assignment
+router.get('/team', async (_req: Request, res: Response) => {
   try {
-    const designers = await getFlowDesigners();
-    res.json({ designers });
+    const team = await getFlowTeam();
+    res.json({ team });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: msg });

@@ -302,18 +302,20 @@ export async function createFlowTask(task: {
 }
 
 /**
- * Get Flow designers/users
+ * Get Flow team members (designers + staff, exclude owner and disabled)
  */
-export async function getFlowDesigners() {
-  const cacheKey = 'flow:designers';
-  const cached = getCache<Array<{ id: string; name: string; role: string }>>(cacheKey);
+export async function getFlowTeam() {
+  const cacheKey = 'flow:team';
+  const cached = getCache<Array<{ id: string; name: string; email: string; role: string }>>(cacheKey);
   if (cached) return cached;
 
   try {
-    const data = await flowFetch<{ users: Array<{ id: string; name: string; email: string; role: string }> }>('/api/users');
-    const designers = (data.users || []).filter(u => u.role === 'DESIGNER');
-    setCache(cacheKey, designers);
-    return designers;
+    const data = await flowFetch<{ users: Array<{ id: string; name: string; email: string; role: string; status: string }> }>('/api/users');
+    const team = (data.users || [])
+      .filter(u => u.status === 'ACTIVE' && u.role !== 'OWNER' && u.role !== 'CLIENT')
+      .map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role }));
+    setCache(cacheKey, team);
+    return team;
   } catch {
     return [];
   }

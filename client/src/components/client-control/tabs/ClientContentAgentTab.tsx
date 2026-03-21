@@ -83,11 +83,11 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
 
   useEffect(() => { setIdeas(loadIdeas(clientId)); }, [clientId]);
 
-  // Fetch designers from Flow
+  // Fetch team from Flow
   useEffect(() => {
-    fetch(`${API}/api/flow/designers`)
+    fetch(`${API}/api/flow/team`)
       .then(r => r.json())
-      .then(d => setDesigners(d.designers || []))
+      .then(d => setDesigners(d.team || []))
       .catch(() => {});
   }, []);
 
@@ -347,8 +347,8 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
                 This will create a production task in 2FLY Flow for your design team.
               </p>
 
-              {/* Designer Select */}
-              <label className={`text-xs font-medium block mb-1 ${subCls}`}>Assign to Designer</label>
+              {/* Team Member Select */}
+              <label className={`text-xs font-medium block mb-1 ${subCls}`}>Assign to</label>
               <select
                 value={sendModal.designerId}
                 onChange={(e) => setSendModal({ ...sendModal, designerId: e.target.value })}
@@ -356,9 +356,11 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
                   isDark ? "bg-[#08080c] border-[#1a1810] text-[#c4b8a8]" : "bg-white border-gray-200 text-gray-900"
                 }`}
               >
-                {designers.length === 0 && <option value="">No designers found</option>}
+                {designers.length === 0 && <option value="">Loading team...</option>}
                 {designers.map(d => (
-                  <option key={d.id} value={d.id}>{d.name || d.email || d.id}</option>
+                  <option key={d.id} value={d.id}>
+                    {d.role === "DESIGNER" ? "🎨" : "📱"} {d.name || d.email} ({d.role === "DESIGNER" ? "Designer" : "Social Media"})
+                  </option>
                 ))}
               </select>
 
