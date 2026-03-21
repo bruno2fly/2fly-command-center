@@ -311,9 +311,20 @@ export async function getFlowTeam() {
 
   try {
     const data = await flowFetch<{ users: Array<{ id: string; name: string; email: string; role: string; status: string }> }>('/api/users');
+    const ROLE_LABELS: Record<string, string> = {
+      'user_1771827214531_oazrbl0': 'SOCIAL_MEDIA', // Milena — admin account but role is social media manager
+    };
+    const NAME_OVERRIDES: Record<string, string> = {
+      'user_1771827214531_oazrbl0': 'Milena',
+    };
     const team = (data.users || [])
-      .filter(u => u.status === 'ACTIVE' && u.role !== 'OWNER' && u.role !== 'CLIENT')
-      .map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role }));
+      .filter(u => u.status === 'ACTIVE' && u.role !== 'CLIENT')
+      .map(u => ({
+        id: u.id,
+        name: NAME_OVERRIDES[u.id] || u.name,
+        email: u.email,
+        role: ROLE_LABELS[u.id] || u.role,
+      }));
     setCache(cacheKey, team);
     return team;
   } catch {

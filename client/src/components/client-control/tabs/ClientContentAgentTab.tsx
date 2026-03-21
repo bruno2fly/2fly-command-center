@@ -357,11 +357,15 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
                 }`}
               >
                 {designers.length === 0 && <option value="">Loading team...</option>}
-                {designers.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.role === "DESIGNER" ? "🎨" : "📱"} {d.name || d.email} ({d.role === "DESIGNER" ? "Designer" : "Social Media"})
-                  </option>
-                ))}
+                {designers.map(d => {
+                  const emoji = d.role === "DESIGNER" ? "🎨" : "📱";
+                  const roleLabel = d.role === "DESIGNER" ? "Designer" : "Social Media";
+                  return (
+                    <option key={d.id} value={d.id}>
+                      {emoji} {d.name || d.email} ({roleLabel})
+                    </option>
+                  );
+                })}
               </select>
 
               {/* Priority */}
