@@ -306,7 +306,7 @@ export async function createFlowTask(task: {
  */
 export async function getFlowTeam() {
   const cacheKey = 'flow:team';
-  const cached = getCache<Array<{ id: string; name: string; email: string; role: string }>>(cacheKey);
+  const cached = getCached<Array<{ id: string; name: string; email: string; role: string }>>(cacheKey);
   if (cached) return cached;
 
   try {
