@@ -13,10 +13,11 @@ const FLOW_API = process.env.FLOW_API_URL || 'https://api.2flyflow.com';
 const FLOW_EMAIL = process.env.FLOW_EMAIL || '';
 const FLOW_PASSWORD = process.env.FLOW_PASSWORD || '';
 const FLOW_AGENCY_ID = process.env.FLOW_AGENCY_ID || '';
+const FLOW_TOKEN = process.env.FLOW_TOKEN || ''; // Pre-authenticated JWT (optional, skips login)
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-let sessionToken: string | null = null;
-let tokenExpiresAt = 0;
+let sessionToken: string | null = FLOW_TOKEN || null;
+let tokenExpiresAt = FLOW_TOKEN ? Date.now() + 6 * 24 * 60 * 60 * 1000 : 0; // 6 days if pre-set
 
 // In-memory cache
 const cache: Record<string, { data: unknown; expiresAt: number }> = {};
@@ -188,8 +189,8 @@ export async function getFlowClients(): Promise<FlowClient[]> {
   const cached = getCached<FlowClient[]>('flow:clients');
   if (cached) return cached;
 
-  const data = await flowFetch<FlowClient[] | { clients: FlowClient[] }>('/api/agency/clients');
-  const clients = Array.isArray(data) ? data : (data.clients || []);
+  const raw = await flowFetch<{ success?: boolean; clients?: FlowClient[] } | FlowClient[]>('/api/agency/clients');
+  const clients = Array.isArray(raw) ? raw : ((raw as { clients?: FlowClient[] }).clients || []);
   setCache('flow:clients', clients);
   return clients;
 }
@@ -203,11 +204,11 @@ export async function getFlowPortalState(flowClientId: string): Promise<FlowPort
   if (cached) return cached;
 
   try {
-    const data = await flowFetch<FlowPortalState | Record<string, FlowPortalState>>(
+    const raw = await flowFetch<{ success?: boolean; data?: FlowPortalState; portalState?: FlowPortalState } & FlowPortalState>(
       `/api/agency/portal-state?clientId=${flowClientId}`
     );
-    // API might return the state directly or wrapped
-    const state = (data as FlowPortalState).client ? (data as FlowPortalState) : null;
+    // API wraps in { success, data } or { portalState } or direct
+    const state = raw.data || raw.portalState || (raw.client ? raw as FlowPortalState : null);
     if (state) setCache(cacheKey, state);
     return state;
   } catch {
@@ -272,5 +273,5 @@ export function clearFlowCache() {
  * Check if Flow sync is configured
  */
 export function isFlowConfigured(): boolean {
-  return !!(FLOW_EMAIL && FLOW_PASSWORD && FLOW_AGENCY_ID);
+  return !!(FLOW_TOKEN || (FLOW_EMAIL && FLOW_PASSWORD && FLOW_AGENCY_ID));
 }
