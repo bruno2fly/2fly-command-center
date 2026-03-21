@@ -20,7 +20,7 @@ import { ClientReportsTab } from "@/components/client-control/tabs/ClientReports
 import { ClientContentTab } from "@/components/client-control/tabs/ClientContentTab";
 import { SaasOverviewTab } from "@/components/client-control/tabs/SaasOverviewTab";
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
-import { TwoFlyFlowSection } from "@/components/client-control/tabs/TwoFlyFlowSection";
+import { ClientFlowTab } from "@/components/client-control/tabs/ClientFlowTab";
 import { ClientGoogleBusinessTab } from "@/components/client-control/tabs/ClientGoogleBusinessTab";
 import { ClientStrategyTab } from "@/components/client-control/tabs/ClientStrategyTab";
 import { TabChatWrapper } from "@/components/client-control/tabs/TabChatWrapper";
@@ -284,7 +284,11 @@ export default function ClientControlRoomPage() {
             <ClientGoogleBusinessTab clientId={id} />
           </TabChatWrapper>
         )}
-        {activeTab === "2flyflow" && <TwoFlyFlowSection clientId={id} />}
+        {activeTab === "2flyflow" && (
+          <TabChatWrapper clientId={id} tab="2flyflow" agentId="founder-boss" agentLabel="Flow Agent" agentEmoji="🔄" placeholder="Ask about content, approvals, production tasks..." emptyHint="I can see all 2FLY Flow data for this client.">
+            <ClientFlowTab clientId={id} />
+          </TabChatWrapper>
+        )}
       </div>
       <ClientFormModal
         isOpen={!!editClient}
