@@ -9,6 +9,7 @@ import whatsappRoutes from "./routes/whatsapp.js";
 import agentsRoutes from "./routes/agents.js";
 import agentToolsRoutes from "./routes/agent-tools.js";
 import taskExecuteRoutes from "./routes/task-execute";
+import flowRoutes from "./routes/flow.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -36,6 +37,7 @@ app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/invoices", require("./routes/invoices"));
 app.use("/api/ai-updates", require("./routes/ai-updates"));
 app.use("/api/strategies", require("./routes/strategies"));
+app.use("/api/flow", flowRoutes);
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {

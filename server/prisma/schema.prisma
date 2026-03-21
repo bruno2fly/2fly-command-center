@@ -52,6 +52,7 @@ model Client {
   healthStatus    String   @default("green")  // green | yellow | red
   workspace       String   @default("agency") // "agency" | "saas"
   notes           String?
+  flowClientId    String?  // Maps to 2FLY Flow clientId (e.g. "ardanspa")
   billingDay      Int      @default(1)
   autoInvoice     Boolean  @default(true)
   invoiceEmail    String?

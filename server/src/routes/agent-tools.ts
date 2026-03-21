@@ -123,7 +123,7 @@ router.patch('/clients/:id', async (req: Request, res: Response) => {
     const allowed = [
       'name', 'contactName', 'contactEmail', 'monthlyRetainer', 'adBudget',
       'roasTarget', 'platforms', 'status', 'healthStatus', 'notes', 'workspace',
-      'billingDay', 'autoInvoice', 'invoiceEmail',
+      'billingDay', 'autoInvoice', 'invoiceEmail', 'flowClientId',
     ];
     const data: Record<string, unknown> = {};
     for (const k of allowed) {
