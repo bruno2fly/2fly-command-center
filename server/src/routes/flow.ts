@@ -174,11 +174,14 @@ router.post('/send-to-team/:clientId', async (req: Request, res: Response) => {
       title,
       caption: caption || '',
       copyText: copyText || '',
-      briefNotes: briefNotes || '',
+      briefNotes: briefNotes || `Sent from Command Center AI Content Studio`,
       designerId,
       priority: priority || 'medium',
       deadline: deadline || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // default 1 week
     });
+
+    // Clear cache so Flow tab picks up the new task
+    clearFlowCache();
 
     res.json({ success: true, task: result });
   } catch (err: unknown) {
