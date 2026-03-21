@@ -19,11 +19,14 @@ interface FlowApproval {
 
 interface FlowRequest {
   id: string;
-  text?: string;
+  details?: string;
   type?: string;
+  by?: string;
   status?: string;
-  files?: string[];
-  createdAt?: string;
+  link?: string;
+  images?: string[];
+  createdAt?: number | string;
+  doneAt?: number | string;
 }
 
 interface FlowTask {
@@ -41,10 +44,8 @@ interface FlowTask {
 }
 
 interface FlowActivity {
-  id: string;
-  type: string;
-  message: string;
-  createdAt: string;
+  when: number;
+  text: string;
 }
 
 interface FlowData {
@@ -79,6 +80,8 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; darkBg: string; 
   in_progress: { bg: "bg-blue-100", text: "text-blue-700", darkBg: "bg-blue-500/20", darkText: "text-blue-400" },
   review: { bg: "bg-purple-100", text: "text-purple-700", darkBg: "bg-purple-500/20", darkText: "text-purple-400" },
   ready_to_post: { bg: "bg-emerald-100", text: "text-emerald-700", darkBg: "bg-emerald-500/20", darkText: "text-emerald-400" },
+  open: { bg: "bg-blue-100", text: "text-blue-700", darkBg: "bg-blue-500/20", darkText: "text-blue-400" },
+  done: { bg: "bg-gray-100", text: "text-gray-600", darkBg: "bg-gray-500/20", darkText: "text-gray-400" },
   scheduled: { bg: "bg-indigo-100", text: "text-indigo-700", darkBg: "bg-indigo-500/20", darkText: "text-indigo-400" },
   published: { bg: "bg-green-100", text: "text-green-700", darkBg: "bg-green-500/20", darkText: "text-green-400" },
 };
@@ -106,7 +109,7 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
   const [data, setData] = useState<FlowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"overview" | "approvals" | "tasks" | "requests" | "activity">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "approvals" | "tasks" | "requests">("overview");
 
   const fetchData = useCallback(async () => {
     try {
@@ -149,12 +152,14 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
   const tasks = data.tasks || [];
   const posts = data.scheduledPosts || [];
 
+  const openRequests = requests.filter(r => r.status !== "done");
+  const doneRequests = requests.filter(r => r.status === "done");
+
   const sections = [
     { id: "overview" as const, label: "Overview", emoji: "📊" },
     { id: "approvals" as const, label: `Approvals (${approvals.length})`, emoji: "✅" },
     { id: "tasks" as const, label: `Production (${tasks.length})`, emoji: "🎨" },
-    { id: "requests" as const, label: `Requests (${requests.length})`, emoji: "📩" },
-    { id: "activity" as const, label: `Activity (${activity.length})`, emoji: "📋" },
+    { id: "requests" as const, label: `Open Requests (${openRequests.length})`, emoji: "📩" },
   ];
 
   return (
@@ -230,18 +235,19 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
               </div>
             )}
 
-            {/* Recent Activity */}
-            {activity.length > 0 && (
+            {/* Open Requests Preview */}
+            {openRequests.length > 0 && (
               <div className={`rounded-xl border p-4 ${cardCls}`}>
-                <h3 className={`text-sm font-semibold mb-3 ${textCls}`}>📋 Recent Activity</h3>
-                <div className="space-y-2 max-h-64 overflow-auto">
-                  {activity.slice(0, 15).map((a) => (
-                    <div key={a.id} className={`flex items-start gap-2 py-1.5 border-b last:border-0 ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
-                      <span className="text-xs mt-0.5">•</span>
+                <h3 className={`text-sm font-semibold mb-3 ${textCls}`}>📩 Open Requests</h3>
+                <div className="space-y-2">
+                  {openRequests.slice(0, 5).map((r) => (
+                    <div key={r.id} className={`flex items-start justify-between py-2 border-b last:border-0 ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
                       <div>
-                        <div className={`text-xs ${textCls}`}>{a.message}</div>
-                        <div className={`text-xs ${subTextCls}`}>{new Date(a.createdAt).toLocaleDateString()}</div>
+                        <div className={`text-sm font-medium ${textCls}`}>{r.type || "Request"}</div>
+                        <div className={`text-xs ${subTextCls}`}>{r.details?.slice(0, 100) || ""}</div>
+                        <div className={`text-xs mt-1 ${subTextCls}`}>By {r.by || "Client"} · {r.createdAt ? new Date(typeof r.createdAt === "number" ? r.createdAt : r.createdAt).toLocaleDateString() : ""}</div>
                       </div>
+                      <StatusBadge status={r.status || "open"} isDark={isDark} />
                     </div>
                   ))}
                 </div>
@@ -324,43 +330,55 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
         {/* REQUESTS */}
         {activeSection === "requests" && (
           <div className="space-y-3">
-            {requests.length === 0 ? (
+            {openRequests.length === 0 && doneRequests.length === 0 ? (
               <div className={`text-center py-8 ${subTextCls}`}>No client requests</div>
             ) : (
-              requests.map((r) => (
-                <div key={r.id} className={`rounded-xl border p-4 ${cardCls}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className={`text-sm ${textCls}`}>{r.text || "No description"}</div>
-                      {r.type && <div className={`text-xs mt-1 ${subTextCls}`}>Type: {r.type}</div>}
-                      {r.createdAt && <div className={`text-xs mt-1 ${subTextCls}`}>{new Date(r.createdAt).toLocaleDateString()}</div>}
+              <>
+                {openRequests.map((r) => (
+                  <div key={r.id} className={`rounded-xl border p-4 ${cardCls}`}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className={`text-sm font-medium ${textCls}`}>{r.type || "Request"}</div>
+                        <div className={`text-sm mt-1 ${textCls}`}>{r.details || "No details"}</div>
+                        {r.link && <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline mt-1 block">🔗 {r.link.slice(0, 60)}...</a>}
+                        <div className={`text-xs mt-2 ${subTextCls}`}>
+                          By {r.by || "Client"} · {r.createdAt ? new Date(typeof r.createdAt === "number" ? r.createdAt : r.createdAt).toLocaleDateString() : ""}
+                        </div>
+                      </div>
+                      <StatusBadge status="open" isDark={isDark} />
                     </div>
-                    {r.status && <StatusBadge status={r.status} isDark={isDark} />}
+                    {r.images && r.images.length > 0 && (
+                      <div className={`text-xs mt-2 ${subTextCls}`}>📎 {r.images.length} attachment(s)</div>
+                    )}
                   </div>
-                  {r.files && r.files.length > 0 && (
-                    <div className={`text-xs mt-2 ${subTextCls}`}>📎 {r.files.length} file(s) attached</div>
-                  )}
-                </div>
-              ))
+                ))}
+                {doneRequests.length > 0 && (
+                  <details className="mt-4">
+                    <summary className={`text-xs cursor-pointer ${subTextCls}`}>Completed requests ({doneRequests.length})</summary>
+                    <div className="space-y-3 mt-3">
+                      {doneRequests.map((r) => (
+                        <div key={r.id} className={`rounded-xl border p-4 opacity-60 ${cardCls}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className={`text-sm font-medium ${textCls}`}>{r.type || "Request"}</div>
+                              <div className={`text-sm mt-1 ${textCls}`}>{r.details || "No details"}</div>
+                              <div className={`text-xs mt-2 ${subTextCls}`}>
+                                By {r.by || "Client"} · {r.createdAt ? new Date(typeof r.createdAt === "number" ? r.createdAt : r.createdAt).toLocaleDateString() : ""}
+                              </div>
+                            </div>
+                            <StatusBadge status="done" isDark={isDark} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </>
             )}
           </div>
         )}
 
-        {/* ACTIVITY */}
-        {activeSection === "activity" && (
-          <div className="space-y-1">
-            {activity.length === 0 ? (
-              <div className={`text-center py-8 ${subTextCls}`}>No activity</div>
-            ) : (
-              activity.map((a) => (
-                <div key={a.id} className={`flex items-start gap-3 py-2 border-b ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
-                  <div className={`text-xs mt-0.5 ${subTextCls}`}>{new Date(a.createdAt).toLocaleDateString()}</div>
-                  <div className={`text-sm flex-1 ${textCls}`}>{a.message}</div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+
       </div>
     </div>
   );
