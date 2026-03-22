@@ -13,11 +13,12 @@ const FLOW_API = process.env.FLOW_API_URL || 'https://api.2flyflow.com';
 const FLOW_EMAIL = process.env.FLOW_EMAIL || '';
 const FLOW_PASSWORD = process.env.FLOW_PASSWORD || '';
 const FLOW_AGENCY_ID = process.env.FLOW_AGENCY_ID || '';
-const FLOW_TOKEN = process.env.FLOW_TOKEN || ''; // Pre-authenticated JWT (optional, skips login)
+const FLOW_TOKEN = process.env.FLOW_TOKEN || ''; // Pre-authenticated JWT (optional, used as initial seed)
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 let sessionToken: string | null = FLOW_TOKEN || null;
 let tokenExpiresAt = FLOW_TOKEN ? Date.now() + 6 * 24 * 60 * 60 * 1000 : 0; // 6 days if pre-set
+let loginFailCount = 0;
 
 // In-memory cache
 const cache: Record<string, { data: unknown; expiresAt: number }> = {};
@@ -33,13 +34,31 @@ function setCache(key: string, data: unknown, ttl = CACHE_TTL_MS) {
 }
 
 /**
- * Authenticate to 2FLY Flow API and get a session token
+ * Force re-authentication (called when token is rejected with 401)
+ */
+function invalidateToken() {
+  sessionToken = null;
+  tokenExpiresAt = 0;
+  console.log('[FLOW-SYNC] Token invalidated, will re-authenticate on next request');
+}
+
+/**
+ * Authenticate to 2FLY Flow API and get a session token.
+ * Tries: (1) cached token, (2) login with email/password, (3) throw error
  */
 async function authenticate(): Promise<string> {
   if (sessionToken && tokenExpiresAt > Date.now()) return sessionToken;
 
-  if (!FLOW_EMAIL || !FLOW_PASSWORD || !FLOW_AGENCY_ID) {
-    throw new Error('2FLY Flow credentials not configured (FLOW_EMAIL, FLOW_PASSWORD, FLOW_AGENCY_ID)');
+  if (!FLOW_EMAIL || !FLOW_AGENCY_ID) {
+    throw new Error('2FLY Flow credentials not configured (FLOW_EMAIL, FLOW_AGENCY_ID)');
+  }
+
+  if (!FLOW_PASSWORD) {
+    throw new Error('FLOW_PASSWORD not set in .env — required for auto-refresh. Add it to server/.env');
+  }
+
+  if (loginFailCount > 3) {
+    throw new Error('Flow login failed too many times. Check FLOW_EMAIL/FLOW_PASSWORD in .env');
   }
 
   const res = await fetch(`${FLOW_API}/api/auth/login`, {
@@ -47,7 +66,7 @@ async function authenticate(): Promise<string> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: FLOW_EMAIL,
-      password: FLOW_PASSWORD,
+      password: FLOW_PASSWORD || '',
       agencyId: FLOW_AGENCY_ID,
     }),
   });
@@ -68,11 +87,15 @@ async function authenticate(): Promise<string> {
     sessionToken = body.token || null;
   }
 
-  if (!sessionToken) throw new Error('No session token received from Flow');
+  if (!sessionToken) {
+    loginFailCount++;
+    throw new Error('No session token received from Flow');
+  }
 
   // Token valid for 23 hours (refresh before 24h expiry)
   tokenExpiresAt = Date.now() + 23 * 60 * 60 * 1000;
-  console.log('[FLOW-SYNC] Authenticated to 2FLY Flow API');
+  loginFailCount = 0; // Reset on success
+  console.log('[FLOW-SYNC] Authenticated to 2FLY Flow API via login');
   return sessionToken;
 }
 
@@ -93,10 +116,9 @@ async function flowFetch<T>(path: string, options?: { method?: string; body?: un
   const res = await fetch(`${FLOW_API}${path}`, fetchOpts);
 
   if (!res.ok) {
-    // If 401, clear token and retry once
+    // If 401, invalidate token and re-authenticate via login
     if (res.status === 401) {
-      sessionToken = null;
-      tokenExpiresAt = 0;
+      invalidateToken();
       const retryToken = await authenticate();
       const retryRes = await fetch(`${FLOW_API}${path}`, {
         ...fetchOpts,
