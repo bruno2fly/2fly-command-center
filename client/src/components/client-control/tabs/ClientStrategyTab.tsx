@@ -741,7 +741,7 @@ ${content}`,
                                       <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium mt-0.5 ${
                                         isDark ? "bg-[#1a1810] text-[#5a5040]" : "bg-gray-200 text-gray-500"
                                       }`}>{si + 1}</span>
-                                      <span>{step}</span>
+                                      <span>{typeof step === 'object' ? step.text : step}</span>
                                     </li>
                                   ))}
                                 </ol>
