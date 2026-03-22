@@ -424,7 +424,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
             <InlineAgentChat
               clientId={clientId}
               tab="content"
-              agent={{ id: "founder-boss", label: "Content AI", emoji: "🤖" }}
+              agent={{ id: "content-strategist", label: "Content Strategist", emoji: "🎨" }}
               context={context || `You are helping create content ideas for this client. Generate social media posts, reels, stories, carousels, or campaign ideas. Be specific with captions, hooks, and visual descriptions.`}
               onAccept={handleAcceptFromChat}
               placeholder="Generate content ideas, captions, campaigns..."

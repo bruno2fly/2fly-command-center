@@ -403,12 +403,30 @@ router.get('/context/:clientId/:tab', async (req: Request, res: Response) => {
 
     if (tab === 'content') {
       const content = await prisma.contentItem.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 15 });
-      lines.push(`TAB: Content`);
+      lines.push(`TAB: AI Content Studio`);
+      lines.push(`You are a SENIOR CONTENT STRATEGIST. You don't just give ideas — you CREATE actionable content.`);
+      lines.push(`When asked to create content, provide COMPLETE posts: caption, hashtags, visual direction, format, CTA.`);
+      lines.push(`When asked for a content plan, provide a FULL calendar with specific dates, post types, and detailed concepts.`);
+      lines.push(`For reels: include hook (first 3 seconds), body, CTA, and audio/sound suggestion.`);
+      lines.push(`For carousels: include slide-by-slide breakdown.`);
       lines.push(`Content Items: ${content.length}`);
       const byStatus: Record<string, number> = {};
       content.forEach((c: any) => { byStatus[c.status] = (byStatus[c.status] || 0) + 1; });
       lines.push(`Status breakdown: ${Object.entries(byStatus).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
       content.slice(0, 10).forEach((c: any) => lines.push(`  - [${c.status}] ${c.title || c.type} | Scheduled: ${c.scheduledDate || 'none'}`));
+
+      // Include strategy data for richer context
+      const strategies = await prisma.strategy.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 1 });
+      if (strategies.length > 0) {
+        const s = strategies[0] as any;
+        lines.push(`\nACTIVE STRATEGY: ${s.title}`);
+        if (s.diagnosis) lines.push(`Diagnosis: ${s.diagnosis}`);
+        if (s.goals) {
+          const goals = typeof s.goals === 'string' ? JSON.parse(s.goals) : s.goals;
+          lines.push(`Goals: ${goals.join('; ')}`);
+        }
+        if (s.notes) lines.push(`Strategy Notes: ${s.notes}`);
+      }
     }
 
     if (tab === 'socialMedia') {
