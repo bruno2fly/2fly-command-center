@@ -1,5 +1,5 @@
-import { TodayDashboard } from "@/components/dashboard/TodayDashboard";
+import { MorningDashboard } from "@/components/dashboard/MorningDashboard";
 
-export default function DashboardTodayPage() {
-  return <TodayDashboard />;
+export default function DashboardPage() {
+  return <MorningDashboard />;
 }
