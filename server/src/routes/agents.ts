@@ -281,7 +281,15 @@ router.post('/chat', async (req: Request, res: Response) => {
       soulContext = `\nYou are the ${agent} agent. Follow your SOUL:\n${soul.slice(0, 2000)}`;
     }
 
-    const fullPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}${pageContext ? `\n\nPAGE CONTEXT (user is currently viewing this):\n${pageContext}` : ''}\n\nUser request: ${message}`;
+    const diagnosticRules = `
+DIAGNOSTIC RULES:
+- When analyzing metrics, always investigate the ROOT CAUSE before recommending action.
+- Zero conversions could mean: no pixel on destination, pixel misconfigured, landing page issue, or genuinely no conversions.
+- High CTR + zero conversions on third-party platforms (Toast, Yelp, etc.) = tracking limitation, NOT broken funnel.
+- Always propose actionable solutions, not just problems.
+- Think like a strategist: what's the real business impact, and what can we actually do about it?`;
+
+    const fullPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}${pageContext ? `\n\nPAGE CONTEXT (user is currently viewing this):\n${pageContext}` : ''}\n\n${diagnosticRules}\n\nUser request: ${message}`;
 
     console.log(`[agents/chat] Starting async job ${jobId} for agent ${agent}...`);
 
@@ -378,6 +386,19 @@ router.get('/context/:clientId/:tab', async (req: Request, res: Response) => {
       lines.push(`Meta Connection: ${meta ? `${meta.status} | Ad Account: ${meta.adAccountId}` : 'NOT CONNECTED'}`);
       lines.push(`Campaigns: ${campaigns.length}`);
       campaigns.forEach((c: any) => lines.push(`  - [${c.status}] ${c.name} | Objective: ${c.objective} | Daily: $${c.dailyBudget || '?'} | Lifetime: $${c.lifetimeBudget || '?'}`));
+      lines.push(``);
+      lines.push(`DIAGNOSTIC INTELLIGENCE — When analyzing ad performance:`);
+      lines.push(`- If you see zero conversions, INVESTIGATE the destination URL before alerting.`);
+      lines.push(`- Check if the landing page supports Meta Pixel tracking.`);
+      lines.push(`- Known platforms WITHOUT pixel support: Toast (restaurants), many third-party ordering systems, Yelp booking pages, external appointment schedulers.`);
+      lines.push(`- If the destination has no pixel: explain WHY conversions show zero, then propose SOLUTIONS:`);
+      lines.push(`  1. UTM tracking + compare analytics/order volume before vs after ads`);
+      lines.push(`  2. Create a landing page with pixel → redirect to the platform`);
+      lines.push(`  3. Use platform-specific reporting (e.g., Toast sales data) to measure lift`);
+      lines.push(`  4. Use Meta's "link clicks" and "landing page views" as proxy metrics`);
+      lines.push(`- NEVER say "funnel is broken" or "pause ads" if the issue is just missing pixel tracking.`);
+      lines.push(`- High CTR + zero conversions on a no-pixel platform = ads are WORKING, tracking is limited.`);
+      lines.push(`- Always provide the ROOT CAUSE, not just the symptom.`);
     }
 
     if (tab === 'content') {
