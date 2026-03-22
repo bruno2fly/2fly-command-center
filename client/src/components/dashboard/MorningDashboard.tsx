@@ -90,7 +90,7 @@ export function MorningDashboard() {
         <motion.div variants={anim} className={`rounded-2xl border p-6 ${cardCls}`}>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className={`text-2xl font-bold ${textCls}`}>{data.greeting} ☀️</h1>
+              <h1 className={`text-2xl font-bold ${textCls}`}>{data.greeting} {data.greeting.includes('morning') ? '☀️' : data.greeting.includes('afternoon') ? '🌤️' : data.greeting.includes('evening') ? '🌅' : data.greeting.includes('night') ? '🌙' : '🦉'}</h1>
               <p className={`text-sm mt-1 ${subCls}`}>{data.date}</p>
             </div>
             <button onClick={() => { setLoading(true); fetchData(); }}

@@ -20,7 +20,8 @@ const router = Router();
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const now = new Date();
-    const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+    const h = now.getHours();
+    const greeting = h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 21 ? 'Good evening' : 'Good night';
 
     // Get all clients
     const clients = await prisma.client.findMany({
