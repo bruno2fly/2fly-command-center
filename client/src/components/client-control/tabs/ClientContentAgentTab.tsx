@@ -73,7 +73,7 @@ function splitIntoIdeas(content: string): string[] {
 export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   const { isDark } = useTheme();
   const [ideas, setIdeas] = useState<ContentIdea[]>([]);
-  const [showChat, setShowChat] = useState(true);
+  const [showChat, setShowChat] = useState(true); // Always start with chat open
   const [context, setContext] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "idea" | "draft" | "approved" | "sent_to_team">("all");
@@ -194,7 +194,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" style={{ minHeight: "600px" }}>
       {/* Header */}
       <div className={`flex items-center justify-between px-4 pt-3 pb-2 border-b ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
         <div className="flex items-center gap-3">

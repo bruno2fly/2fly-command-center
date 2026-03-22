@@ -694,7 +694,7 @@ ${content}`,
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`text-sm font-medium ${a.status === "done" ? "line-through opacity-60" : ""} ${isDark ? "text-[#c4b8a8]" : "text-gray-900"}`}>
-                                {a.action}
+                                {a.action || a.title}
                               </span>
                               <span className={`text-xs px-1.5 py-0.5 rounded ${priorityColor(a.priority, isDark)}`}>{a.priority}</span>
                               {overdue && (
