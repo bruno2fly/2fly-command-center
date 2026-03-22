@@ -35,6 +35,10 @@ export const AGENTS = [
   { id: 'content-system', name: 'Content System', description: 'Content pipeline management', emoji: '📝' },
   { id: 'founder-boss', name: 'Founder Boss', description: 'Strategic decisions & overrides', emoji: '👑' },
   { id: 'research-intel', name: 'Research Intelligence', description: 'Weekly market research & competitive intel', emoji: '🛰️' },
+  { id: 'meta-traffic', name: 'Meta Traffic', description: 'Meta Ads performance & optimization', emoji: '🎯' },
+  { id: 'undertone', name: 'Undertone', description: 'Brand voice & messaging', emoji: '🎵' },
+  { id: 'content-strategist', name: 'Content Strategist', description: 'Senior content strategy & creation', emoji: '🎨' },
+  { id: 'dev', name: 'Dev', description: 'Engineering & platform development', emoji: '🛠️' },
 ] as const;
 
 export type AgentId = typeof AGENTS[number]['id'];
