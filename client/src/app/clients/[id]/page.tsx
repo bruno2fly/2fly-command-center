@@ -15,7 +15,7 @@ import { ClientOverviewTab } from "@/components/client-control/tabs/ClientOvervi
 import { ClientTasksTab } from "@/components/client-control/tabs/ClientTasksTab";
 // ClientTasksRequestsTab removed — using standalone Tasks page instead
 import { ClientPlanTab } from "@/components/client-control/tabs/ClientPlanTab";
-import { ClientAdsTab } from "@/components/client-control/tabs/ClientAdsTab";
+import { ClientAdsLiveTab } from "@/components/client-control/tabs/ClientAdsLiveTab";
 import { ClientReportsTab } from "@/components/client-control/tabs/ClientReportsTab";
 import { ClientContentAgentTab } from "@/components/client-control/tabs/ClientContentAgentTab";
 import { SaasOverviewTab } from "@/components/client-control/tabs/SaasOverviewTab";
@@ -259,8 +259,8 @@ export default function ClientControlRoomPage() {
           </TabChatWrapper>
         )}
         {activeTab === "ads" && (
-          <TabChatWrapper clientId={id} tab="ads" agentId="meta-traffic" agentLabel="Ads Agent" agentEmoji="🎯" placeholder="Ask about campaigns, performance, budget, creative..." emptyHint="I have full context on this client's ad campaigns.">
-            <ClientAdsTab clientId={id} clientName={mainApiClient?.name ?? client.name} />
+          <TabChatWrapper clientId={id} tab="ads" agentId="founder-boss" agentLabel="Ads Agent" agentEmoji="🎯" placeholder="Ask about campaigns, performance, budget, creative..." emptyHint="I can analyze ad performance and suggest optimizations.">
+            <ClientAdsLiveTab clientId={id} />
           </TabChatWrapper>
         )}
         {activeTab === "reports" && (

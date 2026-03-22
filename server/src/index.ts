@@ -11,6 +11,7 @@ import agentToolsRoutes from "./routes/agent-tools.js";
 import taskExecuteRoutes from "./routes/task-execute";
 import flowRoutes from "./routes/flow.js";
 import morningRoutes from "./routes/morning.js";
+import metaInsightsRoutes from "./routes/meta-insights.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -40,6 +41,7 @@ app.use("/api/ai-updates", require("./routes/ai-updates"));
 app.use("/api/strategies", require("./routes/strategies"));
 app.use("/api/flow", flowRoutes);
 app.use("/api/morning", morningRoutes);
+app.use("/api/meta-insights", metaInsightsRoutes);
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {
