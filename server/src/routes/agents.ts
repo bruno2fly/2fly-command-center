@@ -317,14 +317,54 @@ DIAGNOSTIC RULES:
         }
 
         let agentResponse = (stdout || '').trim();
+        
+        // Try parsing as JSON — openclaw agent --json returns structured output
         try {
           const parsed = JSON.parse(agentResponse);
           if (parsed.result?.payloads?.[0]?.text) {
             agentResponse = parsed.result.payloads.map((p: any) => p.text).join('\n');
-          } else {
-            agentResponse = parsed.reply || parsed.response || parsed.text || agentResponse;
+          } else if (parsed.reply) {
+            agentResponse = parsed.reply;
+          } else if (parsed.response) {
+            agentResponse = parsed.response;
+          } else if (parsed.text) {
+            agentResponse = parsed.text;
           }
-        } catch { /* use raw text */ }
+          // If we still have JSON-like output, try harder
+          if (agentResponse.includes('"bootstrapMaxChars"') || agentResponse.includes('"systemPrompt"')) {
+            // This is metadata, not the actual response — try to find text payload
+            const textMatch = agentResponse.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (textMatch) {
+              agentResponse = JSON.parse(`"${textMatch[1]}"`);
+            }
+          }
+        } catch {
+          // Not valid JSON — might be multi-line with JSON fragments mixed in
+          // Try to extract just the text content by removing JSON metadata lines
+          const lines = agentResponse.split('\n');
+          const textLines = lines.filter(l => {
+            const t = l.trim();
+            if (t.startsWith('"bootstrapMaxChars"')) return false;
+            if (t.startsWith('"bootstrapTotalMaxChars"')) return false;
+            if (t.startsWith('"systemPrompt"')) return false;
+            if (t.startsWith('"projectContextChars"')) return false;
+            if (t.startsWith('"nonProjectContextChars"')) return false;
+            if (t.startsWith('"injectedWorkspaceFiles"')) return false;
+            if (t.startsWith('"sandbox"')) return false;
+            if (t.startsWith('"chars"')) return false;
+            if (t.startsWith('"path"')) return false;
+            if (t.startsWith('"missing"')) return false;
+            if (t.startsWith('"rawChars"')) return false;
+            if (t.startsWith('"injectedChars"')) return false;
+            if (t.startsWith('"truncated"')) return false;
+            if (t.match(/^"[a-zA-Z]+"\s*:/)) return false;
+            if (t.match(/^\{?\s*"(mode|sandboxed|name|blockChars)"/)) return false;
+            return true;
+          });
+          if (textLines.length < lines.length) {
+            agentResponse = textLines.join('\n').trim();
+          }
+        }
 
         // Clean agent output — strip system metadata, JSON blobs, preamble
         agentResponse = cleanAgentOutput(agentResponse);
