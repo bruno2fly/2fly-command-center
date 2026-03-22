@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { InlineAgentChat } from "./InlineAgentChat";
+import { ClientMediaLibrary } from "./ClientMediaLibrary";
 import ReactMarkdown from "react-markdown";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -77,6 +78,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   const [context, setContext] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "idea" | "draft" | "approved" | "sent_to_team">("all");
+  const [section, setSection] = useState<"ideas" | "media">("ideas");
   const [designers, setDesigners] = useState<FlowDesigner[]>([]);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sendModal, setSendModal] = useState<{ ideaId: string; designerId: string; priority: string; deadline: string } | null>(null);
@@ -197,9 +199,15 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
     <div className="flex flex-col h-full overflow-hidden" style={{ minHeight: "600px" }}>
       {/* Header */}
       <div className={`flex items-center justify-between px-4 pt-3 pb-2 border-b ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
-        <div className="flex items-center gap-3">
-          <h2 className={`text-sm font-semibold ${textCls}`}>📝 AI Content Studio</h2>
-          <span className={`text-xs ${subCls}`}>{ideas.length} ideas</span>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setSection("ideas")}
+            className={`text-sm font-semibold px-3 py-1 rounded-lg ${section === "ideas" ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-100 text-blue-700" : isDark ? "text-[#5a5040]" : "text-gray-500"}`}>
+            📝 Content ({ideas.length})
+          </button>
+          <button onClick={() => setSection("media")}
+            className={`text-sm font-semibold px-3 py-1 rounded-lg ${section === "media" ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-blue-100 text-blue-700" : isDark ? "text-[#5a5040]" : "text-gray-500"}`}>
+            📁 Media
+          </button>
         </div>
         <button
           onClick={() => setShowChat(v => !v)}
@@ -214,7 +222,15 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Media Library */}
+        {section === "media" && (
+          <div className="flex-1 overflow-hidden">
+            <ClientMediaLibrary clientId={clientId} />
+          </div>
+        )}
+
         {/* Ideas List */}
+        {section === "ideas" && (<>
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Filter Tabs */}
           <div className={`flex gap-1 px-4 py-2 ${isDark ? "bg-[#08080c]" : "bg-gray-50"}`}>
@@ -417,6 +433,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
             </div>
           </div>
         )}
+        </>)}
 
         {/* Agent Chat Side Panel */}
         {showChat && (

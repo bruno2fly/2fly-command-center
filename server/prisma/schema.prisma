@@ -73,6 +73,7 @@ model Client {
   dailyReports       DailyReport[]
   strategies         ClientStrategy[]
   agentChats         AgentChat[]
+  media              ClientMedia[]
 }
 
 // AI-generated content strategy (brand profile, pillars, hooks, etc.)
@@ -522,4 +523,21 @@ model AiUpdate {
   strategyPlan  String?  // step-by-step strategy plan (markdown)
   strategyStatus String  @default("none") // none | loading | done
   createdAt     DateTime @default(now())
+}
+
+// Client media library — photos, videos, assets per client
+model ClientMedia {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  filename  String
+  mimeType  String
+  size      Int
+  url       String   // local path or URL
+  tags      String?  // comma-separated tags
+  notes     String?
+  category  String   @default("photo") // photo | video | graphic | logo | other
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
 }
