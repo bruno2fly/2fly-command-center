@@ -506,31 +506,79 @@ function PersonCharacter({
   );
 }
 
-// ─── Tom the Cyber Cat 🐱 ───────────────────────────────────
-const TOM_SPOTS = [
-  { x: 450, y: 200, action: "walking" },
-  { x: 180, y: 390, action: "sleeping" },
-  { x: 340, y: 450, action: "sitting" },
-  { x: 600, y: 170, action: "walking" },
-  { x: 760, y: 290, action: "sleeping" },
-  { x: 130, y: 180, action: "sitting" },
-  { x: 500, y: 310, action: "walking" },
-  { x: 700, y: 420, action: "sitting" },
+// ─── Office Cats 🐱 ─────────────────────────────────────────
+type CatDef = {
+  name: string;
+  bodyColor: string;
+  accentColor: string;
+  darkColor: string;
+  eyeColor: string;
+  neonColor: string;
+  spots: Array<{ x: number; y: number; action: string }>;
+  intervalBase: number;
+};
+
+const OFFICE_CATS: CatDef[] = [
+  {
+    name: "Tom", bodyColor: "#fb923c", accentColor: "#f97316", darkColor: "#ea580c", eyeColor: "#00f0ff", neonColor: "#ff6600",
+    spots: [
+      { x: 450, y: 200, action: "walking" }, { x: 180, y: 390, action: "sleeping" },
+      { x: 340, y: 450, action: "sitting" }, { x: 600, y: 170, action: "walking" },
+      { x: 760, y: 290, action: "sleeping" }, { x: 130, y: 180, action: "sitting" },
+    ],
+    intervalBase: 10000,
+  },
+  {
+    name: "Persian", bodyColor: "#e2e8f0", accentColor: "#cbd5e1", darkColor: "#94a3b8", eyeColor: "#f59e0b", neonColor: "#f1f5f9",
+    spots: [
+      { x: 200, y: 280, action: "sitting" }, { x: 500, y: 150, action: "sleeping" },
+      { x: 650, y: 350, action: "walking" }, { x: 350, y: 400, action: "sitting" },
+      { x: 150, y: 450, action: "sleeping" },
+    ],
+    intervalBase: 12000,
+  },
+  {
+    name: "Wolverine", bodyColor: "#475569", accentColor: "#334155", darkColor: "#1e293b", eyeColor: "#ef4444", neonColor: "#64748b",
+    spots: [
+      { x: 700, y: 180, action: "walking" }, { x: 400, y: 320, action: "sitting" },
+      { x: 250, y: 150, action: "walking" }, { x: 560, y: 430, action: "sleeping" },
+      { x: 680, y: 380, action: "sitting" },
+    ],
+    intervalBase: 8000,
+  },
+  {
+    name: "Bruninho", bodyColor: "#92400e", accentColor: "#78350f", darkColor: "#451a03", eyeColor: "#34d399", neonColor: "#b45309",
+    spots: [
+      { x: 300, y: 180, action: "sitting" }, { x: 550, y: 300, action: "walking" },
+      { x: 170, y: 340, action: "sleeping" }, { x: 720, y: 450, action: "sitting" },
+      { x: 430, y: 230, action: "walking" },
+    ],
+    intervalBase: 11000,
+  },
+  {
+    name: "Stella", bodyColor: "#fbbf24", accentColor: "#f59e0b", darkColor: "#d97706", eyeColor: "#a855f7", neonColor: "#fcd34d",
+    spots: [
+      { x: 620, y: 220, action: "sleeping" }, { x: 280, y: 350, action: "walking" },
+      { x: 480, y: 400, action: "sitting" }, { x: 150, y: 160, action: "walking" },
+      { x: 380, y: 130, action: "sleeping" },
+    ],
+    intervalBase: 9000,
+  },
 ];
 
-function OfficeCat() {
+function OfficeCat({ cat }: { cat: CatDef }) {
   const dk = useContext(OfficeThemeCtx);
-  const [spotIndex, setSpotIndex] = useState(0);
+  const [spotIndex, setSpotIndex] = useState(Math.floor(Math.random() * cat.spots.length));
   const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setSpotIndex((prev) => (prev + 1) % TOM_SPOTS.length);
-    }, 10000 + Math.random() * 8000);
+      setSpotIndex((prev) => (prev + 1) % cat.spots.length);
+    }, cat.intervalBase + Math.random() * 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [cat]);
 
-  const spot = TOM_SPOTS[spotIndex];
+  const spot = cat.spots[spotIndex];
   const isSleeping = spot.action === "sleeping";
   const isSitting = spot.action === "sitting";
 
@@ -774,8 +822,10 @@ export function IsometricOffice({
           />
         ))}
 
-        {/* Tom the cyber cat 🐱 */}
-        <OfficeCat />
+        {/* Office Cats 🐱 */}
+        {OFFICE_CATS.map((cat) => (
+          <OfficeCat key={cat.name} cat={cat} />
+        ))}
 
         {/* Header */}
         <text x={440} y={28} textAnchor="middle" fontSize={14} fontWeight="bold" fill={isDark ? "rgba(0,240,255,0.6)" : "rgba(79,70,229,0.7)"} fontFamily="monospace" letterSpacing="4">
