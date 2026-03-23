@@ -678,7 +678,7 @@ function OfficeCat({ cat }: { cat: CatDef }) {
         {showTooltip && (
           <motion.g initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <rect x={-22} y={-28} width={44} height={13} rx={3} fill={dk ? "rgba(5,5,16,0.9)" : "rgba(255,255,255,0.95)"} stroke="rgba(251,146,60,0.4)" strokeWidth={0.5} />
-            <text x={0} y={-19} textAnchor="middle" fontSize={7} fill="#fb923c" fontFamily="monospace">🐱 Tom</text>
+            <text x={0} y={-19} textAnchor="middle" fontSize={7} fill={cat.bodyColor} fontFamily="monospace">🐱 {cat.name}</text>
           </motion.g>
         )}
       </AnimatePresence>
