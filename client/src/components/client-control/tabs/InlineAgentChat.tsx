@@ -149,7 +149,7 @@ export function InlineAgentChat({ clientId, tab, agent, context, onAccept, onCre
           if (pollData.status === "done") return pollData.response || "No response.";
           if (pollData.status === "error") throw new Error(pollData.error || "Agent error");
           if (attempts++ > 60) throw new Error("Agent timeout");
-          await new Promise((r) => setTimeout(r, 2000));
+          await new Promise((r) => setTimeout(r, 1000));
           return poll();
         };
         responseText = await poll();

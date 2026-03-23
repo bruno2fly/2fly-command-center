@@ -296,7 +296,56 @@ DIAGNOSTIC RULES:
     // Store job and run in background
     agentJobs.set(jobId, { status: 'running', agent });
 
-    // Fire and forget — execFile is more reliable than spawn for capturing output
+    // ── Direct Anthropic API call (fast path — no CLI spawn) ──
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+    const useDirectApi = !!ANTHROPIC_API_KEY;
+
+    if (useDirectApi) {
+      // Build messages array with history
+      const messages: Array<{ role: string; content: string }> = [];
+      if (history && Array.isArray(history)) {
+        for (const h of history.slice(-6)) { // Last 6 messages for context
+          messages.push({ role: h.role, content: h.content });
+        }
+      }
+      messages.push({ role: 'user', content: message });
+
+      const systemPrompt = `${soulContext}${contextData ? `\n\nCLIENT CONTEXT:\n${contextData}` : ''}${pageContext ? `\n\nPAGE CONTEXT (user is currently viewing this):\n${pageContext}` : ''}\n\n${diagnosticRules}\n\nRespond concisely and actionably. Use markdown formatting. Keep responses under 1500 characters unless detailed analysis is requested.`;
+
+      (async () => {
+        try {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': ANTHROPIC_API_KEY!,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 2048,
+              system: systemPrompt,
+              messages,
+            }),
+            signal: AbortSignal.timeout(60000),
+          });
+
+          if (!resp.ok) {
+            const errBody = await resp.text();
+            throw new Error(`Anthropic API ${resp.status}: ${errBody.slice(0, 200)}`);
+          }
+
+          const data = await resp.json() as any;
+          const agentResponse = data.content?.[0]?.text || 'No response from agent.';
+          agentJobs.set(jobId, { status: 'done', agent, response: agentResponse });
+          console.log(`[agents/chat] Job ${jobId} completed (direct API, ${data.usage?.output_tokens || '?'} tokens)`);
+        } catch (err: any) {
+          agentJobs.set(jobId, { status: 'error', agent, error: err.message || 'Direct API call failed' });
+          console.error(`[agents/chat] Job ${jobId} direct API failed:`, err.message?.slice(0, 200));
+        }
+      })();
+    } else {
+    // ── Fallback: CLI spawn (slow path) ──
     const { execFile } = await import('child_process');
     
     const child = execFile(
@@ -376,6 +425,7 @@ DIAGNOSTIC RULES:
         setTimeout(() => agentJobs.delete(jobId), 600000);
       }
     );
+    } // end of else (CLI fallback)
 
     // Return immediately with job ID
     res.json({ success: true, jobId, status: 'running', agent });
