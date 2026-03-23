@@ -34,28 +34,36 @@ type AgentDef = {
 
 // ─── Agents ─────────────────────────────────────────────────
 const AGENTS: AgentDef[] = [
-  { id: "founder-boss", name: "Boss", role: "Strategic Command", emoji: "👔", skinColor: "#d4a574", shirtColor: "#1e3a5f", neonColor: "#f59e0b", desk: "corner-office", personality: "Reviewing numbers..." },
-  { id: "meta-traffic", name: "Meta", role: "Media Buyer", emoji: "📊", skinColor: "#c68642", shirtColor: "#1d4ed8", neonColor: "#3b82f6", desk: "ads-desk-1", personality: "Checking ROAS..." },
-  { id: "content-system", name: "Content", role: "Content Strategist", emoji: "🧠", skinColor: "#e0ac69", shirtColor: "#7c3aed", neonColor: "#a855f7", desk: "creative-1", personality: "Writing hooks..." },
-  { id: "research-intel", name: "Intel", role: "Intelligence", emoji: "🔍", skinColor: "#8d5524", shirtColor: "#059669", neonColor: "#10b981", desk: "intel-desk", personality: "Scanning web..." },
-  { id: "growth-strategist", name: "Growth", role: "Revenue", emoji: "🚀", skinColor: "#d4a574", shirtColor: "#dc2626", neonColor: "#ef4444", desk: "meeting-1", personality: "Growth planning..." },
-  { id: "project-manager", name: "PM", role: "Operations", emoji: "📋", skinColor: "#c68642", shirtColor: "#4f46e5", neonColor: "#6366f1", desk: "ops-desk", personality: "Tracking tasks..." },
-  { id: "client-memory", name: "Memory", role: "Knowledge", emoji: "🗄️", skinColor: "#e0ac69", shirtColor: "#475569", neonColor: "#64748b", desk: "archive-desk", personality: "Filing records..." },
-  { id: "inbox-triage", name: "Inbox", role: "Communications", emoji: "📬", skinColor: "#d4a574", shirtColor: "#be185d", neonColor: "#ec4899", desk: "reception", personality: "Sorting mail..." },
-  { id: "approval-feedback", name: "QA", role: "Quality Control", emoji: "✅", skinColor: "#8d5524", shirtColor: "#15803d", neonColor: "#22c55e", desk: "qa-desk", personality: "Reviewing..." },
+  // ─── Team (Humans) ───
+  { id: "bruno", name: "Bruno", role: "Founder & CEO", emoji: "🫡", skinColor: "#c68642", shirtColor: "#111827", neonColor: "#f59e0b", desk: "corner-office", personality: "Running the agency..." },
+  { id: "milena", name: "Milena", role: "Social Media Manager", emoji: "📱", skinColor: "#e0ac69", shirtColor: "#7c3aed", neonColor: "#a855f7", desk: "creative-1", personality: "Publishing posts..." },
+  { id: "guilherme", name: "Guilherme", role: "Designer", emoji: "🎨", skinColor: "#d4a574", shirtColor: "#2563eb", neonColor: "#3b82f6", desk: "creative-2", personality: "Designing assets..." },
+  { id: "igor", name: "Igor", role: "Designer", emoji: "✏️", skinColor: "#c68642", shirtColor: "#059669", neonColor: "#10b981", desk: "creative-3", personality: "Creating visuals..." },
+  // ─── AI Agents ───
+  { id: "founder-boss", name: "Boss AI", role: "Strategic Command", emoji: "🤖", skinColor: "#94a3b8", shirtColor: "#1e3a5f", neonColor: "#f59e0b", desk: "ai-desk-1", personality: "Analyzing strategy..." },
+  { id: "meta-traffic", name: "Meta Ads", role: "Meta Media Buyer", emoji: "📊", skinColor: "#94a3b8", shirtColor: "#1d4ed8", neonColor: "#3b82f6", desk: "ads-desk-1", personality: "Checking ROAS..." },
+  { id: "google-ads", name: "Google Ads", role: "Google Media Buyer", emoji: "🔍", skinColor: "#94a3b8", shirtColor: "#ea4335", neonColor: "#ea4335", desk: "ads-desk-2", personality: "Optimizing bids..." },
+  { id: "content-strategist", name: "Strategist", role: "Content Director", emoji: "🧠", skinColor: "#94a3b8", shirtColor: "#7c3aed", neonColor: "#a855f7", desk: "ai-desk-2", personality: "Writing hooks..." },
+  { id: "research-intel", name: "Intel", role: "Intelligence", emoji: "🔬", skinColor: "#94a3b8", shirtColor: "#059669", neonColor: "#10b981", desk: "intel-desk", personality: "Scanning web..." },
+  { id: "undertone", name: "Undertone", role: "Brand Voice", emoji: "🎭", skinColor: "#94a3b8", shirtColor: "#be185d", neonColor: "#ec4899", desk: "reception", personality: "Crafting tone..." },
+  { id: "dev", name: "Dev", role: "Engineering", emoji: "💻", skinColor: "#94a3b8", shirtColor: "#475569", neonColor: "#64748b", desk: "ops-desk", personality: "Building features..." },
 ];
 
 // ─── Desk Positions ─────────────────────────────────────────
 const DESK_POSITIONS: Record<string, { x: number; y: number; facing: "left" | "right" | "up" | "down" }> = {
-  "corner-office": { x: 135, y: 145, facing: "right" },
-  "ads-desk-1":    { x: 380, y: 130, facing: "down" },
-  "creative-1":    { x: 540, y: 130, facing: "down" },
-  "intel-desk":    { x: 380, y: 260, facing: "down" },
-  "meeting-1":     { x: 135, y: 340, facing: "right" },
-  "ops-desk":      { x: 540, y: 260, facing: "down" },
-  "archive-desk":  { x: 700, y: 260, facing: "left" },
-  "reception":     { x: 700, y: 130, facing: "left" },
-  "qa-desk":       { x: 700, y: 400, facing: "left" },
+  // Human team — left side
+  "corner-office": { x: 135, y: 120, facing: "right" },  // Bruno
+  "creative-1":    { x: 135, y: 230, facing: "right" },  // Milena
+  "creative-2":    { x: 135, y: 340, facing: "right" },  // Guilherme
+  "creative-3":    { x: 135, y: 450, facing: "right" },  // Igor
+  // AI Agents — right side
+  "ai-desk-1":    { x: 380, y: 120, facing: "down" },   // Boss AI
+  "ads-desk-1":   { x: 540, y: 120, facing: "down" },   // Meta Ads
+  "ads-desk-2":   { x: 700, y: 120, facing: "left" },   // Google Ads
+  "ai-desk-2":    { x: 380, y: 250, facing: "down" },   // Content Strategist
+  "intel-desk":   { x: 540, y: 250, facing: "down" },   // Intel
+  "reception":    { x: 700, y: 250, facing: "left" },   // Undertone
+  "ops-desk":     { x: 540, y: 380, facing: "down" },   // Dev
 };
 
 // ─── SVG Defs (Cyberpunk) ───────────────────────────────────
