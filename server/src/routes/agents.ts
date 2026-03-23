@@ -392,12 +392,9 @@ DIAGNOSTIC RULES:
 router.get('/context/:clientId/:tab', async (req: Request, res: Response) => {
   try {
     const { clientId, tab } = req.params;
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) {
-      await prisma.$disconnect();
+      
       return res.status(404).json({ error: 'Client not found' });
     }
 
@@ -455,8 +452,21 @@ router.get('/context/:clientId/:tab', async (req: Request, res: Response) => {
       lines.push(`Status breakdown: ${Object.entries(byStatus).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
       content.slice(0, 10).forEach((c: any) => lines.push(`  - [${c.status}] ${c.title || c.type} | Scheduled: ${c.scheduledDate || 'none'}`));
 
+      // Include media library so agent can reference photos by name
+      const media = await prisma.clientMedia.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' } });
+      if (media.length > 0) {
+        lines.push(`\nMEDIA LIBRARY: ${media.length} files available`);
+        lines.push(`When creating content, ALWAYS reference specific photos from this library by filename.`);
+        lines.push(`Suggest which photo to use for each post. Format: 📸 Photo: filename.jpg`);
+        media.forEach((m: any) => {
+          lines.push(`  📸 ${m.filename} (${m.category}${m.tags ? ', tags: ' + m.tags : ''}${m.notes ? ', notes: ' + m.notes : ''})`);
+        });
+      } else {
+        lines.push(`\nMEDIA LIBRARY: Empty — suggest the client upload photos for better content.`);
+      }
+
       // Include strategy data for richer context
-      const strategies = await prisma.strategy.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 1 });
+      const strategies = await prisma.clientStrategy.findMany({ where: { clientId }, orderBy: { createdAt: 'desc' }, take: 1 });
       if (strategies.length > 0) {
         const s = strategies[0] as any;
         lines.push(`\nACTIVE STRATEGY: ${s.title}`);
@@ -506,7 +516,7 @@ router.get('/context/:clientId/:tab', async (req: Request, res: Response) => {
       requests.slice(0, 5).forEach((r: any) => lines.push(`  - [${r.status}] ${r.title} | SLA: ${r.slaBreach ? 'BREACHED' : 'ok'}`));
     }
 
-    await prisma.$disconnect();
+    
     res.json({ context: lines.filter(Boolean).join('\n') });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
