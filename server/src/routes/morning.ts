@@ -12,6 +12,7 @@ import {
   getFlowTeam,
   isFlowConfigured,
 } from '../lib/flowSync.js';
+import { generateDailyAdsReport } from '../cron/dailyAdsReport.js';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -216,3 +217,15 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 export default router;
+
+// GET /api/morning/ads-report — Generate daily ads report
+router.get('/ads-report', async (_req: Request, res: Response) => {
+  try {
+    const report = await generateDailyAdsReport();
+    res.json({ report, generated: new Date().toISOString() });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: msg });
+  }
+});
+

@@ -286,6 +286,27 @@ Start with the clients that have the most urgent needs (RED or YELLOW health sta
     }
   });
 
+  // ─── 7. Daily Ads Intelligence Report — every day at 8 AM ────
+  // Generates performance summary for all Meta-connected clients and posts to Discord #meta-ads
+  cron.schedule("0 8 * * *", async () => {
+    console.log("[CRON] Generating daily ads report...");
+    try {
+      const { generateDailyAdsReport } = require("../cron/dailyAdsReport");
+      const report = await generateDailyAdsReport();
+      if (report) {
+        // Post to Discord #meta-ads
+        const { exec } = require("child_process");
+        const msg = report.replace(/"/g, '\\"').slice(0, 1900);
+        exec(`/opt/homebrew/bin/openclaw message send --channel discord --target 1480606656927760526 --message "${msg}"`, (err) => {
+          if (err) console.error("[CRON] Failed to post ads report:", err.message);
+          else console.log("[CRON] Daily ads report posted to #meta-ads");
+        });
+      }
+    } catch (err) {
+      console.error("[CRON] Daily ads report failed:", err);
+    }
+  });
+
   console.log("✅ Automations registered (with agent integration):");
   console.log("   • Health recompute — every 2h → alerts founder-boss on RED");
   console.log("   • SLA breach check — every 1h → alerts project-manager");
@@ -293,6 +314,7 @@ Start with the clients that have the most urgent needs (RED or YELLOW health sta
   console.log("   • Monday morning report — Mon 8 AM → analyzed by founder-boss");
   console.log("   • Weekly research — Sun 8 PM → triggers research-intel");
   console.log("   • Meta Ads sync — every 4h → pulls live campaigns from Meta");
+  console.log("   • Daily Ads Report — 8 AM → posts to #meta-ads");
 }
 
 module.exports = { registerAutomations };
