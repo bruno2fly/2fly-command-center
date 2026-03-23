@@ -69,6 +69,7 @@ model Client {
   adCampaigns        AdCampaign[]
   metaConnection     MetaConnection?
   googleConnection   GoogleConnection?
+  googleAdsConnection GoogleAdsConnection?
   tasks              Task[]
   dailyReports       DailyReport[]
   strategies         ClientStrategy[]
@@ -156,6 +157,23 @@ model MetaConnection {
   igAccountId     String?
   scopes          String?  // comma-separated granted scopes
   status          String    @default("active") // active | expired | revoked
+  connectedAt     DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────────
+// GOOGLE ADS CONNECTION
+// ─────────────────────────────────────────────────
+
+model GoogleAdsConnection {
+  id              String    @id @default(cuid())
+  clientId        String    @unique
+  client          Client    @relation(fields: [clientId], references: [id])
+  customerId      String    // Google Ads Customer ID (xxx-xxx-xxxx)
+  customerName    String?
+  managerAccountId String?  // MCC account if applicable
+  refreshToken    String?
+  status          String    @default("active") // active | paused | disconnected
   connectedAt     DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }

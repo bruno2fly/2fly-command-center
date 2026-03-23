@@ -38,6 +38,7 @@ export const AGENTS = [
   { id: 'meta-traffic', name: 'Meta Traffic', description: 'Meta Ads performance & optimization', emoji: '🎯' },
   { id: 'undertone', name: 'Undertone', description: 'Brand voice & messaging', emoji: '🎵' },
   { id: 'content-strategist', name: 'Content Strategist', description: 'Senior content strategy & creation', emoji: '🎨' },
+  { id: 'google-ads', name: 'Google Ads', description: 'Google Ads campaign management & optimization', emoji: '🔍' },
   { id: 'dev', name: 'Dev', description: 'Engineering & platform development', emoji: '🛠️' },
 ] as const;
 

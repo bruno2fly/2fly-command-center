@@ -23,6 +23,7 @@ import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSoc
 import { ClientFlowTab } from "@/components/client-control/tabs/ClientFlowTab";
 import { ClientGoogleBusinessTab } from "@/components/client-control/tabs/ClientGoogleBusinessTab";
 import { ClientStrategyTab } from "@/components/client-control/tabs/ClientStrategyTab";
+import ClientGoogleAdsTab from "@/components/client-control/tabs/ClientGoogleAdsTab";
 import { TabChatWrapper } from "@/components/client-control/tabs/TabChatWrapper";
 import { TaskDetailModal, CreateTaskModal, type TaskDetailTask } from "@/components/tasks";
 
@@ -277,6 +278,11 @@ export default function ClientControlRoomPage() {
           </TabChatWrapper>
         )}
         {activeTab === "strategy" && <ClientStrategyTab clientId={id} />}
+        {activeTab === "googleAds" && (
+          <TabChatWrapper clientId={id} tab="googleAds" agentId="google-ads" agentLabel="Google Ads" agentEmoji="🔍" placeholder="Ask about campaigns, keywords, bids, Quality Score..." emptyHint="I can help with Google Ads strategy, keyword research, and optimization.">
+            <ClientGoogleAdsTab clientId={id} />
+          </TabChatWrapper>
+        )}
         {activeTab === "googleBusiness" && (
           <TabChatWrapper clientId={id} tab="googleBusiness" agentId="founder-boss" agentLabel="GBP Agent" agentEmoji="📍" placeholder="Ask about reviews, local SEO, Google Business..." emptyHint="I can help with reviews, posts, and local SEO strategy.">
             <ClientGoogleBusinessTab clientId={id} />
