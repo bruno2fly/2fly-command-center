@@ -294,24 +294,57 @@ ${content}`,
   const executeAgent = async (idx: number) => {
     if (!selected) return;
     const a = actions[idx];
-    if (!a.agentId) return;
+    const agentId = a.agentId || "founder-boss";
+    const actionTitle = a.action || a.title || "Execute action";
+    const stepsText = (a.steps || []).map((s, i) => `${i+1}. ${typeof s === 'object' ? s.text : s}`).join('\n');
+    
+    const prompt = `Execute this strategy action for this client NOW. Be specific and actionable.
+
+ACTION: ${actionTitle}
+${a.detail ? `DETAIL: ${a.detail}` : ''}
+${stepsText ? `STEPS:\n${stepsText}` : ''}
+${a.owner ? `ASSIGNED TO: ${a.owner}` : ''}
+
+What I need from you:
+1. Break this into immediate, concrete next steps
+2. If this requires creating content — create it (drafts, copy, headlines)
+3. If this requires research — do the research and give me findings
+4. If this requires a tool/platform action — give me the exact Comet browser prompt to execute it
+5. Mark what's done, what needs my approval, and what's next`;
+
     try {
-      const res = await fetch(`${API}/api/strategies/${clientId}/${selected.id}/execute`, {
+      const res = await fetch(`${API}/api/agents/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actionIndex: idx, agentId: a.agentId }),
+        body: JSON.stringify({ agent: agentId, message: prompt, clientId }),
       });
-      if (res.ok) {
-        // Mark as in_progress
-        const updated = [...actions];
-        updated[idx].status = "in_progress";
-        await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ actions: updated }),
-        });
-        fetchStrategies();
-      }
+      const { jobId } = await res.json();
+      
+      // Poll for result
+      const poll = async (): Promise<string> => {
+        const r = await fetch(`${API}/api/agents/job/${jobId}`);
+        const d = await r.json();
+        if (d.status === "done") return d.response || "No response.";
+        if (d.status === "error") return `Error: ${d.error}`;
+        await new Promise(r => setTimeout(r, 1000));
+        return poll();
+      };
+      
+      const response = await poll();
+      
+      // Update action: mark in_progress, add agent response to notes
+      const updated = [...actions];
+      updated[idx] = {
+        ...updated[idx],
+        status: "in_progress",
+        notes: `${updated[idx].notes ? updated[idx].notes + '\n\n---\n\n' : ''}🤖 Agent Response (${new Date().toLocaleDateString()}):\n${response}`,
+      };
+      await fetch(`${API}/api/strategies/${clientId}/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actions: JSON.stringify(updated) }),
+      });
+      fetchStrategies();
     } catch (err) { console.error(err); }
   };
 
@@ -748,55 +781,110 @@ ${content}`,
                               </div>
                             )}
 
-                            {/* Execute buttons: Comet Prompt or Send to Agent */}
-                            {(a.executor === "comet" || a.executor === "agent") && (
-                              <div>
-                                <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>Execute</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {a.executor === "comet" && a.cometPrompt && (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); copyComet(i); }}
-                                      className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                                        copiedComet === i
-                                          ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-green-100 text-green-700"
-                                          : isDark
-                                            ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30"
-                                            : "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100"
-                                      }`}
-                                    >
-                                      {copiedComet === i ? (
-                                        <>✅ Copied!</>
-                                      ) : (
-                                        <>🌐 Copy Comet Prompt</>
-                                      )}
-                                    </button>
-                                  )}
-                                  {a.executor === "agent" && a.agentId && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setAgentSending(i);
-                                        executeAgent(i).finally(() => setAgentSending(null));
-                                      }}
-                                      disabled={agentSending === i}
-                                      className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                                        agentSending === i
-                                          ? isDark ? "bg-[#1a1810] text-[#5a5040] cursor-wait" : "bg-gray-100 text-gray-400 cursor-wait"
-                                          : isDark
-                                            ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 hover:from-emerald-500/30 hover:to-teal-500/30"
-                                            : "bg-gradient-to-r from-green-50 to-teal-50 text-green-700 hover:from-green-100 hover:to-teal-100"
-                                      }`}
-                                    >
-                                      {agentSending === i ? (
-                                        <>⏳ Sending...</>
-                                      ) : (
-                                        <>🤖 Send to {a.agentId}</>
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
+                            {/* Execute buttons — always show action options */}
+                            <div>
+                              <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? "text-[#5a5040]" : "text-gray-400"}`}>⚡ Execute</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {/* AI Agent Execute — always available */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAgentSending(i);
+                                    executeAgent(i).finally(() => setAgentSending(null));
+                                  }}
+                                  disabled={agentSending === i}
+                                  className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
+                                    agentSending === i
+                                      ? isDark ? "bg-amber-500/20 text-amber-400 animate-pulse" : "bg-amber-100 text-amber-600 animate-pulse"
+                                      : isDark
+                                        ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 hover:from-emerald-500/30 hover:to-teal-500/30"
+                                        : "bg-gradient-to-r from-green-50 to-teal-50 text-green-700 hover:from-green-100 hover:to-teal-100"
+                                  }`}
+                                >
+                                  {agentSending === i ? "⏳ Agent working..." : "🤖 Agent Execute"}
+                                </button>
+
+                                {/* Comet Browser Prompt — generate and copy */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const prompt = a.cometPrompt || `Execute this task: ${a.action || a.title}\n\nSteps:\n${(a.steps || []).map((s, si) => `${si+1}. ${typeof s === 'object' ? s.text : s}`).join('\n')}\n\nDetails: ${a.detail || 'Complete this action item.'}`;
+                                    navigator.clipboard.writeText(prompt);
+                                    setCopiedComet(i);
+                                    setTimeout(() => setCopiedComet(null), 2000);
+                                  }}
+                                  className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
+                                    copiedComet === i
+                                      ? isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-green-100 text-green-700"
+                                      : isDark
+                                        ? "bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-300 hover:from-blue-500/30 hover:to-purple-500/30"
+                                        : "bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100"
+                                  }`}
+                                >
+                                  {copiedComet === i ? "✅ Copied!" : "🌐 Comet Prompt"}
+                                </button>
+
+                                {/* Send to 2FLY Flow */}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const res = await fetch(`${API}/api/flow/tasks`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          clientId: selected?.clientId,
+                                          title: a.action || a.title,
+                                          details: a.detail || a.steps?.map((s, si) => `${si+1}. ${typeof s === 'object' ? s.text : s}`).join('\n') || '',
+                                          priority: a.priority === 'urgent' ? 'high' : a.priority,
+                                          assignedTo: 'milena',
+                                        }),
+                                      });
+                                      if (res.ok) {
+                                        // Update action status
+                                        const actions = parseJSON<Action>(selected!.actions ?? null);
+                                        actions[i] = { ...actions[i], status: "in_progress" };
+                                        await fetch(`${API}/api/strategies/${selected!.clientId}/${selected!.id}`, {
+                                          method: "PATCH",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ actions: JSON.stringify(actions) }),
+                                        });
+                                        fetchStrategies();
+                                      }
+                                    } catch { /* */ }
+                                  }}
+                                  className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all ${
+                                    isDark
+                                      ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 hover:from-amber-500/30 hover:to-orange-500/30"
+                                      : "bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 hover:from-amber-100 hover:to-orange-100"
+                                  }`}
+                                >
+                                  📤 Send to Team
+                                </button>
+
+                                {/* Mark as Done */}
+                                {a.status !== "done" && (
+                                  <button
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const actions = parseJSON<Action>(selected!.actions ?? null);
+                                      actions[i] = { ...actions[i], status: "done" };
+                                      await fetch(`${API}/api/strategies/${selected!.clientId}/${selected!.id}`, {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ actions: JSON.stringify(actions) }),
+                                      });
+                                      fetchStrategies();
+                                    }}
+                                    className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg transition-all ${
+                                      isDark ? "text-[#5a5040] hover:text-emerald-400 hover:bg-emerald-500/10" : "text-gray-400 hover:text-emerald-600 hover:bg-emerald-50"
+                                    }`}
+                                  >
+                                    ✅ Done
+                                  </button>
+                                )}
                               </div>
-                            )}
+                            </div>
 
                             {/* Links */}
                             {a.links && a.links.length > 0 && (
