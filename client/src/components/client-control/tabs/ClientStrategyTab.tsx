@@ -953,7 +953,11 @@ What I need from you:
                                       : isDark ? "text-[#3a3020]" : "text-gray-300"
                                   }`}
                                 >
-                                  {a.notes || "Click to add notes..."}
+                                  {a.notes ? (
+                                    <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
+                                      <ReactMarkdown>{a.notes}</ReactMarkdown>
+                                    </div>
+                                  ) : "Click to add notes..."}
                                 </div>
                               )}
                             </div>
