@@ -110,6 +110,7 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"overview" | "approvals" | "tasks" | "requests">("overview");
+  const [detailModal, setDetailModal] = useState<{ title: string; content: string; status?: string; images?: string[] } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -225,7 +226,7 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
                   {posts.map((p) => (
                     <div key={p.id} className={`flex items-center justify-between py-2 border-b last:border-0 ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
                       <div>
-                        <div className={`text-sm ${textCls}`}>{p.caption.slice(0, 80)}{p.caption.length > 80 ? "..." : ""}</div>
+                        <div className={`text-sm ${textCls} cursor-pointer hover:underline`} onClick={() => setDetailModal({ title: "Content Approval", content: p.caption, status: p.status, images: p.images })}>{p.caption.slice(0, 80)}{p.caption.length > 80 ? " →" : ""}</div>
                         <div className={`text-xs ${subTextCls}`}>{p.platforms.join(", ")} · {new Date(p.scheduledAt).toLocaleDateString()}</div>
                       </div>
                       <StatusBadge status={p.status} isDark={isDark} />
@@ -244,7 +245,7 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
                     <div key={r.id} className={`flex items-start justify-between py-2 border-b last:border-0 ${isDark ? "border-[#1a1810]" : "border-gray-100"}`}>
                       <div>
                         <div className={`text-sm font-medium ${textCls}`}>{r.type || "Request"}</div>
-                        <div className={`text-xs ${subTextCls}`}>{r.details?.slice(0, 100) || ""}</div>
+                        <div className={`text-xs ${subTextCls} cursor-pointer hover:underline`} onClick={() => setDetailModal({ title: r.title || "Request", content: r.details || "No details" })}>{r.details?.slice(0, 100) || ""}{(r.details?.length || 0) > 100 ? " →" : ""}</div>
                         <div className={`text-xs mt-1 ${subTextCls}`}>By {r.by || "Client"} · {r.createdAt ? new Date(typeof r.createdAt === "number" ? r.createdAt : r.createdAt).toLocaleDateString() : ""}</div>
                       </div>
                       <StatusBadge status={r.status || "open"} isDark={isDark} />
@@ -266,9 +267,9 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
                 <div key={a.id} className={`rounded-xl border p-4 ${cardCls}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className={`text-sm font-medium ${textCls}`}>{a.title || a.caption?.slice(0, 60) || "Untitled"}</div>
+                      <div className={`text-sm font-medium ${textCls} cursor-pointer hover:underline`} onClick={() => setDetailModal({ title: a.title || "Content", content: a.caption || "No caption", status: a.status, images: a.images })}>{a.title || a.caption?.slice(0, 60) || "Untitled"}</div>
                       {a.caption && (
-                        <div className={`text-xs mt-1 ${subTextCls}`}>{a.caption.slice(0, 150)}{a.caption.length > 150 ? "..." : ""}</div>
+                        <div className={`text-xs mt-1 ${subTextCls} cursor-pointer`} onClick={() => setDetailModal({ title: a.title || "Content", content: a.caption || "", status: a.status, images: a.images })}>{a.caption.slice(0, 150)}{a.caption.length > 150 ? " →" : ""}</div>
                       )}
                       {a.type && <div className={`text-xs mt-1 ${subTextCls}`}>Type: {a.type}</div>}
                     </div>
@@ -306,7 +307,7 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
                         <span>{PRIORITY_EMOJI[t.priority] || "⚪"}</span>
                         <span className={`text-sm font-medium ${textCls}`}>{t.title}</span>
                       </div>
-                      {t.caption && <div className={`text-xs mt-1 ${subTextCls}`}>{t.caption.slice(0, 120)}</div>}
+                      {t.caption && <div className={`text-xs mt-1 ${subTextCls} cursor-pointer hover:underline`} onClick={() => setDetailModal({ title: t.title || "Task", content: t.caption || "" })}>{t.caption.slice(0, 120)}{(t.caption?.length || 0) > 120 ? " →" : ""}</div>}
                       <div className={`text-xs mt-2 flex gap-3 ${subTextCls}`}>
                         <span>📅 {new Date(t.deadline).toLocaleDateString()}</span>
                         <span>🎨 {t.designerId}</span>
@@ -380,6 +381,39 @@ export function ClientFlowTab({ clientId }: { clientId: string }) {
 
 
       </div>
+
+      {/* Detail Modal */}
+      {detailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDetailModal(null)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className={`relative w-full max-w-2xl max-h-[80vh] overflow-auto rounded-2xl shadow-2xl ${isDark ? "bg-[#0f0f14] border border-[#1a1a22]" : "bg-white border border-gray-200"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`sticky top-0 flex items-center justify-between p-4 border-b ${isDark ? "border-[#1a1a22] bg-[#0f0f14]" : "border-gray-200 bg-white"}`}>
+              <div>
+                <h3 className={`text-lg font-semibold ${textCls}`}>{detailModal.title}</h3>
+                {detailModal.status && <StatusBadge status={detailModal.status} isDark={isDark} />}
+              </div>
+              <button onClick={() => setDetailModal(null)} className={`text-xl px-2 ${subTextCls} hover:text-red-400`}>✕</button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Images */}
+              {detailModal.images && detailModal.images.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {detailModal.images.map((img, i) => (
+                    <img key={i} src={img} alt="" className="rounded-lg w-full object-cover max-h-64" />
+                  ))}
+                </div>
+              )}
+              {/* Content */}
+              <div className={`text-sm leading-relaxed whitespace-pre-wrap ${textCls}`}>
+                {detailModal.content}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
