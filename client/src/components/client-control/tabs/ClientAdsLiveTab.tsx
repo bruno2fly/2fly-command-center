@@ -88,6 +88,108 @@ function fmt(n: number, type: "money" | "number" | "pct" = "number"): string {
   return n.toLocaleString();
 }
 
+// ─── Auto Insights Engine ─────────────────────────────────
+interface Insight {
+  type: "alert" | "win" | "action" | "info";
+  emoji: string;
+  title: string;
+  detail: string;
+}
+
+function generateInsights(k: MetaKPIs, campaigns: Campaign[], daily: DailyData[]): Insight[] {
+  const insights: Insight[] = [];
+  
+  // Spend trends
+  if (daily.length >= 7) {
+    const recent3 = daily.slice(-3).reduce((s, d) => s + d.spend, 0) / 3;
+    const prev3 = daily.slice(-6, -3).reduce((s, d) => s + d.spend, 0) / 3;
+    if (prev3 > 0 && recent3 > prev3 * 1.3) {
+      insights.push({ type: "alert", emoji: "💰", title: "Spend trending up", detail: `Daily spend increased ${Math.round((recent3/prev3-1)*100)}% in last 3 days vs prior 3 days. Average: $${recent3.toFixed(2)}/day.` });
+    }
+    if (prev3 > 0 && recent3 < prev3 * 0.5) {
+      insights.push({ type: "alert", emoji: "📉", title: "Spend dropping", detail: `Daily spend dropped ${Math.round((1-recent3/prev3)*100)}%. Check if campaigns are paused or budget-limited.` });
+    }
+  }
+
+  // CTR analysis
+  if (k.ctr > 3) {
+    insights.push({ type: "win", emoji: "🔥", title: "Strong CTR", detail: `${k.ctr.toFixed(2)}% CTR is above industry average. Ads are resonating well with the audience.` });
+  } else if (k.ctr < 1 && k.spend > 50) {
+    insights.push({ type: "alert", emoji: "⚠️", title: "Low CTR", detail: `${k.ctr.toFixed(2)}% CTR — ads may need creative refresh. Test new headlines, images, or audiences.` });
+  }
+
+  // CPC analysis
+  if (k.cpc > 3 && k.clicks > 10) {
+    insights.push({ type: "action", emoji: "💸", title: "High CPC", detail: `$${k.cpc.toFixed(2)} per click. Consider broadening audience or testing new creatives to lower costs.` });
+  } else if (k.cpc < 0.5 && k.cpc > 0) {
+    insights.push({ type: "win", emoji: "✅", title: "Efficient CPC", detail: `$${k.cpc.toFixed(2)} per click — excellent cost efficiency.` });
+  }
+
+  // Link clicks vs clicks gap
+  if (k.clicks > 0 && k.linkClicks > 0 && k.linkClicks / k.clicks < 0.3) {
+    insights.push({ type: "info", emoji: "🔗", title: "Low link click ratio", detail: `Only ${Math.round(k.linkClicks/k.clicks*100)}% of clicks are link clicks. Many clicks may be on post engagement (likes, comments) rather than your website.` });
+  }
+
+  // Landing page views vs link clicks
+  if (k.linkClicks > 20 && k.landingPageViews > 0 && k.landingPageViews / k.linkClicks < 0.5) {
+    insights.push({ type: "alert", emoji: "🐌", title: "Landing page drop-off", detail: `Only ${Math.round(k.landingPageViews/k.linkClicks*100)}% of link clicks result in page views. Page may be loading too slowly.` });
+  }
+
+  // Frequency check
+  if (k.frequency > 3) {
+    insights.push({ type: "action", emoji: "🔄", title: "High frequency", detail: `Frequency of ${k.frequency.toFixed(1)}x — audience is seeing ads too often. Consider expanding targeting or refreshing creatives.` });
+  }
+
+  // Zero conversions with spend
+  if (k.spend > 100 && k.leads === 0 && k.purchases === 0) {
+    insights.push({ type: "info", emoji: "🎯", title: "No tracked conversions", detail: `$${k.spend.toFixed(2)} spent with no tracked conversions. Check if conversion pixel is installed and firing, or if this is a traffic/awareness campaign.` });
+  }
+
+  // Campaign health
+  const activeCampaigns = campaigns.filter(c => c.status === "ACTIVE");
+  const pausedCampaigns = campaigns.filter(c => c.status === "PAUSED");
+  if (activeCampaigns.length === 0 && campaigns.length > 0) {
+    insights.push({ type: "alert", emoji: "⏸️", title: "No active campaigns", detail: `All ${campaigns.length} campaigns are paused or inactive.` });
+  }
+  if (pausedCampaigns.length > 0 && activeCampaigns.length > 0) {
+    insights.push({ type: "info", emoji: "📋", title: `${pausedCampaigns.length} paused campaign${pausedCampaigns.length>1?'s':''}`, detail: `${pausedCampaigns.map(c => c.name).join(', ')}` });
+  }
+
+  // Best performing campaign
+  if (activeCampaigns.length > 1) {
+    const best = activeCampaigns.reduce((a, b) => (a.ctr || 0) > (b.ctr || 0) ? a : b);
+    if (best.ctr && best.ctr > 0) {
+      insights.push({ type: "win", emoji: "⭐", title: "Top campaign", detail: `"${best.name}" — ${best.ctr.toFixed(2)}% CTR, ${fmt(best.spend || 0, "money")} spend.` });
+    }
+  }
+
+  // Daily trend
+  if (daily.length >= 2) {
+    const yesterday = daily[daily.length - 1];
+    const dayBefore = daily[daily.length - 2];
+    if (yesterday && dayBefore && dayBefore.spend > 0) {
+      const change = ((yesterday.spend - dayBefore.spend) / dayBefore.spend) * 100;
+      if (Math.abs(change) > 30) {
+        insights.push({
+          type: change > 0 ? "info" : "alert",
+          emoji: change > 0 ? "📈" : "📉",
+          title: `Yesterday: ${change > 0 ? '+' : ''}${Math.round(change)}% spend`,
+          detail: `$${yesterday.spend.toFixed(2)} yesterday vs $${dayBefore.spend.toFixed(2)} day before.`
+        });
+      }
+    }
+  }
+
+  return insights;
+}
+
+const INSIGHT_STYLES = {
+  alert: { dark: "border-red-500/30 bg-red-500/5", light: "border-red-200 bg-red-50" },
+  win: { dark: "border-emerald-500/30 bg-emerald-500/5", light: "border-emerald-200 bg-emerald-50" },
+  action: { dark: "border-amber-500/30 bg-amber-500/5", light: "border-amber-200 bg-amber-50" },
+  info: { dark: "border-blue-500/30 bg-blue-500/5", light: "border-blue-200 bg-blue-50" },
+};
+
 // Simple sparkline bar chart
 function MiniChart({ data, color }: { data: number[]; color: string }) {
   if (!data.length) return null;
@@ -177,6 +279,28 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
         {/* OVERVIEW */}
         {section === "overview" && (
           <div className="space-y-4">
+            {/* Auto Insights — what you need to know right now */}
+            {(() => {
+              const insights = generateInsights(k, campaigns, daily);
+              if (insights.length === 0) return null;
+              return (
+                <div className={`rounded-xl border p-4 ${cardCls}`}>
+                  <h3 className={`text-sm font-semibold mb-3 ${textCls}`}>🧠 Insights & Alerts</h3>
+                  <div className="space-y-2">
+                    {insights.map((ins, i) => {
+                      const style = INSIGHT_STYLES[ins.type];
+                      return (
+                        <div key={i} className={`rounded-lg border px-3 py-2 ${isDark ? style.dark : style.light}`}>
+                          <div className={`text-sm font-medium ${textCls}`}>{ins.emoji} {ins.title}</div>
+                          <div className={`text-xs mt-0.5 ${subCls}`}>{ins.detail}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Main KPI Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
