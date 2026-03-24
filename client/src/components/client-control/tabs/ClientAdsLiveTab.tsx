@@ -94,6 +94,15 @@ interface Insight {
   emoji: string;
   title: string;
   detail: string;
+  actionPrompt?: string; // prompt to send to agent when "Execute" is clicked
+}
+
+interface ActionItem {
+  id: string;
+  text: string;
+  status: "pending" | "in_progress" | "done";
+  source: string; // "insight" | "agent"
+  createdAt: string;
 }
 
 function generateInsights(k: MetaKPIs, campaigns: Campaign[], daily: DailyData[]): Insight[] {
@@ -104,10 +113,10 @@ function generateInsights(k: MetaKPIs, campaigns: Campaign[], daily: DailyData[]
     const recent3 = daily.slice(-3).reduce((s, d) => s + d.spend, 0) / 3;
     const prev3 = daily.slice(-6, -3).reduce((s, d) => s + d.spend, 0) / 3;
     if (prev3 > 0 && recent3 > prev3 * 1.3) {
-      insights.push({ type: "alert", emoji: "💰", title: "Spend trending up", detail: `Daily spend increased ${Math.round((recent3/prev3-1)*100)}% in last 3 days vs prior 3 days. Average: $${recent3.toFixed(2)}/day.` });
+      insights.push({ type: "alert", emoji: "💰", title: "Spend trending up", detail: `Daily spend increased ${Math.round((recent3/prev3-1)*100)}% in last 3 days vs prior 3 days. Average: $${recent3.toFixed(2)}/day.`, actionPrompt: "Spend is trending up. Analyze if performance justifies the increase and recommend whether to maintain, scale, or pull back." });
     }
     if (prev3 > 0 && recent3 < prev3 * 0.5) {
-      insights.push({ type: "alert", emoji: "📉", title: "Spend dropping", detail: `Daily spend dropped ${Math.round((1-recent3/prev3)*100)}%. Check if campaigns are paused or budget-limited.` });
+      insights.push({ type: "alert", emoji: "📉", title: "Spend dropping", detail: `Daily spend dropped ${Math.round((1-recent3/prev3)*100)}%. Check if campaigns are paused or budget-limited.`, actionPrompt: "Analyze why ad spend is dropping and recommend specific fixes. Check campaign status, budget limits, and delivery issues." });
     }
   }
 
@@ -115,12 +124,12 @@ function generateInsights(k: MetaKPIs, campaigns: Campaign[], daily: DailyData[]
   if (k.ctr > 3) {
     insights.push({ type: "win", emoji: "🔥", title: "Strong CTR", detail: `${k.ctr.toFixed(2)}% CTR is above industry average. Ads are resonating well with the audience.` });
   } else if (k.ctr < 1 && k.spend > 50) {
-    insights.push({ type: "alert", emoji: "⚠️", title: "Low CTR", detail: `${k.ctr.toFixed(2)}% CTR — ads may need creative refresh. Test new headlines, images, or audiences.` });
+    insights.push({ type: "alert", emoji: "⚠️", title: "Low CTR", detail: `${k.ctr.toFixed(2)}% CTR — ads may need creative refresh. Test new headlines, images, or audiences.`, actionPrompt: "CTR is low. Create 3 new ad headline variations and 2 new audience targeting suggestions to improve CTR." });
   }
 
   // CPC analysis
   if (k.cpc > 3 && k.clicks > 10) {
-    insights.push({ type: "action", emoji: "💸", title: "High CPC", detail: `$${k.cpc.toFixed(2)} per click. Consider broadening audience or testing new creatives to lower costs.` });
+    insights.push({ type: "action", emoji: "💸", title: "High CPC", detail: `$${k.cpc.toFixed(2)} per click. Consider broadening audience or testing new creatives to lower costs.`, actionPrompt: "CPC is high. Suggest specific audience adjustments and creative changes to lower cost per click." });
   } else if (k.cpc < 0.5 && k.cpc > 0) {
     insights.push({ type: "win", emoji: "✅", title: "Efficient CPC", detail: `$${k.cpc.toFixed(2)} per click — excellent cost efficiency.` });
   }
@@ -132,12 +141,12 @@ function generateInsights(k: MetaKPIs, campaigns: Campaign[], daily: DailyData[]
 
   // Landing page views vs link clicks
   if (k.linkClicks > 20 && k.landingPageViews > 0 && k.landingPageViews / k.linkClicks < 0.5) {
-    insights.push({ type: "alert", emoji: "🐌", title: "Landing page drop-off", detail: `Only ${Math.round(k.landingPageViews/k.linkClicks*100)}% of link clicks result in page views. Page may be loading too slowly.` });
+    insights.push({ type: "alert", emoji: "🐌", title: "Landing page drop-off", detail: `Only ${Math.round(k.landingPageViews/k.linkClicks*100)}% of link clicks result in page views. Page may be loading too slowly.`, actionPrompt: "Landing page drop-off is high. Check page speed and suggest landing page improvements for better conversion." });
   }
 
   // Frequency check
   if (k.frequency > 3) {
-    insights.push({ type: "action", emoji: "🔄", title: "High frequency", detail: `Frequency of ${k.frequency.toFixed(1)}x — audience is seeing ads too often. Consider expanding targeting or refreshing creatives.` });
+    insights.push({ type: "action", emoji: "🔄", title: "High frequency", detail: `Frequency of ${k.frequency.toFixed(1)}x — audience is seeing ads too often. Consider expanding targeting or refreshing creatives.`, actionPrompt: "Ad frequency is too high. Propose new audience segments to expand reach and 3 fresh creative concepts to fight ad fatigue." });
   }
 
   // Zero conversions with spend
@@ -209,7 +218,9 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   const [data, setData] = useState<MetaInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>("last_30d");
-  const [section, setSection] = useState<"overview" | "campaigns" | "daily">("overview");
+  const [section, setSection] = useState<"overview" | "campaigns" | "daily" | "actions">("overview");
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [executingInsight, setExecutingInsight] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -221,6 +232,74 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   }, [clientId, dateRange]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Load saved action items from localStorage + listen for updates
+  useEffect(() => {
+    const load = () => {
+      const saved = localStorage.getItem(`ads-actions-${clientId}`);
+      if (saved) setActionItems(JSON.parse(saved));
+    };
+    load();
+    window.addEventListener('storage', load);
+    return () => window.removeEventListener('storage', load);
+  }, [clientId]);
+
+  const saveActionItems = (items: ActionItem[]) => {
+    setActionItems(items);
+    localStorage.setItem(`ads-actions-${clientId}`, JSON.stringify(items));
+  };
+
+  const executeInsight = async (insight: Insight) => {
+    if (!insight.actionPrompt) return;
+    setExecutingInsight(insight.title);
+    try {
+      const res = await fetch(`${API}/api/agents/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "meta-traffic", message: insight.actionPrompt, clientId }),
+      });
+      const { jobId } = await res.json();
+      
+      // Poll for result
+      const poll = async (): Promise<string> => {
+        const r = await fetch(`${API}/api/agents/job/${jobId}`);
+        const d = await r.json();
+        if (d.status === "done") return d.response || "No response.";
+        if (d.status === "error") return `Error: ${d.error}`;
+        await new Promise(r => setTimeout(r, 1000));
+        return poll();
+      };
+      
+      const response = await poll();
+      
+      // Parse response into action items
+      const lines = response.split('\n').filter(l => l.trim().length > 10);
+      const newItems: ActionItem[] = lines.slice(0, 10).map((line, i) => ({
+        id: `${Date.now()}-${i}`,
+        text: line.replace(/^[-*•\d.)\s]+/, '').trim(),
+        status: "pending" as const,
+        source: `insight: ${insight.title}`,
+        createdAt: new Date().toISOString(),
+      })).filter(item => item.text.length > 5);
+      
+      if (newItems.length > 0) {
+        saveActionItems([...newItems, ...actionItems]);
+        setSection("actions");
+      }
+    } catch { /* */ }
+    finally { setExecutingInsight(null); }
+  };
+
+  const toggleAction = (id: string) => {
+    const updated = actionItems.map(a => 
+      a.id === id ? { ...a, status: a.status === "done" ? "pending" as const : "done" as const } : a
+    );
+    saveActionItems(updated);
+  };
+
+  const removeAction = (id: string) => {
+    saveActionItems(actionItems.filter(a => a.id !== id));
+  };
 
   const cardCls = isDark ? "bg-[#0f0f14] border-[#1a1810]" : "bg-white border-gray-200";
   const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
@@ -263,7 +342,7 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
 
       {/* Section Tabs */}
       <div className={`flex gap-1 px-4 py-2 ${isDark ? "bg-[#08080c]" : "bg-gray-50"}`}>
-        {([["overview", "📊 Overview"], ["campaigns", `🎯 Campaigns (${campaigns.length})`], ["daily", "📈 Daily"]] as [typeof section, string][]).map(([id, label]) => (
+        {([["overview", "📊 Overview"], ["campaigns", `🎯 Campaigns (${campaigns.length})`], ["daily", "📈 Daily"], ["actions", `⚡ Actions${actionItems.filter(a=>a.status!=="done").length ? ` (${actionItems.filter(a=>a.status!=="done").length})` : ""}`]] as [typeof section, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setSection(id)}
             className={`text-xs font-medium px-3 py-1.5 rounded-lg ${
               section === id
@@ -291,8 +370,27 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
                       const style = INSIGHT_STYLES[ins.type];
                       return (
                         <div key={i} className={`rounded-lg border px-3 py-2 ${isDark ? style.dark : style.light}`}>
-                          <div className={`text-sm font-medium ${textCls}`}>{ins.emoji} {ins.title}</div>
-                          <div className={`text-xs mt-0.5 ${subCls}`}>{ins.detail}</div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className={`text-sm font-medium ${textCls}`}>{ins.emoji} {ins.title}</div>
+                              <div className={`text-xs mt-0.5 ${subCls}`}>{ins.detail}</div>
+                            </div>
+                            {ins.actionPrompt && (
+                              <button
+                                onClick={() => executeInsight(ins)}
+                                disabled={executingInsight === ins.title}
+                                className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                                  executingInsight === ins.title
+                                    ? "bg-amber-500/20 text-amber-400 animate-pulse"
+                                    : isDark
+                                      ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                      : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                }`}
+                              >
+                                {executingInsight === ins.title ? "⏳ Working..." : "⚡ Execute"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -469,6 +567,61 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ACTIONS */}
+        {section === "actions" && (
+          <div className="space-y-4">
+            {actionItems.length === 0 ? (
+              <div className={`text-center py-12 ${subCls}`}>
+                <div className="text-3xl mb-2">⚡</div>
+                <p className="text-sm font-medium">No action items yet</p>
+                <p className="text-xs mt-1">Click "Execute" on any insight to generate action items, or ask the agent in the chat panel.</p>
+              </div>
+            ) : (
+              <>
+                {/* Pending Actions */}
+                {actionItems.filter(a => a.status !== "done").length > 0 && (
+                  <div className={`rounded-xl border p-4 ${cardCls}`}>
+                    <h3 className={`text-sm font-semibold mb-3 ${textCls}`}>📋 Pending Actions ({actionItems.filter(a => a.status !== "done").length})</h3>
+                    <div className="space-y-2">
+                      {actionItems.filter(a => a.status !== "done").map(item => (
+                        <div key={item.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isDark ? "border-[#1a1a22] bg-[#0a0a0e]" : "border-gray-100 bg-gray-50"}`}>
+                          <button onClick={() => toggleAction(item.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isDark ? "border-[#3a3a42] hover:border-emerald-500" : "border-gray-300 hover:border-emerald-500"}`}>
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm ${textCls}`}>{item.text}</div>
+                            <div className={`text-xs mt-1 ${subCls}`}>From: {item.source} • {new Date(item.createdAt).toLocaleDateString()}</div>
+                          </div>
+                          <button onClick={() => removeAction(item.id)} className={`shrink-0 text-xs ${subCls} hover:text-red-400`}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Completed Actions */}
+                {actionItems.filter(a => a.status === "done").length > 0 && (
+                  <div className={`rounded-xl border p-4 ${cardCls}`}>
+                    <h3 className={`text-sm font-semibold mb-3 ${subCls}`}>✅ Done ({actionItems.filter(a => a.status === "done").length})</h3>
+                    <div className="space-y-2">
+                      {actionItems.filter(a => a.status === "done").map(item => (
+                        <div key={item.id} className={`flex items-start gap-3 rounded-lg px-3 py-2 opacity-60`}>
+                          <button onClick={() => toggleAction(item.id)} className="mt-0.5 shrink-0 w-5 h-5 rounded border-2 border-emerald-500 bg-emerald-500/20 flex items-center justify-center">
+                            <span className="text-emerald-400 text-xs">✓</span>
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm line-through ${subCls}`}>{item.text}</div>
+                          </div>
+                          <button onClick={() => removeAction(item.id)} className={`shrink-0 text-xs ${subCls} hover:text-red-400`}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

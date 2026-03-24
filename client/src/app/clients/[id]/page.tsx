@@ -260,7 +260,24 @@ export default function ClientControlRoomPage() {
           </TabChatWrapper>
         )}
         {activeTab === "ads" && (
-          <TabChatWrapper clientId={id} tab="ads" agentId="founder-boss" agentLabel="Ads Agent" agentEmoji="🎯" placeholder="Ask about campaigns, performance, budget, creative..." emptyHint="I can analyze ad performance and suggest optimizations.">
+          <TabChatWrapper clientId={id} tab="ads" agentId="meta-traffic" agentLabel="Meta Ads Agent" agentEmoji="📊" placeholder="Ask about campaigns, performance, budget, creative..." emptyHint="I can analyze ad performance and suggest optimizations."
+            onAccept={(content: string) => {
+              // Parse agent response into action items and save to localStorage
+              const lines = content.split('\n').filter(l => l.trim().length > 10);
+              const items = lines.slice(0, 15).map((line, i) => ({
+                id: `${Date.now()}-${i}`,
+                text: line.replace(/^[-*•\d.)\s]+/, '').trim(),
+                status: "pending" as const,
+                source: "agent",
+                createdAt: new Date().toISOString(),
+              })).filter(item => item.text.length > 5);
+              if (items.length > 0) {
+                const existing = JSON.parse(localStorage.getItem(`ads-actions-${id}`) || '[]');
+                localStorage.setItem(`ads-actions-${id}`, JSON.stringify([...items, ...existing]));
+                // Force refresh by dispatching storage event
+                window.dispatchEvent(new Event('storage'));
+              }
+            }}>
             <ClientAdsLiveTab clientId={id} />
           </TabChatWrapper>
         )}
