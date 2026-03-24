@@ -268,14 +268,22 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
                     <span className="text-lg">{TYPE_EMOJI[idea.type] || "📝"}</span>
                     <div className="flex-1 min-w-0">
                       <div className={`text-sm font-medium ${textCls}`}>{idea.title}</div>
+                      {!expanded && idea.copy && (
+                        <div className={`text-xs mt-1 ${subCls}`}>{idea.copy.replace(/[#*_`]/g, '').slice(0, 120)}{idea.copy.length > 120 ? " →" : ""}</div>
+                      )}
                       <div className={`text-xs mt-0.5 ${subCls}`}>
                         {new Date(idea.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                         {idea.sentAt && ` · Sent ${new Date(idea.sentAt).toLocaleDateString()}`}
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? sc?.darkCls : sc?.lightCls}`}>
-                      {sc?.label || idea.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? sc?.darkCls : sc?.lightCls}`}>
+                        {sc?.label || idea.status}
+                      </span>
+                      <svg className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""} ${subCls}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
 
                   {/* Expanded Content */}
