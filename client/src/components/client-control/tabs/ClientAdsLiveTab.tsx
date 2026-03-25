@@ -325,6 +325,13 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
         <div className="flex items-center gap-2">
           <h2 className={`text-sm font-semibold ${textCls}`}>📊 Meta Ads — Live</h2>
           <span className={`text-xs ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>● Connected</span>
+          {data?.adAccountId && (
+            <a href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${data.adAccountId.replace('act_','')}`}
+              target="_blank" rel="noopener noreferrer"
+              className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
+              🔗 Open Ads Manager
+            </a>
+          )}
         </div>
         <div className="flex gap-1">
           {([["last_7d", "7D"], ["last_14d", "14D"], ["last_30d", "30D"], ["this_month", "MTD"]] as [DateRange, string][]).map(([val, label]) => (
