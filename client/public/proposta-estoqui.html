@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposta — Sistema de Gestão de Armazéns | 2FLY Digital</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #08080c;
+      color: #c4b8a8;
+      line-height: 1.7;
+    }
+    
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+    
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 1px solid #1a1a22;
+    }
+    .hero-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.1);
+      color: #10b981;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      letter-spacing: 0.5px;
+    }
+    .hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      color: #f5f0eb;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    .hero h1 span { color: #10b981; }
+    .hero p {
+      font-size: 18px;
+      color: #8a7e6d;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    /* Section */
+    .section {
+      padding: 60px 0;
+      border-bottom: 1px solid #1a1a22;
+    }
+    .section-number {
+      font-size: 13px;
+      font-weight: 700;
+      color: #10b981;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+    .section h2 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f5f0eb;
+      margin-bottom: 24px;
+    }
+    .section h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e8ddd0;
+      margin: 32px 0 12px;
+    }
+    .section p, .section li {
+      font-size: 15px;
+      color: #a89880;
+      margin-bottom: 8px;
+    }
+    .section ul { list-style: none; padding: 0; }
+    .section li {
+      padding: 8px 0 8px 28px;
+      position: relative;
+    }
+    .section li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: #10b981;
+      font-weight: 600;
+    }
+    
+    /* Problem Cards */
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .problem-card {
+      background: #0f0f14;
+      border: 1px solid #1a1a22;
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .problem-card .emoji { font-size: 28px; margin-bottom: 12px; }
+    .problem-card h4 { color: #f5f0eb; font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .problem-card p { font-size: 13px; color: #8a7e6d; margin: 0; }
+    
+    /* Feature Cards */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .feature-card {
+      background: #0f0f14;
+      border: 1px solid #1a1a22;
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.3s;
+    }
+    .feature-card:hover { border-color: #10b98133; }
+    .feature-card .icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(16, 185, 129, 0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; margin-bottom: 16px;
+    }
+    .feature-card h4 { color: #f5f0eb; font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: 13px; color: #8a7e6d; margin: 0; line-height: 1.6; }
+    
+    /* Timeline */
+    .timeline { margin-top: 32px; }
+    .timeline-item {
+      display: flex;
+      gap: 24px;
+      padding: 24px 0;
+      border-bottom: 1px solid #1a1a22;
+    }
+    .timeline-item:last-child { border: none; }
+    .timeline-week {
+      min-width: 80px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #10b981;
+      padding-top: 4px;
+    }
+    .timeline-content h4 { color: #f5f0eb; font-size: 15px; margin-bottom: 6px; }
+    .timeline-content p { font-size: 13px; color: #8a7e6d; margin: 0; }
+    
+    /* Pricing */
+    .pricing-card {
+      background: linear-gradient(135deg, #0f0f14, #111118);
+      border: 2px solid #10b981;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      margin-top: 32px;
+    }
+    .pricing-card .price {
+      font-size: 56px;
+      font-weight: 800;
+      color: #f5f0eb;
+      margin: 16px 0 8px;
+    }
+    .pricing-card .price span { font-size: 20px; color: #8a7e6d; font-weight: 400; }
+    .pricing-card .subtitle { color: #8a7e6d; font-size: 15px; margin-bottom: 32px; }
+    .payment-split {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 24px;
+    }
+    .payment-item {
+      text-align: center;
+    }
+    .payment-item .amount {
+      font-size: 24px;
+      font-weight: 700;
+      color: #10b981;
+    }
+    .payment-item .label {
+      font-size: 13px;
+      color: #8a7e6d;
+      margin-top: 4px;
+    }
+    
+    /* Includes */
+    .includes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .include-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #0f0f14;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #c4b8a8;
+    }
+    .include-item .check { color: #10b981; font-weight: 700; }
+    
+    /* Tech */
+    .tech-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .tech-tag {
+      padding: 8px 16px;
+      background: #0f0f14;
+      border: 1px solid #1a1a22;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #c4b8a8;
+      font-weight: 500;
+    }
+    
+    /* CTA */
+    .cta-section {
+      text-align: center;
+      padding: 80px 0;
+    }
+    .cta-section h2 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f5f0eb;
+      margin-bottom: 16px;
+    }
+    .cta-section p {
+      color: #8a7e6d;
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+    .cta-button {
+      display: inline-block;
+      padding: 16px 48px;
+      background: #10b981;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    .cta-button:hover { background: #059669; }
+    
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 40px 0;
+      border-top: 1px solid #1a1a22;
+      color: #5a5040;
+      font-size: 13px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 28px; }
+      .hero p { font-size: 15px; }
+      .section h2 { font-size: 22px; }
+      .pricing-card .price { font-size: 40px; }
+      .payment-split { flex-direction: column; gap: 16px; }
+      .timeline-item { flex-direction: column; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-badge">PROPOSTA COMERCIAL</div>
+      <h1>Sistema Inteligente de <span>Gestão de Armazéns</span> e Logística</h1>
+      <p>Controle total do inventário, rastreabilidade por lote e automação de processos — em uma plataforma centralizada.</p>
+    </div>
+    
+    <!-- Problema -->
+    <div class="section">
+      <div class="section-number">01 — DIAGNÓSTICO</div>
+      <h2>Os Problemas Que Identificamos</h2>
+      <p>A operação atual apresenta falhas críticas que comprometem a tomada de decisão e geram custos operacionais desnecessários.</p>
+      
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="emoji">🔴</div>
+          <h4>Dados Inconsistentes</h4>
+          <p>O dashboard atual não reflete a realidade. Dados são inseridos manualmente com atrasos, criando discrepâncias entre estoque físico e digital.</p>
+        </div>
+        <div class="problem-card">
+          <div class="emoji">📦</div>
+          <h4>Sem Visibilidade Multi-Armazém</h4>
+          <p>Curitiba, Santos e Navegantes/Itajaí operam como silos. Não existe uma visão unificada do estoque total em tempo real.</p>
+        </div>
+        <div class="problem-card">
+          <div class="emoji">🔄</div>
+          <h4>Rastreabilidade Inexistente</h4>
+          <p>Lotes e batchs não são rastreados entre armazéns. Quando o inventário se move, a informação se perde ou chega com atraso.</p>
+        </div>
+        <div class="problem-card">
+          <div class="emoji">📄</div>
+          <h4>Processos Manuais</h4>
+          <p>PDFs, planilhas e processos operacionais manuais consomem horas da equipe e são fontes constantes de erro humano.</p>
+        </div>
+        <div class="problem-card">
+          <div class="emoji">📊</div>
+          <h4>Métricas Incorretas</h4>
+          <p>O tempo médio de armazenagem e outros KPIs são calculados com dados imprecisos, comprometendo decisões estratégicas.</p>
+        </div>
+        <div class="problem-card">
+          <div class="emoji">⚠️</div>
+          <h4>Risco Operacional</h4>
+          <p>Sem automação, o volume de trabalho escala linearmente. Cada novo armazém ou produto multiplica o esforço manual.</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Solução -->
+    <div class="section">
+      <div class="section-number">02 — SOLUÇÃO</div>
+      <h2>O Que Vamos Construir</h2>
+      <p>Uma plataforma web centralizada que automatiza o controle de inventário, rastreia lotes em tempo real e elimina processos manuais.</p>
+      
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="icon">📊</div>
+          <h4>Dashboard em Tempo Real</h4>
+          <p>Visão unificada de todos os armazéns. Estoque por produto, por lote, por localização. KPIs corretos e atualizados automaticamente.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔍</div>
+          <h4>Rastreabilidade Completa</h4>
+          <p>Acompanhe cada lote da entrada até a saída. Histórico completo de movimentações, com operador, data e documento vinculado.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔄</div>
+          <h4>Movimentações Inteligentes</h4>
+          <p>Entrada, saída, transferência e ajuste — todos com confirmação em duas etapas. Elimina estoque fantasma e divergências.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🤖</div>
+          <h4>Processamento com IA/OCR</h4>
+          <p>Upload de notas fiscais, packing lists e BOLs. A IA extrai os dados automaticamente. O operador confirma e os dados entram no sistema.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🔔</div>
+          <h4>Alertas Automáticos</h4>
+          <p>Estoque baixo, transferências pendentes, validade próxima, divergências detectadas. Notificações por email e WhatsApp.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📈</div>
+          <h4>Relatórios e Analytics</h4>
+          <p>Tempo de armazenagem (correto), giro de estoque, volume de movimentações, relatórios de divergência. Exportação em PDF e Excel.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">👥</div>
+          <h4>Gestão de Usuários</h4>
+          <p>Controle de acesso por cargo: administrador, operador, visualizador. Cada ação registrada com usuário e timestamp.</p>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📱</div>
+          <h4>Acesso Mobile</h4>
+          <p>Interface responsiva para tablets e smartphones. Operadores no armazém podem confirmar recebimentos direto do celular.</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Automação -->
+    <div class="section">
+      <div class="section-number">03 — AUTOMAÇÃO</div>
+      <h2>Onde a IA Trabalha Por Você</h2>
+      
+      <h3>🤖 Automação com IA</h3>
+      <ul>
+        <li>Extração automática de dados de PDFs (notas fiscais, packing lists) — economia de 2-4 horas/dia</li>
+        <li>Matching inteligente de produtos — reconhece variações de nome, abreviações e erros de digitação</li>
+        <li>Detecção de anomalias — identifica movimentações fora do padrão histórico</li>
+        <li>Previsão de tempo de armazenagem baseada em dados históricos</li>
+      </ul>
+      
+      <h3>⚙️ Automação por Regras</h3>
+      <ul>
+        <li>Alertas de estoque mínimo e máximo (triggers automáticos)</li>
+        <li>Lembretes de confirmação de transferência (escalação por tempo)</li>
+        <li>Relatórios gerados automaticamente (diário/semanal)</li>
+        <li>Alertas de validade (comparação de datas)</li>
+      </ul>
+      
+      <h3>🛡️ Controle Humano (Nunca Automatizado)</h3>
+      <ul>
+        <li>Confirmação física de recebimento — pessoa precisa verificar a mercadoria</li>
+        <li>Aprovação de ajustes de inventário — requer assinatura de supervisor</li>
+        <li>Resolução de divergências — requer investigação humana</li>
+        <li>Reconciliação sistema vs físico — contagem precisa ser humana</li>
+      </ul>
+    </div>
+    
+    <!-- Timeline -->
+    <div class="section">
+      <div class="section-number">04 — CRONOGRAMA</div>
+      <h2>Entrega em 8 Semanas</h2>
+      <p>Desenvolvimento ágil com entregas parciais a cada 2 semanas. Você acompanha o progresso em tempo real.</p>
+      
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-week">Semana 1-2</div>
+          <div class="timeline-content">
+            <h4>Fundação e Estrutura</h4>
+            <p>Banco de dados, autenticação, gestão de armazéns e produtos. Dashboard básico com estoque em tempo real. Migração dos dados atuais.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-week">Semana 3-4</div>
+          <div class="timeline-content">
+            <h4>Movimentações e Rastreabilidade</h4>
+            <p>Entrada, saída, transferência com confirmação em duas etapas. Rastreabilidade por lote. Histórico completo. Alertas básicos.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-week">Semana 5-6</div>
+          <div class="timeline-content">
+            <h4>IA/OCR e Relatórios</h4>
+            <p>Processamento automático de documentos. Matching inteligente. Relatórios avançados. Exportação PDF/Excel. Notificações por email.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-week">Semana 7-8</div>
+          <div class="timeline-content">
+            <h4>Otimização e Lançamento</h4>
+            <p>Interface mobile, testes finais, treinamento da equipe, deploy em produção. Sistema 100% operacional.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Diagrams -->
+    <div class="section">
+      <div class="section-number">05 — ARQUITETURA TÉCNICA</div>
+      <h2>Visão Técnica do Sistema</h2>
+      <p>Diagramas detalhados da arquitetura, fluxo de dados e modelo de entidades do sistema.</p>
+      
+      <h3>Fluxo Geral do Sistema</h3>
+      <p>Da entrada de documentos até os painéis de visualização — todo o caminho dos dados.</p>
+      <img src="/proposta-imgs/01-fluxo-geral.png" alt="Fluxo Geral do Sistema" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+      
+      <h3>Input de Dados</h3>
+      <p>Múltiplas fontes de entrada: upload manual, Google Drive, integração com sistema atual e screenshots.</p>
+      <img src="/proposta-imgs/02-input-dados.png" alt="Input de Dados" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+      
+      <h3>AI Document Parser</h3>
+      <p>Motor de processamento inteligente: OCR → Entity Recognition → Extração de campos (SKU, Produto, Lote, Quantidade, Container, Lacre, Peso, Datas, Especificações) → Normalização → JSON final.</p>
+      <img src="/proposta-imgs/03-ai-document-parser.png" alt="AI Document Parser" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+      
+      <h3>Modelo de Dados Central</h3>
+      <p>Base Central de Dados com SKU, Lote, Warehouse e Status. Engine de Movimentação com regras FIFO, compatibilidade e disponibilidade.</p>
+      <img src="/proposta-imgs/04-modelo-dados.png" alt="Modelo de Dados" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+      
+      <h3>Engine de Regras de Negócio</h3>
+      <p>Motor de decisão alimentado por 5 regras: FIFO, compatibilidade lote×cliente, disponibilidade real, otimização logística/imposto e monitoramento de estoque parado.</p>
+      <img src="/proposta-imgs/06-engine-regras.png" alt="Engine de Regras" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+      
+      <h3>Rastreabilidade Completa</h3>
+      <p>Modelo UML: BaseCentral → Movimentação → AcaoRastreabilidade, com relações para Usuário, Lote, LocalOrigem e LocalDestino.</p>
+      <img src="/proposta-imgs/08-rastreabilidade.png" alt="Rastreabilidade" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+      
+      <h3>Mapa do Sistema</h3>
+      <p>Visão geral de todos os módulos: Gestão de Estoque, Logística, Comercial, Operacional, Financeiro, Qualidade e mais.</p>
+      <img src="/proposta-imgs/07-mind-map.png" alt="Mapa do Sistema" style="width:100%; border-radius:12px; border:1px solid #1a1a22; margin:16px 0 32px;">
+    </div>
+    
+    <!-- Tech -->
+    <div class="section">
+      <div class="section-number">06 — TECNOLOGIA</div>
+      <h2>Stack Moderno e Escalável</h2>
+      <p>Tecnologias comprovadas que garantem performance, segurança e facilidade de manutenção.</p>
+      
+      <div class="tech-grid">
+        <div class="tech-tag">Next.js</div>
+        <div class="tech-tag">Node.js</div>
+        <div class="tech-tag">PostgreSQL</div>
+        <div class="tech-tag">Prisma ORM</div>
+        <div class="tech-tag">TypeScript</div>
+        <div class="tech-tag">Tailwind CSS</div>
+        <div class="tech-tag">Google Vision API (OCR)</div>
+        <div class="tech-tag">WebSocket (Tempo Real)</div>
+        <div class="tech-tag">Railway (Hosting)</div>
+        <div class="tech-tag">Vercel (Frontend)</div>
+      </div>
+      
+      <p style="margin-top: 24px; font-size: 13px; color: #5a5040;">Custo de infraestrutura estimado: R$100-250/mês (escala conforme uso)</p>
+    </div>
+    
+    <!-- Pricing -->
+    <div class="section">
+      <div class="section-number">07 — INVESTIMENTO</div>
+      <h2>Investimento</h2>
+      
+      <div class="pricing-card">
+        <p style="color: #10b981; font-size: 14px; font-weight: 600;">PROJETO COMPLETO</p>
+        <div class="price">$20,000 <span>USD</span></div>
+        <div class="subtitle">Sistema completo entregue em 8 semanas</div>
+        
+        <div class="payment-split">
+          <div class="payment-item">
+            <div class="amount">$10,000</div>
+            <div class="label">50% para iniciar o projeto</div>
+          </div>
+          <div class="payment-item">
+            <div class="amount">$2,500/mês</div>
+            <div class="label">4 parcelas mensais após entrega</div>
+          </div>
+        </div>
+      </div>
+      
+      <h3>O Que Está Incluído</h3>
+      <div class="includes-grid">
+        <div class="include-item"><span class="check">✓</span> Dashboard em tempo real</div>
+        <div class="include-item"><span class="check">✓</span> Controle multi-armazém</div>
+        <div class="include-item"><span class="check">✓</span> Rastreabilidade por lote</div>
+        <div class="include-item"><span class="check">✓</span> Movimentações inteligentes</div>
+        <div class="include-item"><span class="check">✓</span> OCR/IA para documentos</div>
+        <div class="include-item"><span class="check">✓</span> Alertas automáticos</div>
+        <div class="include-item"><span class="check">✓</span> Relatórios e analytics</div>
+        <div class="include-item"><span class="check">✓</span> Gestão de usuários</div>
+        <div class="include-item"><span class="check">✓</span> Interface mobile</div>
+        <div class="include-item"><span class="check">✓</span> Treinamento da equipe</div>
+        <div class="include-item"><span class="check">✓</span> 3 meses de suporte pós-entrega</div>
+        <div class="include-item"><span class="check">✓</span> Deploy e infraestrutura</div>
+      </div>
+      
+      <h3 style="margin-top: 32px;">Manutenção Opcional (Pós-Projeto)</h3>
+      <p>Após o projeto, oferecemos manutenção contínua por $500-1,000/mês incluindo: correções, atualizações de segurança, pequenas melhorias e suporte técnico.</p>
+    </div>
+    
+    <!-- CTA -->
+    <div class="cta-section">
+      <h2>Pronto Para Transformar Sua Operação?</h2>
+      <p>Em 8 semanas, sua equipe terá controle total do inventário com dados confiáveis e processos automatizados.</p>
+      <a href="https://wa.me/17816062445?text=Olá!%20Tenho%20interesse%20na%20proposta%20do%20sistema%20de%20gestão%20de%20armazéns." class="cta-button">Vamos Começar →</a>
+      <p style="margin-top: 16px; font-size: 13px; color: #5a5040;">Proposta válida por 15 dias</p>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <p>2FLY Digital — Sistemas inteligentes que trabalham enquanto você dorme.</p>
+      <p style="margin-top: 8px;">© 2026 2FLY Digital. Todos os direitos reservados.</p>
+    </div>
+    
+  </div>
+</body>
+</html>
