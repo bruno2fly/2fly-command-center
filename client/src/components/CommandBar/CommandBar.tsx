@@ -158,6 +158,7 @@ export function CommandBar() {
         {/* CENTER ZONE: Main nav */}
         <nav className="flex items-center gap-1 flex-shrink-0 overflow-x-auto scrollbar-hide">
           {navLink("/dashboard", "Dashboard")}
+          {navLink("/actions", "⚡ Action Board")}
           {navLink("/clients", "Clients")}
           {navLink("/office", "🏢 AI Office")}
           {navLink("/content", "Content Calendar")}
