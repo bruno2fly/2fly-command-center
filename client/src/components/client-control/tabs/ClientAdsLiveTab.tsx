@@ -221,7 +221,13 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   const [section, setSection] = useState<"overview" | "campaigns" | "daily" | "actions">("overview");
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [executingInsight, setExecutingInsight] = useState<string | null>(null);
-  const [executedInsights, setExecutedInsights] = useState<Set<string>>(new Set());
+  const [executedInsights, setExecutedInsights] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`ads-executed-${clientId}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    }
+    return new Set();
+  });
   const [sendingToAgent, setSendingToAgent] = useState<string | null>(null);
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
 
@@ -320,8 +326,12 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
         saveActionItems([...newItems, ...actionItems]);
         setSection("actions");
       }
-      // Mark this insight as executed
-      setExecutedInsights(prev => new Set([...prev, insight.title]));
+      // Mark this insight as executed (persisted)
+      setExecutedInsights(prev => {
+        const next = new Set([...prev, insight.title]);
+        localStorage.setItem(`ads-executed-${clientId}`, JSON.stringify([...next]));
+        return next;
+      });
     } catch { /* */ }
     finally { setExecutingInsight(null); }
   };
@@ -405,9 +415,49 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
             {(() => {
               const insights = generateInsights(k, campaigns, daily);
               if (insights.length === 0) return null;
+              const allExecuted = insights.filter(i => i.actionPrompt).every(i => executedInsights.has(i.title));
+              const executedCount = insights.filter(i => executedInsights.has(i.title)).length;
+              const actionableCount = insights.filter(i => i.actionPrompt).length;
+              
+              if (allExecuted && actionableCount > 0) {
+                return (
+                  <div className={`rounded-xl border p-6 text-center ${cardCls}`}>
+                    <div className="text-3xl mb-2">✅</div>
+                    <h3 className={`text-sm font-semibold mb-1 ${textCls}`}>All Insights Handled</h3>
+                    <p className={`text-xs mb-4 ${subCls}`}>
+                      {executedCount} insight{executedCount !== 1 ? 's' : ''} executed • Next auto-analysis at 8:00 AM daily
+                    </p>
+                    <div className="flex gap-2 justify-center">
+                      <button onClick={() => {
+                        setExecutedInsights(new Set());
+                        localStorage.removeItem(`ads-executed-${clientId}`);
+                        saveActionItems([]);
+                      }} className={`text-xs font-medium px-4 py-2 rounded-lg ${isDark ? "bg-[#1a1a22] text-[#8a7e6d] hover:text-[#c4b8a8]" : "bg-gray-100 text-gray-500 hover:text-gray-700"}`}>
+                        🔄 Reset & Refresh Insights
+                      </button>
+                      <button onClick={() => {
+                        setExecutedInsights(new Set());
+                        localStorage.removeItem(`ads-executed-${clientId}`);
+                        fetchData();
+                      }} className={`text-xs font-medium px-4 py-2 rounded-lg ${isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"}`}>
+                        ⚡ Run New Analysis
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              
               return (
                 <div className={`rounded-xl border p-4 ${cardCls}`}>
-                  <h3 className={`text-sm font-semibold mb-3 ${textCls}`}>🧠 Insights & Alerts</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className={`text-sm font-semibold ${textCls}`}>🧠 Insights & Alerts {executedCount > 0 ? `(${executedCount}/${actionableCount} handled)` : ''}</h3>
+                    {executedCount > 0 && (
+                      <button onClick={() => {
+                        setExecutedInsights(new Set());
+                        localStorage.removeItem(`ads-executed-${clientId}`);
+                      }} className={`text-xs ${subCls} hover:text-[#c4b8a8]`}>🔄 Reset</button>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {insights.map((ins, i) => {
                       const style = INSIGHT_STYLES[ins.type];
