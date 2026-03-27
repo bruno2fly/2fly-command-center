@@ -306,10 +306,14 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
 
                       {/* Copy/Content */}
                       {idea.copy && (
-                        <div className={`rounded-lg p-3 text-sm mb-3 ${isDark ? "bg-[#08080c]" : "bg-gray-50"}`}>
-                          <div className={`prose prose-sm max-w-none ${isDark ? "prose-invert" : ""}`}>
+                        <div className={`rounded-lg p-3 text-sm mb-3 overflow-visible ${isDark ? "bg-[#08080c]" : "bg-gray-50"}`}>
+                          <div className={`prose prose-sm max-w-none break-words ${isDark ? "prose-invert" : ""}`} style={{ maxHeight: 'none', overflow: 'visible' }}>
                             <ReactMarkdown>{idea.copy}</ReactMarkdown>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(idea.copy || ''); alert('📋 Copied!'); }}
+                            className={`mt-2 text-xs font-medium px-3 py-1 rounded-lg ${isDark ? "bg-[#1a1a22] text-[#c4b8a8] hover:bg-[#222230]" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                          >📋 Copy All</button>
                         </div>
                       )}
 
