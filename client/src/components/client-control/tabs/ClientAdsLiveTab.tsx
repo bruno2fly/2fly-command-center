@@ -221,6 +221,7 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   const [section, setSection] = useState<"overview" | "campaigns" | "daily" | "actions">("overview");
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [executingInsight, setExecutingInsight] = useState<string | null>(null);
+  const [sendingToAgent, setSendingToAgent] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -624,17 +625,68 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
                   <div className={`rounded-xl border p-4 ${cardCls}`}>
                     <h3 className={`text-sm font-semibold mb-3 ${textCls}`}>📋 Pending Actions ({actionItems.filter(a => a.status !== "done").length})</h3>
                     <div className="space-y-2">
-                      {actionItems.filter(a => a.status !== "done").map(item => (
-                        <div key={item.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isDark ? "border-[#1a1a22] bg-[#0a0a0e]" : "border-gray-100 bg-gray-50"}`}>
-                          <button onClick={() => toggleAction(item.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isDark ? "border-[#3a3a42] hover:border-emerald-500" : "border-gray-300 hover:border-emerald-500"}`}>
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm ${textCls}`}>{item.text}</div>
-                            <div className={`text-xs mt-1 ${subCls}`}>From: {item.source} • {new Date(item.createdAt).toLocaleDateString()}</div>
+                      {actionItems.filter(a => a.status !== "done").map(item => {
+                        // Detect which agent should handle this
+                        const text = item.text.toLowerCase();
+                        const isContent = text.includes('content') || text.includes('creative') || text.includes('post') || text.includes('caption') || text.includes('reel') || text.includes('carousel') || text.includes('copy');
+                        const isAds = text.includes('campaign') || text.includes('budget') || text.includes('audience') || text.includes('targeting') || text.includes('bid') || text.includes('pixel');
+                        const agentId = isContent ? 'content-strategist' : isAds ? 'meta-traffic' : 'founder-boss';
+                        const agentLabel = isContent ? '🎨 Content AI' : isAds ? '📊 Ads AI' : '🤖 Boss AI';
+                        
+                        return (
+                          <div key={item.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isDark ? "border-[#1a1a22] bg-[#0a0a0e]" : "border-gray-100 bg-gray-50"}`}>
+                            <button onClick={() => toggleAction(item.id)} className={`mt-0.5 shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${isDark ? "border-[#3a3a42] hover:border-emerald-500" : "border-gray-300 hover:border-emerald-500"}`}>
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-sm ${textCls}`}>{item.text}</div>
+                              <div className={`text-xs mt-1 ${subCls}`}>From: {item.source} • {new Date(item.createdAt).toLocaleDateString()}</div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={async () => {
+                                  setSendingToAgent(item.id);
+                                  try {
+                                    const res = await fetch(`${API}/api/agents/chat`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        agent: agentId,
+                                        message: `Execute this task NOW for this client. Do the actual work — create the content, write the copy, build the strategy. Task: ${item.text}`,
+                                        clientId,
+                                      }),
+                                    });
+                                    const { jobId } = await res.json();
+                                    const poll = async (): Promise<string> => {
+                                      const r = await fetch(`${API}/api/agents/job/${jobId}`);
+                                      const d = await r.json();
+                                      if (d.status === "done") return d.response || "Done.";
+                                      if (d.status === "error") return `Error: ${d.error}`;
+                                      await new Promise(r => setTimeout(r, 1000));
+                                      return poll();
+                                    };
+                                    const result = await poll();
+                                    // Mark as done and add result
+                                    const updated = actionItems.map(a =>
+                                      a.id === item.id ? { ...a, status: "done" as const, text: `${a.text}\n\n📋 Result: ${result.slice(0, 300)}` } : a
+                                    );
+                                    saveActionItems(updated);
+                                  } catch { /* */ }
+                                  finally { setSendingToAgent(null); }
+                                }}
+                                disabled={sendingToAgent === item.id}
+                                className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                                  sendingToAgent === item.id
+                                    ? "bg-amber-500/20 text-amber-400 animate-pulse"
+                                    : isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                                }`}
+                              >
+                                {sendingToAgent === item.id ? "⏳ Working..." : `→ ${agentLabel}`}
+                              </button>
+                              <button onClick={() => removeAction(item.id)} className={`text-xs ${subCls} hover:text-red-400 px-1`}>✕</button>
+                            </div>
                           </div>
-                          <button onClick={() => removeAction(item.id)} className={`shrink-0 text-xs ${subCls} hover:text-red-400`}>✕</button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
