@@ -725,11 +725,13 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
                                   >📋 Copy</button>
                                   <button
                                     onClick={() => {
-                                      // Save to content ideas
-                                      const ideas = JSON.parse(localStorage.getItem(`content-ideas-${clientId}`) || '[]');
-                                      ideas.unshift({ id: `idea-${Date.now()}`, title: title, copy: result, type: 'post', status: 'idea', createdAt: new Date().toISOString(), notes: '' });
-                                      localStorage.setItem(`content-ideas-${clientId}`, JSON.stringify(ideas));
+                                      const key = `2fly-content-ideas-${clientId}`;
+                                      const newIdea = { id: `idea-${Date.now()}`, title: title, copy: result, type: 'post', status: 'idea', createdAt: new Date().toISOString(), notes: '', sentAt: null };
+                                      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+                                      existing.unshift(newIdea);
+                                      localStorage.setItem(key, JSON.stringify(existing));
                                       window.dispatchEvent(new Event('storage'));
+                                      alert('✅ Saved! Go to Content tab to see it.');
                                     }}
                                     className={`text-xs font-medium px-3 py-1.5 rounded-lg ${isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-100 text-purple-700 hover:bg-purple-200"}`}
                                   >📝 Save to Content</button>
