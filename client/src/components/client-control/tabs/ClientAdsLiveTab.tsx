@@ -221,6 +221,7 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   const [section, setSection] = useState<"overview" | "campaigns" | "daily" | "actions">("overview");
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [executingInsight, setExecutingInsight] = useState<string | null>(null);
+  const [executedInsights, setExecutedInsights] = useState<Set<string>>(new Set());
   const [sendingToAgent, setSendingToAgent] = useState<string | null>(null);
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
 
@@ -319,6 +320,8 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
         saveActionItems([...newItems, ...actionItems]);
         setSection("actions");
       }
+      // Mark this insight as executed
+      setExecutedInsights(prev => new Set([...prev, insight.title]));
     } catch { /* */ }
     finally { setExecutingInsight(null); }
   };
@@ -416,19 +419,27 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
                               <div className={`text-xs mt-0.5 ${subCls}`}>{ins.detail}</div>
                             </div>
                             {ins.actionPrompt && (
-                              <button
-                                onClick={() => executeInsight(ins)}
-                                disabled={executingInsight === ins.title}
-                                className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
-                                  executingInsight === ins.title
-                                    ? "bg-amber-500/20 text-amber-400 animate-pulse"
-                                    : isDark
-                                      ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                                      : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                                }`}
-                              >
-                                {executingInsight === ins.title ? "⏳ Working..." : "⚡ Execute"}
-                              </button>
+                              executedInsights.has(ins.title) ? (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>✅ Executed</span>
+                                  <button onClick={() => { const s = new Set(executedInsights); s.delete(ins.title); setExecutedInsights(s); }}
+                                    className={`text-xs px-1.5 py-1.5 rounded-lg ${isDark ? "text-[#5a5040] hover:text-red-400" : "text-gray-400 hover:text-red-500"}`}>✕</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => executeInsight(ins)}
+                                  disabled={executingInsight === ins.title}
+                                  className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                                    executingInsight === ins.title
+                                      ? "bg-amber-500/20 text-amber-400 animate-pulse"
+                                      : isDark
+                                        ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                        : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                  }`}
+                                >
+                                  {executingInsight === ins.title ? "⏳ Working..." : "⚡ Execute"}
+                                </button>
+                              )
                             )}
                           </div>
                         </div>
