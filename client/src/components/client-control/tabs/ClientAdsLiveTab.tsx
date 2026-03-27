@@ -255,33 +255,25 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
     try {
       // Build context-rich prompt with REAL metrics data
       const metricsContext = k ? `
-CURRENT REAL DATA FOR THIS CLIENT (last ${dateRange.replace('last_','').replace('this_','').replace('_',' ')}):
-- Total Spend: $${k.spend.toFixed(2)}
-- Impressions: ${k.impressions.toLocaleString()}
-- Clicks: ${k.clicks.toLocaleString()}
-- CTR: ${k.ctr.toFixed(2)}%
-- CPC: $${k.cpc.toFixed(2)}
-- Reach: ${k.reach.toLocaleString()}
-- Frequency: ${k.frequency.toFixed(2)}
-- Link Clicks: ${k.linkClicks}
-- Landing Page Views: ${k.landingPageViews}
-- Leads: ${k.leads}
-- Cost per Lead: $${k.costPerLead.toFixed(2)}
-Active Campaigns: ${campaigns.map(c => `${c.name} (${c.status}, $${(c.spend||0).toFixed(2)} spend, ${(c.ctr||0).toFixed(2)}% CTR)`).join('; ')}
-Daily trend (last 5 days): ${daily.slice(-5).map(d => `${d.date}: $${d.spend.toFixed(2)}`).join(', ')}` : '';
+CURRENT REAL DATA:
+- Spend: $${k.spend.toFixed(2)} | Impressions: ${k.impressions.toLocaleString()} | Clicks: ${k.clicks.toLocaleString()}
+- CTR: ${k.ctr.toFixed(2)}% | CPC: $${k.cpc.toFixed(2)} | Reach: ${k.reach.toLocaleString()} | Frequency: ${k.frequency.toFixed(2)}
+- Link Clicks: ${k.linkClicks} | Landing Page Views: ${k.landingPageViews} | Leads: ${k.leads}
+Campaigns: ${campaigns.map(c => `${c.name} (${c.status}, $${(c.spend||0).toFixed(2)}, ${(c.ctr||0).toFixed(2)}% CTR)`).join('; ')}` : '';
 
-      const fullPrompt = `You are analyzing Meta Ads for a real client. Here is the ACTUAL data:
+      const fullPrompt = `You are a Meta Ads agent that ACTS, not just advises. Here is the real data:
 
 ${metricsContext}
 
-ISSUE DETECTED: ${insight.title}
-DETAIL: ${insight.detail}
+ISSUE: ${insight.title} — ${insight.detail}
 
-${insight.actionPrompt}
+For each action, classify it as:
+- ✅ DONE: [what you did] — for things you can do right now (create ad copy, write recommendations, generate audience suggestions)
+- ⚠️ NEEDS HUMAN: [what needs to be done and why] — for things requiring platform access or human decision
 
-IMPORTANT: Give me exactly 3-5 SPECIFIC, ACTIONABLE recommendations based on the real numbers above. Each recommendation should be one clear sentence that I can act on TODAY. No generic advice. Reference the actual metrics.
+DO the work for everything you can. Write the actual ad copy. Create the actual audience targeting. Generate the actual content. Don't just tell me what to do — DO it and show me the result.
 
-Format each recommendation as a single line starting with a number.`;
+Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followed by the action and result. Max 5 actions.`;
 
       const res = await fetch(`${API}/api/agents/chat`, {
         method: "POST",
@@ -302,20 +294,24 @@ Format each recommendation as a single line starting with a number.`;
       
       const response = await poll();
       
-      // Parse response into clean action items — only numbered lines or bullet points
+      // Parse response — detect ✅ DONE vs ⚠️ NEEDS HUMAN
       const lines = response.split('\n')
         .map(l => l.trim())
-        .filter(l => /^[\d\.\-\*•]/.test(l) && l.length > 15)
+        .filter(l => l.length > 15 && (l.includes('DONE') || l.includes('NEEDS HUMAN') || l.includes('✅') || l.includes('⚠️') || /^[\d\.\-\*•]/.test(l)))
         .map(l => l.replace(/^[\d\.\-\*•\)\s]+/, '').trim())
-        .filter(l => l.length > 10 && !l.startsWith('[') && !l.includes('```'));
+        .filter(l => l.length > 10);
       
-      const newItems: ActionItem[] = lines.slice(0, 5).map((line, i) => ({
-        id: `${Date.now()}-${i}`,
-        text: line,
-        status: "pending" as const,
-        source: `${insight.title}`,
-        createdAt: new Date().toISOString(),
-      }));
+      const newItems: ActionItem[] = lines.slice(0, 5).map((line, i) => {
+        const isDone = line.includes('✅') || line.includes('DONE:');
+        const needsHuman = line.includes('⚠️') || line.includes('NEEDS HUMAN:');
+        return {
+          id: `${Date.now()}-${i}`,
+          text: line.replace(/^[✅⚠️]\s*/, '').replace(/^(DONE:|NEEDS HUMAN:)\s*/i, ''),
+          status: isDone ? "done" as const : "pending" as const,
+          source: `${isDone ? '✅ Agent handled' : needsHuman ? '⚠️ Needs you' : '📋'} — ${insight.title}`,
+          createdAt: new Date().toISOString(),
+        };
+      });
       
       if (newItems.length > 0) {
         saveActionItems([...newItems, ...actionItems]);
