@@ -14,6 +14,7 @@ import morningRoutes from "./routes/morning.js";
 import metaInsightsRoutes from "./routes/meta-insights.js";
 import mediaRoutes from "./routes/media.js";
 import googleAdsRoutes from "./routes/google-ads.js";
+import actionBoardRoutes from "./routes/action-board.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -46,6 +47,7 @@ app.use("/api/morning", morningRoutes);
 app.use("/api/meta-insights", metaInsightsRoutes);
 app.use("/api/media", mediaRoutes);
 app.use("/api/google-ads", googleAdsRoutes);
+app.use("/api/action-board", actionBoardRoutes);
 
 // Serve uploaded media files
 import path from 'path';
