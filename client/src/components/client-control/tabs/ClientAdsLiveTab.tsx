@@ -253,10 +253,40 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
     if (!insight.actionPrompt) return;
     setExecutingInsight(insight.title);
     try {
+      // Build context-rich prompt with REAL metrics data
+      const metricsContext = k ? `
+CURRENT REAL DATA FOR THIS CLIENT (last ${dateRange.replace('last_','').replace('this_','').replace('_',' ')}):
+- Total Spend: $${k.spend.toFixed(2)}
+- Impressions: ${k.impressions.toLocaleString()}
+- Clicks: ${k.clicks.toLocaleString()}
+- CTR: ${k.ctr.toFixed(2)}%
+- CPC: $${k.cpc.toFixed(2)}
+- Reach: ${k.reach.toLocaleString()}
+- Frequency: ${k.frequency.toFixed(2)}
+- Link Clicks: ${k.linkClicks}
+- Landing Page Views: ${k.landingPageViews}
+- Leads: ${k.leads}
+- Cost per Lead: $${k.costPerLead.toFixed(2)}
+Active Campaigns: ${campaigns.map(c => `${c.name} (${c.status}, $${(c.spend||0).toFixed(2)} spend, ${(c.ctr||0).toFixed(2)}% CTR)`).join('; ')}
+Daily trend (last 5 days): ${daily.slice(-5).map(d => `${d.date}: $${d.spend.toFixed(2)}`).join(', ')}` : '';
+
+      const fullPrompt = `You are analyzing Meta Ads for a real client. Here is the ACTUAL data:
+
+${metricsContext}
+
+ISSUE DETECTED: ${insight.title}
+DETAIL: ${insight.detail}
+
+${insight.actionPrompt}
+
+IMPORTANT: Give me exactly 3-5 SPECIFIC, ACTIONABLE recommendations based on the real numbers above. Each recommendation should be one clear sentence that I can act on TODAY. No generic advice. Reference the actual metrics.
+
+Format each recommendation as a single line starting with a number.`;
+
       const res = await fetch(`${API}/api/agents/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: "meta-traffic", message: insight.actionPrompt, clientId }),
+        body: JSON.stringify({ agent: "meta-traffic", message: fullPrompt, clientId }),
       });
       const { jobId } = await res.json();
       
@@ -272,15 +302,20 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
       
       const response = await poll();
       
-      // Parse response into action items
-      const lines = response.split('\n').filter(l => l.trim().length > 10);
-      const newItems: ActionItem[] = lines.slice(0, 10).map((line, i) => ({
+      // Parse response into clean action items — only numbered lines or bullet points
+      const lines = response.split('\n')
+        .map(l => l.trim())
+        .filter(l => /^[\d\.\-\*•]/.test(l) && l.length > 15)
+        .map(l => l.replace(/^[\d\.\-\*•\)\s]+/, '').trim())
+        .filter(l => l.length > 10 && !l.startsWith('[') && !l.includes('```'));
+      
+      const newItems: ActionItem[] = lines.slice(0, 5).map((line, i) => ({
         id: `${Date.now()}-${i}`,
-        text: line.replace(/^[-*•\d.)\s]+/, '').trim(),
+        text: line,
         status: "pending" as const,
-        source: `insight: ${insight.title}`,
+        source: `${insight.title}`,
         createdAt: new Date().toISOString(),
-      })).filter(item => item.text.length > 5);
+      }));
       
       if (newItems.length > 0) {
         saveActionItems([...newItems, ...actionItems]);

@@ -85,9 +85,9 @@ router.get('/', async (_req: Request, res: Response) => {
               type: 'action',
               category: 'ads',
               title: `Low CTR (${ctr.toFixed(2)}%)`,
-              detail: 'Creative refresh needed — test new headlines and images.',
+              detail: `$${spend.toFixed(0)} spent, ${clicks} clicks, ${ctr.toFixed(2)}% CTR. Creative refresh needed.`,
               canAutoExecute: true,
-              executePrompt: `Create 3 new ad creative variations for ${client.name}. Include headlines, descriptions, and visual direction.`,
+              executePrompt: `REAL DATA for ${client.name}: $${spend.toFixed(2)} spend, ${clicks} clicks, ${ctr.toFixed(2)}% CTR, CPC $${(spend/Math.max(clicks,1)).toFixed(2)}. CTR is below 1%. Create 3 new ad headline + description variations specifically for this client. Reference their business type and location. Give me copy I can paste directly into Meta Ads Manager.`,
             });
           }
           if (spend === 0) {
@@ -157,7 +157,7 @@ router.get('/', async (_req: Request, res: Response) => {
           title: 'No active strategy',
           detail: 'Create a strategy plan for this client.',
           canAutoExecute: true,
-          executePrompt: `Create a comprehensive marketing strategy for ${client.name}. Include diagnosis, goals, action plan, and campaign ideas.`,
+          executePrompt: `Create a marketing strategy for ${client.name} (retainer: $${client.monthlyRetainer || 0}/mo). Research their industry, identify 3 key opportunities, create a 30-day action plan with specific tasks, deadlines, and who does what. Be specific to their business — not generic.`,
         });
       } else {
         const strategyActions = JSON.parse(strategy.actions || '[]');
