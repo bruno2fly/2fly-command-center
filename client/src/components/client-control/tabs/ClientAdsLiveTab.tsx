@@ -668,7 +668,7 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
                                     const result = await poll();
                                     // Mark as done and add result
                                     const updated = actionItems.map(a =>
-                                      a.id === item.id ? { ...a, status: "done" as const, text: `${a.text}\n\n📋 Result: ${result.slice(0, 300)}` } : a
+                                      a.id === item.id ? { ...a, status: "done" as const, text: `${a.text}\n\n📋 Result: ${result}` } : a
                                     );
                                     saveActionItems(updated);
                                   } catch { /* */ }
