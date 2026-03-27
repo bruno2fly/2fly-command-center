@@ -222,6 +222,7 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [executingInsight, setExecutingInsight] = useState<string | null>(null);
   const [sendingToAgent, setSendingToAgent] = useState<string | null>(null);
+  const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -696,17 +697,48 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
                   <div className={`rounded-xl border p-4 ${cardCls}`}>
                     <h3 className={`text-sm font-semibold mb-3 ${subCls}`}>✅ Done ({actionItems.filter(a => a.status === "done").length})</h3>
                     <div className="space-y-2">
-                      {actionItems.filter(a => a.status === "done").map(item => (
-                        <div key={item.id} className={`flex items-start gap-3 rounded-lg px-3 py-2 opacity-60`}>
-                          <button onClick={() => toggleAction(item.id)} className="mt-0.5 shrink-0 w-5 h-5 rounded border-2 border-emerald-500 bg-emerald-500/20 flex items-center justify-center">
-                            <span className="text-emerald-400 text-xs">✓</span>
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm line-through ${subCls}`}>{item.text}</div>
+                      {actionItems.filter(a => a.status === "done").map(item => {
+                        const parts = item.text.split('\n\n📋 Result: ');
+                        const title = parts[0];
+                        const result = parts[1] || '';
+                        const expanded = expandedDone.has(item.id);
+                        return (
+                          <div key={item.id} className={`rounded-lg border ${isDark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50"}`}>
+                            <div className="flex items-start gap-3 px-3 py-2 cursor-pointer" onClick={() => { const s = new Set(expandedDone); expanded ? s.delete(item.id) : s.add(item.id); setExpandedDone(s); }}>
+                              <span className="text-emerald-400 mt-0.5">✅</span>
+                              <div className="flex-1 min-w-0">
+                                <div className={`text-sm font-medium ${textCls}`}>{title}</div>
+                                <div className={`text-xs mt-0.5 ${subCls}`}>{item.source}</div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {result && <span className={`text-xs ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>{expanded ? "▼" : "► View result"}</span>}
+                                <button onClick={(e) => { e.stopPropagation(); removeAction(item.id); }} className={`text-xs ${subCls} hover:text-red-400 px-1`}>✕</button>
+                              </div>
+                            </div>
+                            {expanded && result && (
+                              <div className={`px-3 pb-3 border-t ${isDark ? "border-emerald-500/10" : "border-emerald-200"}`}>
+                                <div className={`text-sm mt-2 whitespace-pre-wrap leading-relaxed ${isDark ? "text-[#a89880]" : "text-gray-600"}`}>{result}</div>
+                                <div className="flex gap-2 mt-3">
+                                  <button
+                                    onClick={() => { navigator.clipboard.writeText(result); }}
+                                    className={`text-xs font-medium px-3 py-1.5 rounded-lg ${isDark ? "bg-[#1a1a22] text-[#c4b8a8] hover:bg-[#222230]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                                  >📋 Copy</button>
+                                  <button
+                                    onClick={() => {
+                                      // Save to content ideas
+                                      const ideas = JSON.parse(localStorage.getItem(`content-ideas-${clientId}`) || '[]');
+                                      ideas.unshift({ id: `idea-${Date.now()}`, title: title, copy: result, type: 'post', status: 'idea', createdAt: new Date().toISOString(), notes: '' });
+                                      localStorage.setItem(`content-ideas-${clientId}`, JSON.stringify(ideas));
+                                      window.dispatchEvent(new Event('storage'));
+                                    }}
+                                    className={`text-xs font-medium px-3 py-1.5 rounded-lg ${isDark ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30" : "bg-purple-100 text-purple-700 hover:bg-purple-200"}`}
+                                  >📝 Save to Content</button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <button onClick={() => removeAction(item.id)} className={`shrink-0 text-xs ${subCls} hover:text-red-400`}>✕</button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
