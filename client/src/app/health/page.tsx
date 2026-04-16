@@ -60,41 +60,13 @@ export default function HealthPage() {
     ];
     setChecks(loading);
 
-    const results = await Promise.all([
-      runCheck("API Health", async () => {
-        const r = await fetch(`${API_BASE}/health`);
-        const d = await r.json();
-        if (!d.status || d.status !== "ok") throw new Error("Health check failed");
-        return `Server OK — uptime confirmed`;
-      }),
-      runCheck("CORS Check", async () => {
-        const r = await fetch(`${API_BASE}/health`, { mode: "cors" });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return "CORS headers valid from this origin";
-      }),
-      runCheck("Portal State API", async () => {
-        const r = await fetch(`${API_BASE}/api/agency/portal-state?clientId=test`, { credentials: "include" });
-        if (r.status === 401) return "Auth required (endpoint exists ✓)";
-        if (r.status === 404) throw new Error("Route not found — backend may need redeploy");
-        return `Responding with ${r.status}`;
-      }),
-      runCheck("Client List API", async () => {
-        const r = await fetch(`${API_BASE}/api/agency/clients`, { credentials: "include" });
-        if (r.status === 401) return "Auth required (endpoint exists ✓)";
-        if (r.status === 404) throw new Error("Route not found");
-        return `Responding with ${r.status}`;
-      }),
-      runCheck("Response Time", async () => {
-        const start = Date.now();
-        await fetch(`${API_BASE}/health`);
-        const ms = Date.now() - start;
-        if (ms > 3000) throw new Error(`Slow: ${ms}ms — server may be cold starting`);
-        if (ms > 1500) return `${ms}ms — slightly slow, watch for Railway cold starts`;
-        return `${ms}ms — fast ✓`;
-      }),
-    ]);
-
-    setChecks(results);
+    try {
+      const r = await fetch("/api/health-check", { cache: "no-store" });
+      const data = await r.json();
+      setChecks(data.checks);
+    } catch (e) {
+      setChecks(loading.map(c => ({ ...c, status: "error" as const, message: "Health check proxy failed" })));
+    }
     setLastChecked(new Date());
   }, []);
 
