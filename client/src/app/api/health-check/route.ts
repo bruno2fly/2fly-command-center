@@ -34,7 +34,7 @@ export async function GET() {
     checkEndpoint(`${API_BASE}/health`, "cors"),
     checkEndpoint(`${API_BASE}/api/agency/portal-state?clientId=test`, "portal"),
     checkEndpoint(`${API_BASE}/api/agency/clients`, "clients"),
-    checkEndpoint(`${API_BASE}/health`, "timing"),
+    checkEndpoint(`${API_BASE}/api/agency/clients`, "timing"),
   ]);
 
   // Override cors message to be more descriptive
