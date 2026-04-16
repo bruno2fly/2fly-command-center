@@ -162,7 +162,7 @@ export function CommandBar() {
           {navLink("/clients", "Clients")}
           {navLink("/office", "🏢 AI Office")}
           {navLink("/content", "Content Calendar")}
-          {/* WhatsApp removed */}
+          {navLink("/health", "🟢 Health")}
         </nav>
 
         {/* RIGHT ZONE: Briefings + Counters + Agents + User */}
