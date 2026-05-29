@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface GoogleAdsData {
   connected: boolean;
@@ -16,10 +16,31 @@ interface GoogleAdsData {
   message?: string;
 }
 
+interface Campaign {
+  id: string;
+  name: string;
+  status: string;
+  channelType: string;
+  budgetDailyUSD: string | null;
+  impressions: number;
+  clicks: number;
+  costUSD: string;
+  conversions: number;
+  ctr: string;
+}
+
+interface CampaignData {
+  campaigns: Campaign[];
+  customerId: string;
+  total: number;
+}
+
 export default function ClientGoogleAdsTab({ clientId }: { clientId: string }) {
   const { isDark } = useTheme();
   const [data, setData] = useState<GoogleAdsData | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -29,6 +50,20 @@ export default function ClientGoogleAdsTab({ clientId }: { clientId: string }) {
       const res = await fetch(`${API}/api/google-ads/${clientId}`);
       const d = await res.json();
       setData(d);
+      
+      // If connected, also fetch campaigns
+      if (d.connected) {
+        setCampaignsLoading(true);
+        try {
+          const campaignsRes = await fetch(`${API}/api/google-ads/${clientId}/campaigns`);
+          const campaignsData = await campaignsRes.json();
+          setCampaigns(campaignsData);
+        } catch {
+          setCampaigns(null);
+        } finally {
+          setCampaignsLoading(false);
+        }
+      }
     } catch {
       setData({ connected: false, message: "Failed to fetch" });
     } finally {
@@ -146,14 +181,29 @@ export default function ClientGoogleAdsTab({ clientId }: { clientId: string }) {
         </div>
       </div>
 
-      {/* KPI Cards — will show live data once API is connected */}
+      {/* Live KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Spend (30d)", value: "—", icon: "💰" },
-          { label: "Conversions", value: "—", icon: "🎯" },
-          { label: "CPA", value: "—", icon: "📊" },
-          { label: "ROAS", value: "—", icon: "📈" },
-        ].map((kpi) => (
+        {(() => {
+          if (!campaigns) {
+            return [
+              { label: "Spend (30d)", value: "—", icon: "💰" },
+              { label: "Conversions", value: "—", icon: "🎯" },
+              { label: "CPA", value: "—", icon: "📊" },
+              { label: "ROAS", value: "—", icon: "📈" },
+            ];
+          }
+          
+          const totalSpend = campaigns.campaigns.reduce((sum, c) => sum + parseFloat(c.costUSD), 0);
+          const totalConversions = campaigns.campaigns.reduce((sum, c) => sum + c.conversions, 0);
+          const cpa = totalConversions > 0 ? (totalSpend / totalConversions).toFixed(2) : "—";
+          
+          return [
+            { label: "Spend (30d)", value: `$${totalSpend.toFixed(2)}`, icon: "💰" },
+            { label: "Conversions", value: totalConversions.toString(), icon: "🎯" },
+            { label: "CPA", value: cpa === "—" ? "—" : `$${cpa}`, icon: "📊" },
+            { label: "Campaigns", value: campaigns.campaigns.length.toString(), icon: "📈" },
+          ];
+        })().map((kpi) => (
           <div key={kpi.label} className={card}>
             <p className={`text-xs ${textMuted}`}>{kpi.icon} {kpi.label}</p>
             <p className={`text-2xl font-bold mt-1 ${accent}`}>{kpi.value}</p>
@@ -161,15 +211,65 @@ export default function ClientGoogleAdsTab({ clientId }: { clientId: string }) {
         ))}
       </div>
 
-      {/* Campaigns section */}
+      {/* Live Campaigns section */}
       <div className={card}>
-        <h4 className={`font-medium mb-3 ${text}`}>📋 Campaigns</h4>
-        <div className={`text-sm ${textMuted} text-center py-8`}>
-          <p className="text-3xl mb-2">🔒</p>
-          <p>Google Ads API developer token pending approval.</p>
-          <p className="mt-1">Once approved, live campaign data will appear here automatically.</p>
-          <p className="mt-3 text-xs">In the meantime, use the <span className={accent}>Google Ads agent</span> in the chat panel to discuss strategy and get recommendations.</p>
-        </div>
+        <h4 className={`font-medium mb-3 ${text}`}>📋 Campaigns {campaigns && `(${campaigns.campaigns.length})`}</h4>
+        
+        {campaignsLoading ? (
+          <div className={`text-sm ${textMuted} text-center py-8`}>Loading campaigns...</div>
+        ) : !campaigns ? (
+          <div className={`text-sm ${textMuted} text-center py-8`}>No campaign data available</div>
+        ) : campaigns.campaigns.length === 0 ? (
+          <div className={`text-sm ${textMuted} text-center py-8`}>No campaigns found</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className={`border-b ${isDark ? 'border-[#1a1a22]' : 'border-gray-100'}`}>
+                  <th className={`text-left py-2 px-3 font-medium ${textMuted}`}>Campaign</th>
+                  <th className={`text-left py-2 px-3 font-medium ${textMuted}`}>Status</th>
+                  <th className={`text-right py-2 px-3 font-medium ${textMuted}`}>Budget/day</th>
+                  <th className={`text-right py-2 px-3 font-medium ${textMuted}`}>Spend (30d)</th>
+                  <th className={`text-right py-2 px-3 font-medium ${textMuted}`}>Clicks</th>
+                  <th className={`text-right py-2 px-3 font-medium ${textMuted}`}>Conversions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {campaigns.campaigns.map((campaign) => (
+                  <tr key={campaign.id} className={`border-b last:border-0 ${isDark ? 'border-[#1a1a22]' : 'border-gray-50'}`}>
+                    <td className={`py-2 px-3 ${text}`}>
+                      <div>
+                        <p className="font-medium">{campaign.name}</p>
+                        <p className={`text-xs ${textMuted}`}>{campaign.channelType}</p>
+                      </div>
+                    </td>
+                    <td className={`py-2 px-3`}>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        campaign.status === 'ENABLED' 
+                          ? 'bg-emerald-500/20 text-emerald-400' 
+                          : 'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {campaign.status}
+                      </span>
+                    </td>
+                    <td className={`py-2 px-3 text-right ${text}`}>
+                      {campaign.budgetDailyUSD ? `$${campaign.budgetDailyUSD}` : '—'}
+                    </td>
+                    <td className={`py-2 px-3 text-right ${text}`}>
+                      ${campaign.costUSD}
+                    </td>
+                    <td className={`py-2 px-3 text-right ${text}`}>
+                      {campaign.clicks.toLocaleString()}
+                    </td>
+                    <td className={`py-2 px-3 text-right ${text}`}>
+                      {campaign.conversions}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}

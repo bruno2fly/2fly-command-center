@@ -4,10 +4,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-export const CLIENT_TABS = ["overview", "tasks", "clientPlan", "ads", "googleAds", "reports", "content", "socialMedia", "strategy", "googleBusiness", "2flyflow"] as const;
+export const CLIENT_TABS = ["thisWeek", "overview", "tasks", "clientPlan", "ads", "googleAds", "reports", "content", "socialMedia", "strategy", "googleBusiness", "website", "2flyflow"] as const;
 export type ClientTabId = (typeof CLIENT_TABS)[number];
 
 const TAB_LABELS: Record<ClientTabId, string> = {
+  thisWeek: "⚡ This Week",
   overview: "Overview",
   tasks: "Tasks",
   clientPlan: "Client Plan",
@@ -18,6 +19,7 @@ const TAB_LABELS: Record<ClientTabId, string> = {
   socialMedia: "Social Media",
   strategy: "🎯 Strategy",
   googleBusiness: "Google Business",
+  website: "🌐 Website",
   "2flyflow": "2FlyFlow",
 };
 

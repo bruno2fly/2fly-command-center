@@ -11,6 +11,7 @@ import { ClientCommandHeader } from "@/components/mission-control";
 import { buildClientLanes } from "@/lib/clientLanes";
 import { getClientControlMeta } from "@/lib/client/mockClientControlData";
 import { ClientTabBar, CLIENT_TABS, type ClientTabId } from "@/components/client-control/ClientTabBar";
+import { ClientWeeklyTasksTab } from "@/components/client-control/tabs/ClientWeeklyTasksTab";
 import { ClientOverviewTab } from "@/components/client-control/tabs/ClientOverviewTab";
 import { ClientTasksTab } from "@/components/client-control/tabs/ClientTasksTab";
 // ClientTasksRequestsTab removed — using standalone Tasks page instead
@@ -22,6 +23,7 @@ import { SaasOverviewTab } from "@/components/client-control/tabs/SaasOverviewTa
 import { ClientSocialMediaTab } from "@/components/client-control/tabs/ClientSocialMediaTab";
 import { ClientFlowTab } from "@/components/client-control/tabs/ClientFlowTab";
 import { ClientGoogleBusinessTab } from "@/components/client-control/tabs/ClientGoogleBusinessTab";
+import { ClientWebsiteTab } from "@/components/client-control/tabs/ClientWebsiteTab";
 import { ClientStrategyTab } from "@/components/client-control/tabs/ClientStrategyTab";
 import ClientGoogleAdsTab from "@/components/client-control/tabs/ClientGoogleAdsTab";
 import { TabChatWrapper } from "@/components/client-control/tabs/TabChatWrapper";
@@ -226,6 +228,9 @@ export default function ClientControlRoomPage() {
 
       {/* Tab content – lazy render */}
       <div className={`flex-1 overflow-hidden flex flex-col min-h-0 ${isDark ? "bg-[#06060a]" : "bg-gray-50"}`}>
+        {activeTab === "thisWeek" && (
+          <ClientWeeklyTasksTab clientId={id} />
+        )}
         {activeTab === "overview" && (
           <TabChatWrapper clientId={id} tab="overview" agentId="founder-boss" agentLabel="Boss Agent" agentEmoji="🤖" placeholder="Ask about this client's health, strategy, priorities..." emptyHint="I know everything about this client. Ask me anything.">
             {client?.workspace === "saas" ? (
@@ -303,6 +308,11 @@ export default function ClientControlRoomPage() {
         {activeTab === "googleBusiness" && (
           <TabChatWrapper clientId={id} tab="googleBusiness" agentId="founder-boss" agentLabel="GBP Agent" agentEmoji="📍" placeholder="Ask about reviews, local SEO, Google Business..." emptyHint="I can help with reviews, posts, and local SEO strategy.">
             <ClientGoogleBusinessTab clientId={id} />
+          </TabChatWrapper>
+        )}
+        {activeTab === "website" && (
+          <TabChatWrapper clientId={id} tab="website" agentId="founder-boss" agentLabel="Website Agent" agentEmoji="🌐" placeholder="Ask about website performance, SEO, uptime..." emptyHint="I can analyze website health, PageSpeed scores, and SEO.">
+            <ClientWebsiteTab clientId={id} />
           </TabChatWrapper>
         )}
         {activeTab === "2flyflow" && (

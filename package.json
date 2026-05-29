@@ -23,7 +23,7 @@
     "clean:client": "rm -rf client/.next"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.2"
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

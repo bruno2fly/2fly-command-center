@@ -66,21 +66,33 @@ type Props = {
   onReject: (id: string) => void;
 };
 
+// Check if notes text looks like structured fields (from parseContentNotes)
+function isStructuredNotes(text: string): boolean {
+  return /^(Hook:|Format:|CTA:|Caption:|Goal:|Why:|Score:|Best\s*time:|Hashtag)/im.test(text);
+}
+
 export function ContentIdeaCard({ item, onApprove, onEdit, onReject }: Props) {
   const { isDark } = useTheme();
   const [rejectConfirm, setRejectConfirm] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const type = (item.contentType || item.type || "post").toLowerCase();
   const parsed = parseContentNotes(item.notes ?? undefined);
-  const hook = parsed.hook ?? (item.caption ?? "").slice(0, 80);
-  const caption = parsed.caption ?? item.caption ?? "";
+  const hook = parsed.hook || "";
+  const caption = parsed.caption || item.caption || (item.notes ?? "").slice(0, 300);
   const format = parsed.format ?? "—";
   const bestTime = parsed.bestTime ?? "—";
   const hashtags = parsed.hashtags ?? "—";
   const whyThisWorks = parsed.whyThisWorks ?? "";
   const score = parsed.score;
   const isAgent = (item.source || "manual").toLowerCase() === "agent";
+
+  // Show full notes when they exist, differ from caption, and aren't structured
+  const rawNotes = item.notes ?? "";
+  const showFullNotes = rawNotes.length > 0 && rawNotes !== caption && !isStructuredNotes(rawNotes);
+  const displayText = showFullNotes ? rawNotes : caption;
+  const needsTruncation = displayText.length > 200;
 
   const cardBg = isDark ? "bg-[rgba(30,41,59,0.5)] border-white/5 hover:border-white/10" : "bg-white border-gray-200 hover:border-gray-300";
   const textCls = isDark ? "text-[#e8e4dc]" : "text-gray-900";
@@ -120,10 +132,26 @@ export function ContentIdeaCard({ item, onApprove, onEdit, onReject }: Props) {
                     <span className={isDark ? "text-gray-400" : "text-gray-600"}>Hook:</span> {hook}
                   </p>
                 )}
-                {caption && (
-                  <p className={`text-sm ${mutedCls} mb-2`}>
-                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>Caption:</span> {caption}
-                  </p>
+                {displayText && (
+                  <div className={`text-sm ${mutedCls} mb-2`}>
+                    <span className={isDark ? "text-gray-400" : "text-gray-600"}>
+                      {showFullNotes ? "Notes:" : "Caption:"}
+                    </span>{" "}
+                    <span className="whitespace-pre-wrap break-words">
+                      {needsTruncation && !expanded
+                        ? displayText.slice(0, 200) + "…"
+                        : displayText}
+                    </span>
+                    {needsTruncation && (
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(!expanded)}
+                        className="ml-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        {expanded ? "Show less" : "Show more"}
+                      </button>
+                    )}
+                  </div>
                 )}
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                   <span>Format: {format}</span>

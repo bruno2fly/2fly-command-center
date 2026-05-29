@@ -81,7 +81,7 @@ type ClientsContextValue = {
 
 const ClientsContext = createContext<ClientsContextValue | null>(null);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function ClientsProvider({ children }: { children: ReactNode }) {
   const { workspace } = useWorkspace();
@@ -173,7 +173,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
       persist(next);
 
       // Also POST to API (fire-and-forget), use current workspace
-      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/agent-tools/clients`, {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/agent-tools/clients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: raw.name, workspace }),
@@ -185,7 +185,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   const deleteClient = useCallback(
     async (id: string) => {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/clients/${id}`, { method: "DELETE" });
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/clients/${id}`, { method: "DELETE" });
         persist(clients.filter((c) => c.id !== id));
       } catch (err) {
         console.error("Delete client failed:", err);

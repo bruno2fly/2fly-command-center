@@ -2,11 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "100mb",
+    },
+  },
   async rewrites() {
     return [
       {
-        source: "/api/whatsapp/:path*",
-        destination: "http://localhost:4000/api/whatsapp/:path*",
+        source: "/api/:path*",
+        destination: "http://localhost:4000/api/:path*",
+      },
+      {
+        source: "/uploads/:path*",
+        destination: "http://localhost:4000/uploads/:path*",
       },
     ];
   },

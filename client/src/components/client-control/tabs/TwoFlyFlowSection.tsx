@@ -39,7 +39,7 @@ type FlowMetrics = {
   };
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-blue-500",

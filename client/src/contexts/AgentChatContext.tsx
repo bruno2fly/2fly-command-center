@@ -76,7 +76,7 @@ export const AGENTS: AgentInfo[] = [
   { id: "meta-traffic", name: "Meta Traffic", description: "Daily ad performance check", emoji: "🎯" },
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ─── Context Value ───────────────────────────────────
 

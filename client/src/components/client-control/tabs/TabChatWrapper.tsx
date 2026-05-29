@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { InlineAgentChat } from "./InlineAgentChat";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 type TabChatConfig = {
   clientId: string;

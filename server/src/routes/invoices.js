@@ -1,5 +1,6 @@
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
+const { generateProfessionalInvoicePdf } = require("../lib/invoicePdf-professional.ts");
 const prisma = new PrismaClient();
 const router = express.Router();
 
@@ -213,6 +214,41 @@ router.get("/:id/html", async (req, res) => {
     res.setHeader("Content-Type", "text/html");
     res.send(html);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/invoices/:id/pdf — generate professional PDF
+router.get("/:id/pdf", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { client: true },
+    });
+
+    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+
+    const pdfData = {
+      invoiceNumber: invoice.invoiceNumber,
+      issuedDate: invoice.issuedDate.toISOString(),
+      dueDate: invoice.dueDate.toISOString(),
+      clientName: invoice.client.name,
+      clientEmail: invoice.client.contactEmail || '',
+      clientAddress: invoice.client.address || '',
+      items: [{ description: invoice.description, amount: invoice.amount }],
+      total: invoice.amount,
+      status: invoice.status,
+      notes: invoice.notes,
+    };
+
+    const pdfBuffer = await generateProfessionalInvoicePdf(pdfData);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Invoice-${invoice.invoiceNumber}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('PDF generation error:', err);
     res.status(500).json({ error: err.message });
   }
 });

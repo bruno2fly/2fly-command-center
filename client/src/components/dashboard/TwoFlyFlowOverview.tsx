@@ -13,7 +13,7 @@ type AgencyMetrics = {
   team: Record<string, number>;
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 export function TwoFlyFlowOverview() {
   const { isDark } = useTheme();

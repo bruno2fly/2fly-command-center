@@ -108,23 +108,62 @@ async function getAdsStatus(clientId) {
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client) return { status: "green", roas: 0, target: 0 };
 
+  // Check if client has an active Meta connection
+  const metaConn = await prisma.metaConnection.findFirst({
+    where: { clientId, status: "active" },
+  });
+
   // Get the most recent week's report
-  const latestReport = await prisma.adReport.findFirst({
+  let latestReport = await prisma.adReport.findFirst({
     where: { clientId },
     orderBy: { weekStart: "desc" },
   });
+
+  // If MetaConnection exists and report is stale (>2 days old or missing), trigger sync
+  if (metaConn) {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const isStale = !latestReport || new Date(latestReport.weekStart) < twoDaysAgo;
+
+    if (isStale) {
+      try {
+        const port = process.env.PORT || 4000;
+        await fetch(`http://localhost:${port}/api/meta-insights/sync-all`, {
+          method: "POST",
+          signal: AbortSignal.timeout(15000),
+        });
+        // Re-fetch report after sync
+        latestReport = await prisma.adReport.findFirst({
+          where: { clientId },
+          orderBy: { weekStart: "desc" },
+        });
+      } catch (err) {
+        console.warn(`[statusEngine] Meta sync skipped for ${clientId}: ${err.message}`);
+      }
+    }
+  }
 
   if (!latestReport) {
     return { status: "green", roas: 0, target: client.roasTarget, note: "No ad data yet" };
   }
 
-  // If ROAS is 0 but we have spend and leads, the client is active — don't mark red
-  // Use lead-based health: has leads = green, has spend but no leads = yellow, no data = green
+  // Real Meta data: spending >$100 with 0 leads = RED (actual problem)
+  if (metaConn && latestReport.spend > 100 && (!latestReport.conversions || latestReport.conversions === 0)) {
+    return {
+      status: "red",
+      roas: 0,
+      target: client.roasTarget,
+      spend: latestReport.spend,
+      leads: 0,
+      note: `Spending $${latestReport.spend.toFixed(0)} with 0 leads`,
+    };
+  }
+
+  // If ROAS is 0 but we have spend and conversions, the client is active — use lead-based health
   if (!latestReport.roas || latestReport.roas === 0) {
-    if (latestReport.spend > 0 && latestReport.leads > 0) {
-      return { status: "green", roas: 0, target: client.roasTarget, spend: latestReport.spend, leads: latestReport.leads, note: "Active with leads" };
+    if (latestReport.spend > 0 && latestReport.conversions > 0) {
+      return { status: "green", roas: 0, target: client.roasTarget, spend: latestReport.spend, leads: latestReport.conversions, note: "Active with leads" };
     }
-    if (latestReport.spend > 0 && (!latestReport.leads || latestReport.leads === 0)) {
+    if (latestReport.spend > 0 && (!latestReport.conversions || latestReport.conversions === 0)) {
       return { status: "yellow", roas: 0, target: client.roasTarget, spend: latestReport.spend, leads: 0, note: "Spending but no leads" };
     }
     return { status: "green", roas: 0, target: client.roasTarget, note: "No spend data" };

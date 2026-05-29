@@ -82,7 +82,7 @@ function ConnectMetaAdsEmptyState({
   const loadAdAccounts = async () => {
     setLoadingAccounts(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
       const res = await fetch(`${API}/api/agent-tools/meta/ad-accounts?clientId=${clientId}`);
       if (res.ok) {
         const data = await res.json();
@@ -104,7 +104,7 @@ function ConnectMetaAdsEmptyState({
     onConnecting?.(true);
     try {
       // Create MetaConnection first
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
       const createRes = await fetch(`${API}/api/agent-tools/meta/quick-connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

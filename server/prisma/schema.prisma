@@ -6,8 +6,9 @@
 // ============================================================
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -75,6 +76,7 @@ model Client {
   strategies         ClientStrategy[]
   agentChats         AgentChat[]
   media              ClientMedia[]
+  websiteConfig      WebsiteConfig?
 }
 
 // AI-generated content strategy (brand profile, pillars, hooks, etc.)
@@ -282,21 +284,24 @@ model AgentAction {
 }
 
 model Task {
-  id              String    @id @default(cuid())
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
-  title           String
-  description     String?
-  type            String    @default("task")  // "task", "content", "ads", "support"
-  status          String    @default("pending") // "pending", "in_progress", "completed", "cancelled"
-  priority        String    @default("normal") // "low", "normal", "high", "urgent"
-  assignedTo      String?
-  source          String    @default("manual") // "manual", "agent", "client_request"
-  directiveId     String?
-  dueDate         DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id])
+  title             String
+  description       String?
+  type              String    @default("task")  // "task", "content", "ads", "support", "strategy", "technical"
+  status            String    @default("pending") // "pending", "in_progress", "completed", "cancelled"
+  priority          String    @default("normal") // "low", "normal", "high", "urgent"
+  assignedTo        String?
+  source            String    @default("manual") // "manual", "agent", "client_request", "ai-weekly"
+  directiveId       String?
+  weekLabel         String?   // e.g. "Week of Apr 22"
+  canAgentExecute   Boolean   @default(false)
+  agentInstructions String?
+  dueDate           DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 // ─────────────────────────────────────────────────
@@ -558,4 +563,27 @@ model ClientMedia {
   createdAt DateTime @default(now())
 
   @@index([clientId])
+}
+
+// ─────────────────────────────────────────────────
+// MODULE: WEBSITE MONITORING & CONFIG
+// ─────────────────────────────────────────────────
+
+model WebsiteConfig {
+  id              String    @id @default(cuid())
+  clientId        String    @unique
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  url             String                      // https://cafestpetersburg.com
+  gitRepo         String?                     // github repo (owner/repo format)
+  gitBranch       String    @default("main")
+  hostingPlatform String?                     // vercel | netlify | cloudflare | other
+  analyticsId     String?                     // GA4 measurement ID (G-XXXXXX)
+  status          String    @default("active") // active | down | maintenance
+  lastCheckedAt   DateTime?
+  uptimePercent   Float?
+  pagespeedScore  Int?                        // 0-100
+  seoScore        Int?                        // 0-100
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

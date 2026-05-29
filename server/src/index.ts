@@ -13,8 +13,12 @@ import flowRoutes from "./routes/flow.js";
 import morningRoutes from "./routes/morning.js";
 import metaInsightsRoutes from "./routes/meta-insights.js";
 import mediaRoutes from "./routes/media.js";
+import geminiImageRoutes from "./routes/gemini-image.ts";
 import googleAdsRoutes from "./routes/google-ads.js";
 import actionBoardRoutes from "./routes/action-board.js";
+import websiteRoutes from "./routes/website.js";
+import offboundsPipelineRoutes from "./routes/offbounds-pipeline.js";
+import weeklyTasksRoutes from "./routes/weekly-tasks.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -40,18 +44,25 @@ app.use("/api/agent-actions", require("./routes/agent-actions"));
 app.use("/api/tasks", taskExecuteRoutes);
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/invoices", require("./routes/invoices"));
+app.use("/api/professional-invoices", require("./routes/professional-invoices"));
 app.use("/api/ai-updates", require("./routes/ai-updates"));
 app.use("/api/strategies", require("./routes/strategies"));
 app.use("/api/flow", flowRoutes);
 app.use("/api/morning", morningRoutes);
 app.use("/api/meta-insights", metaInsightsRoutes);
 app.use("/api/media", mediaRoutes);
+app.use("/api/gemini", geminiImageRoutes);
 app.use("/api/google-ads", googleAdsRoutes);
 app.use("/api/action-board", actionBoardRoutes);
+app.use("/api/website", websiteRoutes);
+app.use("/api/offbounds", offboundsPipelineRoutes);
+app.use("/api/weekly-tasks", weeklyTasksRoutes);
 
 // Serve uploaded media files
 import path from 'path';
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+// Serve public assets (logos, etc.)
+app.use(express.static(path.resolve(process.cwd(), 'public')));
 
 // Health check
 app.get("/api/health", (_req: unknown, res: { json: (arg: unknown) => void }) => {

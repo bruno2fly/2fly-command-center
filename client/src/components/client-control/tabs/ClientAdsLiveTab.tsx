@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface MetaKPIs {
   spend: number;
@@ -151,7 +151,7 @@ function generateInsights(k: MetaKPIs, campaigns: Campaign[], daily: DailyData[]
 
   // Zero conversions with spend
   if (k.spend > 100 && k.leads === 0 && k.purchases === 0) {
-    insights.push({ type: "info", emoji: "🎯", title: "No tracked conversions", detail: `$${k.spend.toFixed(2)} spent with no tracked conversions. Check if conversion pixel is installed and firing, or if this is a traffic/awareness campaign.` });
+    insights.push({ type: "alert", emoji: "🎯", title: "No tracked conversions", detail: `$${k.spend.toFixed(2)} spent with no tracked conversions. Check if conversion pixel is installed and firing, or if this is a traffic/awareness campaign.` });
   }
 
   // Campaign health
@@ -199,6 +199,19 @@ const INSIGHT_STYLES = {
   info: { dark: "border-blue-500/30 bg-blue-500/5", light: "border-blue-200 bg-blue-50" },
 };
 
+// ─── Boss Analysis Parser ──────────────────────────────────
+function parseBossAnalysis(text: string): { intro: string; actions: { title: string; bullets: string[] }[] } {
+  const parts = text.split(/### \d+\./);
+  const intro = parts[0].trim();
+  const actions = parts.slice(1).map(block => {
+    const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l);
+    const title = lines[0] || '';
+    const bullets = lines.slice(1).filter(l => /^[-•*]/.test(l));
+    return { title, bullets: bullets.map(b => b.replace(/^[-•*]\s*/, '')) };
+  }).filter(a => a.title);
+  return { intro, actions };
+}
+
 // Simple sparkline bar chart
 function MiniChart({ data, color }: { data: number[]; color: string }) {
   if (!data.length) return null;
@@ -231,6 +244,9 @@ export function ClientAdsLiveTab({ clientId }: { clientId: string }) {
   const [sendingToAgent, setSendingToAgent] = useState<string | null>(null);
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [insightsCleared, setInsightsCleared] = useState(false);
+  const [bossAnalysis, setBossAnalysis] = useState<string | null>(null);
+  const [bossAnalysisLoading, setBossAnalysisLoading] = useState(false);
+  const [bossActionStates, setBossActionStates] = useState<Record<number, { executeStatus: 'idle' | 'loading' | 'done' | 'manual'; taskStatus: 'idle' | 'loading' | 'added' }>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -348,6 +364,38 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
     saveActionItems(actionItems.filter(a => a.id !== id));
   };
 
+  const runBossAnalysis = async () => {
+    setBossAnalysisLoading(true);
+    setBossActionStates({});
+    const activeCampaigns = campaigns.filter(c => c.status === "ACTIVE");
+    const topCampaign = [...campaigns].sort((a, b) => (b.spend || 0) - (a.spend || 0))[0];
+    const prompt = `Analyze this client Meta Ads performance and give me specific action items:
+- Total spend (${dateRange.replace('_', ' ')}): $${k.spend.toFixed(2)}
+- Leads: ${k.leads} | Purchases: ${k.purchases}
+- CTR: ${k.ctr.toFixed(2)}% | CPC: $${k.cpc.toFixed(2)} | Reach: ${fmt(k.reach)}
+- Active campaigns: ${activeCampaigns.length}
+- Top campaign: ${topCampaign ? `${topCampaign.name} ($${(topCampaign.spend || 0).toFixed(2)})` : 'N/A'}
+Tell me: what is working, what is broken, and exactly what to do today.`;
+    try {
+      const res = await fetch(`${API}/api/agents/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt, agent: "meta-traffic", clientId, tab: "ads" }),
+      });
+      const { jobId } = await res.json();
+      const poll = async (): Promise<string> => {
+        const r = await fetch(`${API}/api/agents/job/${jobId}`);
+        const d = await r.json();
+        if (d.status === "done") return d.response || "No response.";
+        if (d.status === "error") return `Error: ${d.error}`;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return poll();
+      };
+      setBossAnalysis(await poll());
+    } catch { setBossAnalysis("Failed to get analysis. Please try again."); }
+    finally { setBossAnalysisLoading(false); }
+  };
+
   const cardCls = isDark ? "bg-[#0f0f14] border-[#1a1810]" : "bg-white border-gray-200";
   const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
   const subCls = isDark ? "text-[#8a7e6d]" : "text-gray-500";
@@ -446,7 +494,115 @@ Format: One line per action. Start with ✅ DONE: or ⚠️ NEEDS HUMAN: followe
                 <div className={`rounded-xl border p-4 ${cardCls}`}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={`text-sm font-semibold ${textCls}`}>🧠 Insights & Alerts {executedCount > 0 ? `(${executedCount}/${actionableCount} handled)` : ''}</h3>
+                    <button
+                      onClick={runBossAnalysis}
+                      disabled={bossAnalysisLoading}
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                        bossAnalysisLoading
+                          ? "bg-amber-500/20 text-amber-400 animate-pulse"
+                          : isDark
+                            ? "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30"
+                            : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                      }`}
+                    >
+                      {bossAnalysisLoading ? "⏳ Analyzing..." : "⚡ Analyze Now"}
+                    </button>
                   </div>
+                  {bossAnalysis && (() => {
+                    const { intro, actions } = parseBossAnalysis(bossAnalysis);
+                    return (
+                      <div className={`rounded-lg border mb-3 p-3 ${isDark ? "border-purple-500/30 bg-purple-500/5" : "border-purple-200 bg-purple-50"}`}>
+                        <div className={`text-xs font-semibold mb-1.5 ${isDark ? "text-purple-400" : "text-purple-700"}`}>🤖 AI Analysis</div>
+                        {intro && (
+                          <div className={`text-xs whitespace-pre-wrap leading-relaxed mb-3 ${isDark ? "text-[#c4b8a8]" : "text-gray-700"}`}>{intro}</div>
+                        )}
+                        {actions.length > 0 && (
+                          <div className="space-y-2">
+                            {actions.map((action, idx) => {
+                              const aState = bossActionStates[idx] || { executeStatus: 'idle' as const, taskStatus: 'idle' as const };
+                              const isBudgetAction = /budget|increase|scale|\$/i.test(action.title + ' ' + action.bullets.join(' '));
+                              const fullActionText = `${action.title}\n${action.bullets.map(b => `- ${b}`).join('\n')}`;
+                              return (
+                                <div key={idx} className={`rounded-lg border p-3 ${isDark ? "border-purple-500/20 bg-[#12101a]" : "border-purple-200 bg-purple-100/60"}`}>
+                                  <div className={`text-xs font-semibold mb-1.5 ${isDark ? "text-[#c4b8a8]" : "text-gray-800"}`}>{action.title}</div>
+                                  {action.bullets.length > 0 && (
+                                    <ul className={`text-xs space-y-0.5 mb-2.5 ${isDark ? "text-[#8a7e6d]" : "text-gray-600"}`}>
+                                      {action.bullets.map((b, bi) => (
+                                        <li key={bi} className="flex gap-1.5"><span className="shrink-0">•</span><span>{b}</span></li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  <div className="flex gap-2 flex-wrap">
+                                    {/* Execute button */}
+                                    {aState.executeStatus === 'done' ? (
+                                      <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>Done ✓</span>
+                                    ) : aState.executeStatus === 'manual' ? (
+                                      <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${isDark ? "bg-gray-500/20 text-gray-400" : "bg-gray-100 text-gray-500"}`}>Manual Required</span>
+                                    ) : (
+                                      <button
+                                        disabled={aState.executeStatus === 'loading'}
+                                        onClick={async () => {
+                                          if (!isBudgetAction) {
+                                            setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), executeStatus: 'manual' } }));
+                                            return;
+                                          }
+                                          if (!confirm(`Execute: ${action.title}? This will make changes to Meta Ads.`)) return;
+                                          setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), executeStatus: 'loading' } }));
+                                          try {
+                                            await fetch(`${API}/api/agents/chat`, {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ message: `Execute this action now via Meta API: ${fullActionText}`, agent: 'meta-traffic', clientId, tab: 'ads' }),
+                                            });
+                                            setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), executeStatus: 'done' } }));
+                                          } catch {
+                                            setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), executeStatus: 'idle' } }));
+                                          }
+                                        }}
+                                        className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                                          aState.executeStatus === 'loading'
+                                            ? "bg-amber-500/20 text-amber-400 animate-pulse"
+                                            : isDark ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                                        }`}
+                                      >
+                                        {aState.executeStatus === 'loading' ? "⏳ Working..." : "⚡ Execute"}
+                                      </button>
+                                    )}
+                                    {/* Add to Tasks button */}
+                                    <button
+                                      disabled={aState.taskStatus !== 'idle'}
+                                      onClick={async () => {
+                                        setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), taskStatus: 'loading' } }));
+                                        try {
+                                          await fetch(`${API}/api/tasks`, {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ title: action.title, description: action.bullets.join('\n'), clientId, priority: 'high', source: 'ai-analysis' }),
+                                          });
+                                          setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), taskStatus: 'added' } }));
+                                        } catch {
+                                          setBossActionStates(prev => ({ ...prev, [idx]: { ...(prev[idx] || { executeStatus: 'idle', taskStatus: 'idle' }), taskStatus: 'idle' } }));
+                                        }
+                                      }}
+                                      className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${
+                                        aState.taskStatus === 'added'
+                                          ? isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600"
+                                          : aState.taskStatus === 'loading'
+                                            ? "bg-blue-500/20 text-blue-400 animate-pulse"
+                                            : isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                      }`}
+                                    >
+                                      {aState.taskStatus === 'added' ? 'Added ✓' : aState.taskStatus === 'loading' ? '⏳ Adding...' : '📋 Add to Tasks'}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="space-y-2">
                     {insights.map((ins, i) => {
                       const style = INSIGHT_STYLES[ins.type];

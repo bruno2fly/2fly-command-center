@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface MorningData {
   greeting: string;
@@ -37,21 +37,21 @@ interface MorningData {
   team: Array<{ id: string; name: string; role: string }>;
 }
 
-const STATUS_EMOJI: Record<string, string> = {
-  assigned: "📝", in_progress: "🔨", review: "👀", changes_requested: "🔄",
-  copy_pending: "✏️", pending: "⏳", approved: "✅", ready_to_post: "🚀",
+const HEALTH_DOT: Record<string, string> = {
+  red: "bg-red-500", critical: "bg-red-500",
+  yellow: "bg-amber-400", warning: "bg-amber-400",
+  green: "bg-emerald-400", healthy: "bg-emerald-400",
 };
-const PRIORITY_EMOJI: Record<string, string> = { urgent: "🔴", high: "🟠", medium: "🟡", low: "🟢" };
-const HEALTH_EMOJI: Record<string, string> = { red: "🔴", critical: "🔴", yellow: "🟡", warning: "🟡", green: "🟢", healthy: "🟢" };
 
 const anim = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
-const stagger = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
+const stagger = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 
 export function MorningDashboard() {
   const { isDark } = useTheme();
   const router = useRouter();
   const [data, setData] = useState<MorningData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [brief, setBrief] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -61,18 +61,37 @@ export function MorningDashboard() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchBrief = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/briefs?type=morning&limit=1`);
+      if (!res.ok) throw new Error();
+      const json = await res.json();
+      const briefs = Array.isArray(json) ? json : json.briefs ?? [];
+      setBrief(briefs[0]?.content ?? briefs[0]?.text ?? null);
+    } catch {
+      try {
+        const res = await fetch(`${API}/api/dashboard/brief`);
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        setBrief(json.content ?? json.text ?? null);
+      } catch { /* no brief */ }
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); fetchBrief(); }, [fetchData, fetchBrief]);
 
   const bg = isDark ? "bg-[#08080c]" : "bg-gray-50";
   const cardCls = isDark ? "bg-[#0f0f14] border-[#1a1810]" : "bg-white border-gray-200";
   const textCls = isDark ? "text-[#c4b8a8]" : "text-gray-900";
   const subCls = isDark ? "text-[#8a7e6d]" : "text-gray-500";
-  const accentCls = isDark ? "text-emerald-400" : "text-emerald-600";
+  const dividerCls = isDark ? "border-[#1a1810]" : "border-gray-100";
 
   if (loading) return (
     <div className={`min-h-screen ${bg} p-6`}>
-      <div className="mx-auto max-w-5xl space-y-4">
-        {[1,2,3,4].map(i => <div key={i} className="animate-pulse rounded-xl border border-[#1a1810] bg-[#0d0d0f] h-24" />)}
+      <div className="mx-auto max-w-4xl space-y-4">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="animate-pulse rounded-xl border border-[#1a1810] bg-[#0d0d0f] h-24" />
+        ))}
       </div>
     </div>
   );
@@ -80,169 +99,103 @@ export function MorningDashboard() {
   if (!data) return <div className={`min-h-screen ${bg} p-6 text-center ${subCls}`}>Failed to load</div>;
 
   const s = data.stats;
-  const hasUrgent = s.redClients > 0 || s.pendingApprovals > 0 || s.openRequests > 0;
+  const totalMRR = data.clientHealth.reduce((sum, c) => sum + (c.monthlyRetainer || 0), 0);
 
   return (
     <div className={`min-h-screen ${bg} p-4 sm:p-6`}>
-      <motion.div variants={stagger} initial="hidden" animate="show" className="mx-auto max-w-5xl space-y-6">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="mx-auto max-w-4xl space-y-5">
 
         {/* Header */}
         <motion.div variants={anim} className={`rounded-2xl border p-6 ${cardCls}`}>
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between mb-5">
             <div>
-              <h1 className={`text-2xl font-bold ${textCls}`}>{data.greeting} {data.greeting.includes('morning') ? '☀️' : data.greeting.includes('afternoon') ? '🌤️' : data.greeting.includes('evening') ? '🌅' : data.greeting.includes('night') ? '🌙' : '🦉'}</h1>
+              <h1 className={`text-2xl font-bold ${textCls}`}>{data.greeting}, Bruno</h1>
               <p className={`text-sm mt-1 ${subCls}`}>{data.date}</p>
             </div>
-            <button onClick={() => { setLoading(true); fetchData(); }}
-              className={`text-xs px-3 py-1.5 rounded-lg ${isDark ? "bg-[#1a1810] text-[#8a7e6d] hover:text-[#c4b8a8]" : "bg-gray-100 text-gray-500"}`}>
-              🔄 Refresh
+            <button
+              onClick={() => { setLoading(true); fetchData(); fetchBrief(); }}
+              className={`text-xs px-3 py-1.5 rounded-lg ${isDark ? "bg-[#1a1810] text-[#8a7e6d] hover:text-[#c4b8a8]" : "bg-gray-100 text-gray-500 hover:text-gray-700"}`}
+            >
+              Refresh
             </button>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mt-5">
-            {[
-              { label: "Clients", value: s.activeClients, emoji: "👥" },
-              { label: "Pending Approvals", value: s.pendingApprovals, emoji: "⏳", alert: s.pendingApprovals > 0 },
-              { label: "Open Requests", value: s.openRequests, emoji: "📩", alert: s.openRequests > 0 },
-              { label: "In Production", value: s.activeTasks, emoji: "🎨" },
-              { label: "Scheduled", value: s.scheduledPosts, emoji: "📅" },
-              { label: "AI Updates", value: s.unreadUpdates, emoji: "🤖", alert: s.unreadUpdates > 0 },
-            ].map(k => (
-              <div key={k.label} className={`rounded-xl border px-3 py-2.5 ${cardCls} ${k.alert ? isDark ? "ring-1 ring-amber-500/30" : "ring-1 ring-amber-300" : ""}`}>
-                <div className={`text-lg font-bold ${k.alert ? isDark ? "text-amber-400" : "text-amber-600" : textCls}`}>{k.emoji} {k.value}</div>
-                <div className={`text-xs ${subCls}`}>{k.label}</div>
+          {/* Quick Stats — 3 numbers only */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className={`rounded-xl border px-4 py-3 ${isDark ? "bg-[#0d0d0f] border-red-500/20" : "bg-red-50 border-red-200"}`}>
+              <div className={`text-2xl font-bold ${s.redClients > 0 ? isDark ? "text-red-400" : "text-red-600" : textCls}`}>
+                {s.redClients}
               </div>
-            ))}
+              <div className={`text-xs mt-0.5 ${subCls}`}>Critical Clients</div>
+            </div>
+            <div className={`rounded-xl border px-4 py-3 ${isDark ? "bg-[#0d0d0f] border-[#1a1810]" : "bg-gray-50 border-gray-200"} ${s.pendingApprovals > 0 ? isDark ? "ring-1 ring-amber-500/30" : "ring-1 ring-amber-200" : ""}`}>
+              <div className={`text-2xl font-bold ${s.pendingApprovals > 0 ? isDark ? "text-amber-400" : "text-amber-600" : textCls}`}>
+                {s.pendingApprovals}
+              </div>
+              <div className={`text-xs mt-0.5 ${subCls}`}>Pending Approvals</div>
+            </div>
+            <div className={`rounded-xl border px-4 py-3 ${isDark ? "bg-[#0d0d0f] border-[#1a1810]" : "bg-gray-50 border-gray-200"}`}>
+              <div className={`text-2xl font-bold ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                ${totalMRR.toLocaleString()}
+              </div>
+              <div className={`text-xs mt-0.5 ${subCls}`}>Total MRR</div>
+            </div>
           </div>
         </motion.div>
 
-        {/* 🔴 Red Clients */}
+        {/* Critical Clients — RED only */}
         {data.redClients.length > 0 && (
-          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls} ring-1 ${isDark ? "ring-red-500/30" : "ring-red-300"}`}>
-            <h2 className={`text-sm font-semibold mb-3 ${isDark ? "text-red-400" : "text-red-600"}`}>🔴 Critical — {data.redClients.length} Client{data.redClients.length > 1 ? "s" : ""}</h2>
-            <div className="space-y-2">
+          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls} ring-1 ${isDark ? "ring-red-500/25" : "ring-red-200"}`}>
+            <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${isDark ? "text-red-400" : "text-red-600"}`}>
+              Critical — {data.redClients.length} client{data.redClients.length > 1 ? "s" : ""}
+            </h2>
+            <div className="space-y-1">
               {data.redClients.map(c => (
-                <div key={c.id} onClick={() => router.push(`/clients/${c.id}`)}
-                  className={`flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}>
-                  <span className={`text-sm font-medium ${textCls}`}>{c.name}</span>
-                  <span className={`text-xs ${isDark ? "text-red-400" : "text-red-600"}`}>{c.healthStatus}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* ⏳ Pending Approvals */}
-        {data.pendingApprovals.length > 0 && (
-          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
-            <h2 className={`text-sm font-semibold mb-3 ${textCls}`}>⏳ Pending Approvals ({data.pendingApprovals.length})</h2>
-            <div className="space-y-2">
-              {data.pendingApprovals.map(a => (
-                <div key={a.id} onClick={() => router.push(`/clients/${a.clientId}`)}
-                  className={`flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}>
-                  {a.media?.[0] && <img src={a.media[0]} alt="" className="w-10 h-10 rounded object-cover" />}
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-medium truncate ${textCls}`}>{a.title}</div>
-                    <div className={`text-xs ${subCls}`}>{a.clientName} · {a.status.replace(/_/g, ' ')}</div>
+                <div
+                  key={c.id}
+                  onClick={() => router.push(`/clients/${c.id}`)}
+                  className={`flex items-center justify-between py-2.5 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-red-50"}`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                    <span className={`text-sm font-medium ${textCls}`}>{c.name}</span>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-amber-500/20 text-amber-400" : "bg-amber-100 text-amber-700"}`}>
-                    {STATUS_EMOJI[a.status] || "⏳"} {a.status.replace(/_/g, ' ')}
-                  </span>
+                  <span className={`text-xs ${isDark ? "text-red-400/70" : "text-red-500"}`}>{c.healthStatus}</span>
                 </div>
               ))}
             </div>
           </motion.div>
         )}
 
-        {/* 📩 Open Client Requests */}
-        {data.openRequests.length > 0 && (
-          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
-            <h2 className={`text-sm font-semibold mb-3 ${textCls}`}>📩 Open Requests ({data.openRequests.length})</h2>
-            <div className="space-y-2">
-              {data.openRequests.map((r, i) => (
-                <div key={i} onClick={() => router.push(`/clients/${r.clientId}`)}
-                  className={`py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}>
-                  <div className={`text-sm ${textCls}`}><span className="font-medium">{r.clientName}</span> — {r.type}</div>
-                  <div className={`text-xs mt-0.5 ${subCls}`}>{r.details} · By {r.by}</div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* 🎨 Production Pipeline */}
-        {data.productionPipeline.length > 0 && (
-          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
-            <h2 className={`text-sm font-semibold mb-3 ${textCls}`}>🎨 Production Pipeline ({data.productionPipeline.length})</h2>
-            <div className="space-y-2">
-              {data.productionPipeline.map((t, i) => (
-                <div key={i} onClick={() => router.push(`/clients/${t.clientId}`)}
-                  className={`flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}>
-                  <span>{PRIORITY_EMOJI[t.priority] || "⚪"}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-medium truncate ${textCls}`}>{t.title}</div>
-                    <div className={`text-xs ${subCls}`}>{t.clientName} · {t.designerId} · Due {t.deadline ? new Date(t.deadline).toLocaleDateString() : '—'}</div>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-[#1a1810] text-[#8a7e6d]" : "bg-gray-100 text-gray-600"}`}>
-                    {STATUS_EMOJI[t.status] || "⚪"} {t.status.replace(/_/g, ' ')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* 🤖 AI Updates */}
-        {data.aiUpdates.length > 0 && (
-          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className={`text-sm font-semibold ${textCls}`}>🤖 Unread AI Updates ({data.aiUpdates.length})</h2>
-              <button onClick={() => router.push('/ai-updates')}
-                className={`text-xs ${accentCls} hover:underline`}>View all →</button>
-            </div>
-            <div className="space-y-2">
-              {data.aiUpdates.slice(0, 5).map(u => (
-                <div key={u.id} onClick={() => router.push('/ai-updates')}
-                  className={`py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}>
-                  <div className={`text-sm ${textCls}`}>{u.title}</div>
-                  <div className={`text-xs ${subCls}`}>{u.source} · {new Date(u.createdAt).toLocaleDateString()}</div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* 🟡 Yellow Clients */}
-        {data.yellowClients.length > 0 && (
-          <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
-            <h2 className={`text-sm font-semibold mb-3 ${isDark ? "text-amber-400" : "text-amber-600"}`}>🟡 Needs Attention — {data.yellowClients.length} Client{data.yellowClients.length > 1 ? "s" : ""}</h2>
-            <div className="flex flex-wrap gap-2">
-              {data.yellowClients.map(c => (
-                <button key={c.id} onClick={() => router.push(`/clients/${c.id}`)}
-                  className={`text-xs px-3 py-1.5 rounded-lg ${isDark ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20" : "bg-amber-50 text-amber-700 hover:bg-amber-100"}`}>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* 👥 All Clients Health */}
+        {/* Boss Daily Brief */}
         <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
-          <h2 className={`text-sm font-semibold mb-3 ${textCls}`}>👥 Client Health ({data.clientHealth.length})</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {data.clientHealth.map(c => (
-              <div key={c.id} onClick={() => router.push(`/clients/${c.id}`)}
-                className={`flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}>
-                <div className="flex items-center gap-2">
-                  <span>{HEALTH_EMOJI[c.healthStatus] || "⚪"}</span>
+          <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subCls}`}>Daily Brief</h2>
+          {brief ? (
+            <p className={`text-sm leading-relaxed ${textCls}`}>{brief}</p>
+          ) : (
+            <p className={`text-sm ${subCls}`}>Brief will appear here after 9am.</p>
+          )}
+        </motion.div>
+
+        {/* Client Health Grid */}
+        <motion.div variants={anim} className={`rounded-2xl border p-5 ${cardCls}`}>
+          <h2 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${subCls}`}>
+            Client Health — {data.clientHealth.length} clients
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
+            {data.clientHealth.map((c, i) => (
+              <div
+                key={c.id}
+                onClick={() => router.push(`/clients/${c.id}`)}
+                className={`flex items-center justify-between py-2 px-3 rounded-lg cursor-pointer ${isDark ? "hover:bg-[#1a1810]" : "hover:bg-gray-50"}`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${HEALTH_DOT[c.healthStatus] ?? "bg-gray-400"}`} />
                   <span className={`text-sm ${textCls}`}>{c.name}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {c.flowConnected && <span className={`text-xs ${accentCls}`}>🔄</span>}
-                  <span className={`text-xs ${subCls}`}>${c.monthlyRetainer}/mo</span>
-                </div>
+                <span className={`text-xs tabular-nums ${subCls}`}>
+                  ${c.monthlyRetainer?.toLocaleString() ?? 0}/mo
+                </span>
               </div>
             ))}
           </div>

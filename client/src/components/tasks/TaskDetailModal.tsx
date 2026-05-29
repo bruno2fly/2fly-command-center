@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { generateTaskPrompt } from "@/lib/generateTaskPrompt";
 import { getSourceBadge } from "./sourceBadges";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 export type ExecuteResult = {
   success: boolean;

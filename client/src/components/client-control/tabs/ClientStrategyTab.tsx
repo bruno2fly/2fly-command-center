@@ -5,7 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import ReactMarkdown from "react-markdown";
 import { InlineAgentChat } from "./InlineAgentChat";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 type Diagnosis = { issue: string; severity: "critical" | "high" | "medium" | "low"; detail: string };
 type Goal = { goal: string; metric: string; target: string };

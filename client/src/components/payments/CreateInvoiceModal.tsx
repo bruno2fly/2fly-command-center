@@ -5,7 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 const INVOICE_TYPES = ["retainer", "ad_spend", "project", "one_time"] as const;
 const STATUS_OPTIONS = ["draft", "sent"] as const;

@@ -40,7 +40,7 @@ function daysUntil(dateStr: string): number {
 export async function fetchClientUrgencySignal(
   clientId: string,
 ): Promise<ClientUrgencySignal | null> {
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  const API = process.env.NEXT_PUBLIC_API_URL || "";
   try {
     // Fetch requests + invoices for this client in parallel
     const [reqRes, invRes] = await Promise.all([

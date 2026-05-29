@@ -59,9 +59,22 @@ router.post('/:clientId', upload.array('files', 20), async (req: Request, res: R
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
 
-    const category = (req.body.category as string) || 'photo';
     const tags = (req.body.tags as string) || '';
     const notes = (req.body.notes as string) || '';
+
+    // Auto-categorize by filename if no category provided
+    function autoCategory(filename: string, mimetype: string): string {
+      if (mimetype.startsWith('video')) return 'video';
+      const f = filename.toLowerCase();
+      if (f.includes('event') || f.includes('poster') || f.includes('promo') || f.includes('banquet') || f.includes('flyer') || f.includes('banner')) return 'events';
+      if (f.includes('cake') || f.includes('dessert') || f.includes('medovik') || f.includes('pastry') || f.includes('sweet')) return 'desserts';
+      if (f.includes('soup') || f.includes('borscht')) return 'soups';
+      if (f.includes('salad') || f.includes('caesar') || f.includes('burrata') || f.includes('olivier') || f.includes('herring')) return 'salads';
+      if (f.includes('interior') || f.includes('ambient') || f.includes('atmosphere') || f.includes('room') || f.includes('bar') || f.includes('hero') || f.includes('outside') || f.includes('facade')) return 'ambient';
+      if (f.includes('owner') || f.includes('staff') || f.includes('team') || f.includes('chef')) return 'owner';
+      if (f.includes('food') || f.includes('dish') || f.includes('menu') || f.includes('beef') || f.includes('chicken') || f.includes('meat') || f.includes('fish') || f.includes('blini') || f.includes('vareniki') || f.includes('pate') || f.includes('cutlet') || f.includes('stroganoff') || f.includes('kiev') || f.includes('caviar')) return 'food';
+      return (req.body.category as string) || 'photo';
+    }
 
     const created = await Promise.all(
       files.map(f =>
@@ -72,7 +85,7 @@ router.post('/:clientId', upload.array('files', 20), async (req: Request, res: R
             mimeType: f.mimetype,
             size: f.size,
             url: `/uploads/${req.params.clientId}/${f.filename}`,
-            category: f.mimetype.startsWith('video') ? 'video' : category,
+            category: autoCategory(f.originalname, f.mimetype),
             tags,
             notes,
           },

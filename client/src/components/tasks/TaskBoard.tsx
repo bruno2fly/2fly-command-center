@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { api, type ApiTask } from "@/lib/api";
 import { generateTaskPrompt } from "@/lib/generateTaskPrompt";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 import { TaskCard } from "./TaskCard";
 import { TaskFilters, type TaskFilterCounts } from "./TaskFilters";
 

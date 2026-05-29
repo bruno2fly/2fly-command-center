@@ -286,7 +286,30 @@ Start with the clients that have the most urgent needs (RED or YELLOW health sta
     }
   });
 
-  // ─── 7. Daily Ads Intelligence Report — every day at 8 AM ────
+  // ─── 7. Meta AdReport sync — daily at 7:50 AM ───────────────
+  // Syncs last-7d Meta insights into AdReport so health engine has fresh data.
+  cron.schedule("50 7 * * *", async () => {
+    console.log("[CRON] Syncing Meta insights → AdReport...");
+    try {
+      const port = process.env.PORT || 4000;
+      const res = await fetch(`http://localhost:${port}/api/meta-insights/sync-all`, {
+        method: "POST",
+        signal: AbortSignal.timeout(60000),
+      });
+      const data = await res.json();
+      console.log(`[CRON] Meta AdReport sync: ${data.synced}/${data.total} clients synced`);
+      if (data.results) {
+        data.results.forEach((r) => {
+          if (r.error) console.warn(`  ✗ ${r.name}: ${r.error}`);
+          else console.log(`  ✓ ${r.name}: $${r.spend?.toFixed(0)} spend, ${r.leads} leads`);
+        });
+      }
+    } catch (err) {
+      console.error("[CRON] Meta AdReport sync failed:", err.message);
+    }
+  });
+
+  // ─── 8. Daily Ads Intelligence Report — every day at 8 AM ────
   // Generates performance summary for all Meta-connected clients and posts to Discord #meta-ads
   cron.schedule("0 8 * * *", async () => {
     console.log("[CRON] Generating daily ads report...");
@@ -307,6 +330,32 @@ Start with the clients that have the most urgent needs (RED or YELLOW health sta
     }
   });
 
+  // ─── 9. Weekly client intelligence tasks — Monday 8 AM ET ──
+  // Generates 3-5 AI-prioritized tasks per client for the week.
+  // ET = UTC-5 (EST) / UTC-4 (EDT). node-cron uses server local time.
+  // If server runs in UTC, use "0 13 * * 1" for 8 AM ET.
+  // If server runs in ET, use "0 8 * * 1".
+  cron.schedule("0 8 * * 1", async () => {
+    console.log("[CRON] Generating weekly client intelligence tasks...");
+    try {
+      const port = process.env.PORT || 4000;
+      const res = await fetch(`http://localhost:${port}/api/weekly-tasks/generate-all`, {
+        method: "POST",
+        signal: AbortSignal.timeout(120000),
+      });
+      const data = await res.json();
+      console.log(`[CRON] Weekly tasks generated: ${data.total} clients processed`);
+      if (data.results) {
+        data.results.forEach((r) => {
+          if (r.error) console.warn(`  ✗ ${r.name}: ${r.error}`);
+          else console.log(`  ✓ ${r.name}: ${r.generated} tasks`);
+        });
+      }
+    } catch (err) {
+      console.error("[CRON] Weekly task generation failed:", err.message);
+    }
+  });
+
   console.log("✅ Automations registered (with agent integration):");
   console.log("   • Health recompute — every 2h → alerts founder-boss on RED");
   console.log("   • SLA breach check — every 1h → alerts project-manager");
@@ -314,7 +363,9 @@ Start with the clients that have the most urgent needs (RED or YELLOW health sta
   console.log("   • Monday morning report — Mon 8 AM → analyzed by founder-boss");
   console.log("   • Weekly research — Sun 8 PM → triggers research-intel");
   console.log("   • Meta Ads sync — every 4h → pulls live campaigns from Meta");
+  console.log("   • Meta AdReport sync — daily 7:50 AM → syncs insights → AdReport");
   console.log("   • Daily Ads Report — 8 AM → posts to #meta-ads");
+  console.log("   • Weekly intelligence tasks — Mon 8 AM → AI tasks per client");
 }
 
 module.exports = { registerAutomations };

@@ -161,7 +161,7 @@ function InlineAgentChat({
 
   // Auto-detect strategy type from prompt/response and save to DB
   async function saveStrategyFromResponse(text: string) {
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const API = process.env.NEXT_PUBLIC_API_URL || "";
     
     // Detect what kind of strategy this is based on keywords
     const typeMap: { keywords: string[]; type: string; title: string }[] = [
@@ -218,7 +218,7 @@ function InlineAgentChat({
     setMessage("");
     setElapsed(0);
     const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const API = process.env.NEXT_PUBLIC_API_URL || "";
     try {
       // Start async job
       const res = await fetch(`${API}/api/agents/chat`, {
@@ -252,7 +252,7 @@ function InlineAgentChat({
             return;
           }
           try {
-            const pollUrl = `http://localhost:4000/api/agents/job/${jobId}`;
+            const pollUrl = `/api/agents/job/${jobId}`;
             console.log(`[Strategy] Fetching: ${pollUrl}`);
             const pollRes = await fetch(pollUrl);
             const pollData = await pollRes.json();

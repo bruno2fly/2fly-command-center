@@ -6,7 +6,7 @@ import { InlineAgentChat } from "./InlineAgentChat";
 import { ClientMediaLibrary } from "./ClientMediaLibrary";
 import ReactMarkdown from "react-markdown";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface ContentIdea {
   id: string;
@@ -196,7 +196,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ minHeight: "600px" }}>
+    <div className="flex flex-col h-full overflow-auto" style={{ minHeight: "600px" }}>
       {/* Header */}
       <div className={`flex items-center justify-between px-4 pt-3 pb-2 border-b ${isDark ? "border-[#1a1810]" : "border-gray-200"}`}>
         <div className="flex items-center gap-1">
@@ -221,7 +221,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
         </button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-auto">
         {/* Media Library */}
         {section === "media" && (
           <div className="flex-1 overflow-hidden">
@@ -231,7 +231,7 @@ export function ClientContentAgentTab({ clientId }: { clientId: string }) {
 
         {/* Ideas List */}
         {section === "ideas" && (<>
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-auto">
           {/* Filter Tabs */}
           <div className={`flex gap-1 px-4 py-2 ${isDark ? "bg-[#08080c]" : "bg-gray-50"}`}>
             {(["all", "idea", "draft", "approved", "sent_to_team"] as const).map(f => (

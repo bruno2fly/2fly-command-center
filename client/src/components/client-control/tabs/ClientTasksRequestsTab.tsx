@@ -90,7 +90,7 @@ export function ClientTasksRequestsTab({ clientId }: Props) {
   const [requests, setRequests] = useState<ApiRequestItem[]>([]);
 
   useEffect(() => {
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const API = process.env.NEXT_PUBLIC_API_URL || "";
     fetch(`${API}/api/agent-tools/requests?clientId=${clientId}`)
       .then((r) => r.json())
       .then((d: { requests?: ApiRequestItem[] }) => {

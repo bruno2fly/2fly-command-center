@@ -231,6 +231,37 @@ async function fetchClientContext(clientId: string): Promise<string | undefined>
       lines.push(`Content Items: ${content.length}`);
     }
 
+    // Enrich with live Meta Ads performance data if available
+    try {
+      const metaRes = await fetch(`${baseUrl}/api/meta-insights/${clientId}?date_preset=last_7d`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (metaRes.ok) {
+        const meta = await metaRes.json() as Record<string, unknown>;
+        if (meta.connected && meta.kpis) {
+          const k = meta.kpis as Record<string, number>;
+          const spend = k.spend ?? 0;
+          const leads = k.leads ?? 0;
+          const ctr = k.ctr ?? 0;
+          const campaigns = meta.campaigns as unknown[];
+          const activeCampaigns = Array.isArray(campaigns)
+            ? campaigns.filter((c: any) => c.status === 'ACTIVE').length
+            : 0;
+
+          let metaStatus = 'GREEN';
+          if (spend > 100 && leads === 0) metaStatus = 'RED';
+          else if (spend > 0 && leads === 0) metaStatus = 'YELLOW';
+          else if (spend === 0) metaStatus = 'NO SPEND';
+
+          lines.push(
+            `Meta Ads (7d): Spend $${spend.toFixed(0)}, Leads ${leads}, CTR ${ctr.toFixed(2)}%, Active Campaigns ${activeCampaigns}. Status: ${metaStatus}`
+          );
+        }
+      }
+    } catch {
+      // Meta data is best-effort — don't fail the whole context
+    }
+
     return lines.join('\n');
   } catch {
     return undefined;

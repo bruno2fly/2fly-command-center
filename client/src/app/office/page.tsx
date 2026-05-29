@@ -245,7 +245,7 @@ export default function OfficePage() {
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/agent-actions`
+        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/agent-actions`
       );
       if (res.ok) {
         const data = await res.json();
@@ -280,7 +280,7 @@ export default function OfficePage() {
     setChatResponse(null);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/agents/chat`,
+        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/agents/chat`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

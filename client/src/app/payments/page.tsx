@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { CreateInvoiceModal } from "@/components/payments/CreateInvoiceModal";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 type PaymentInvoice = {
   id: string;

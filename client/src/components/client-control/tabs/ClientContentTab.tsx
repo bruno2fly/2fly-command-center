@@ -22,7 +22,7 @@ import {
 
 const IDEAS_KEY_PREFIX = "2fly-content-ideas-";
 const REFERENCES_KEY_PREFIX = "2fly-references-";
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 function computePostingStreak(content: ApiContentItem[]): number {
   const published = content.filter((c) => c.status === "published" && (c as { publishedDate?: string }).publishedDate);

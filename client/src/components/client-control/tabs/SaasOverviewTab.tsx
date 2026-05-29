@@ -55,7 +55,7 @@ export function SaasOverviewTab({ clientId, clientName, onOpenTaskDetail }: Prop
         setData(parseNotes(client.notes));
         
         // Fetch tasks
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/clients/${clientId}/tasks`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/clients/${clientId}/tasks`);
         if (res.ok) {
           const taskData = await res.json();
           setTasks(Array.isArray(taskData) ? taskData : taskData.tasks || []);

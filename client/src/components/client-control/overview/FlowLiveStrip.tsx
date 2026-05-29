@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface FlowPortal {
   connected: boolean;
